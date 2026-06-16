@@ -51,7 +51,16 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 		if existing.Type != entities.UserTypeAdmin {
 			return errors.New("configured admin cpf already belongs to a client")
 		}
-		return nil
+		hash, err := security.HashPassword(admin.Password)
+		if err != nil {
+			return err
+		}
+		existing.Name = fallback(admin.Name, "Administrador EMPI")
+		existing.PasswordHash = &hash
+		existing.Email = strings.TrimSpace(admin.Email)
+		existing.Phone = validation.OnlyDigits(admin.Phone)
+		existing.MarkupPercent = fallbackFloat(admin.MarkupPercent, 10)
+		return service.repo.Update(ctx, existing)
 	}
 	if !errors.Is(err, apperrors.ErrNotFound) {
 		return err

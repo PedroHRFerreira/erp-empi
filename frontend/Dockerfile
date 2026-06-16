@@ -2,6 +2,7 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 RUN corepack enable
+RUN corepack prepare pnpm@10.30.1 --activate
 
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile=false
