@@ -1,0 +1,23 @@
+.env
+.env.*
+!.env.example
+.agents/
+
+# Go
+/bin/
+/tmp/
+*.test
+coverage.out
+
+# Frontend
+frontend/.nuxt/
+frontend/.output/
+frontend/node_modules/
+frontend/coverage/
+frontend/.data/
+.pnpm-store/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
