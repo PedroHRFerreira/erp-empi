@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-empi}
+      POSTGRES_USER: ${POSTGRES_USER:-empi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-empi}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-empi} -d ${POSTGRES_DB:-empi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env
+    environment:
+      DB_WRITE_DSN: ${DB_WRITE_DSN:-host=postgres user=empi password=empi dbname=empi port=5432 sslmode=disable TimeZone=America/Sao_Paulo}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NUXT_API_BASE: ${NUXT_API_BASE:-http://api:8080}
+      NUXT_PUBLIC_APP_NAME: EMPI ERP
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
