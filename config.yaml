@@ -1,0 +1,17 @@
+env: ${ENV}
+apiPort: ${API_PORT}
+frontendURL: ${FRONTEND_URL}
+jwt:
+  accessSecret: ${JWT_ACCESS_SECRET}
+  refreshSecret: ${JWT_REFRESH_SECRET}
+  accessTTLMinutes: ${JWT_ACCESS_TTL_MINUTES}
+  refreshTTLHours: ${JWT_REFRESH_TTL_HOURS}
+database:
+  postgresDSN: ${DB_WRITE_DSN}
+admin:
+  name: ${ADMIN_NAME}
+  cpf: ${ADMIN_CPF}
+  password: ${ADMIN_PASSWORD}
+  email: ${ADMIN_EMAIL}
+  phone: ${ADMIN_PHONE}
+  markupPercent: ${ADMIN_MARKUP_PERCENT}
