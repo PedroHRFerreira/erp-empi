@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/empi-autocenter/erp-empi/config"
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
@@ -18,23 +19,25 @@ type UserService struct {
 }
 
 type UpsertClientInput struct {
-	Name          string  `json:"name"`
-	CPF           string  `json:"cpf"`
-	Phone         string  `json:"phone"`
-	Email         string  `json:"email"`
-	Address       string  `json:"address"`
-	Notes         string  `json:"notes"`
-	MarkupPercent float64 `json:"markupPercent"`
+	Name              string  `json:"name"`
+	CPF               string  `json:"cpf"`
+	Phone             string  `json:"phone"`
+	Email             string  `json:"email"`
+	Address           string  `json:"address"`
+	Notes             string  `json:"notes"`
+	MarkupPercent     float64 `json:"markupPercent"`
+	MachineFeePercent float64 `json:"machineFeePercent"`
 }
 
 type UpdateProfileInput struct {
-	Name          string  `json:"name"`
-	CPF           string  `json:"cpf"`
-	Phone         string  `json:"phone"`
-	Email         string  `json:"email"`
-	Address       string  `json:"address"`
-	Notes         string  `json:"notes"`
-	MarkupPercent float64 `json:"markupPercent"`
+	Name              string  `json:"name"`
+	CPF               string  `json:"cpf"`
+	Phone             string  `json:"phone"`
+	Email             string  `json:"email"`
+	Address           string  `json:"address"`
+	Notes             string  `json:"notes"`
+	MarkupPercent     float64 `json:"markupPercent"`
+	MachineFeePercent float64 `json:"machineFeePercent"`
 }
 
 func NewUserService(repo *repositories.UserRepository) *UserService {
@@ -46,11 +49,8 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 	if cpf == "" || admin.Password == "" {
 		return errors.New("admin cpf and password are required")
 	}
-	existing, err := service.repo.FindByCPF(ctx, cpf)
+	existing, err := service.repo.FindByCPFAndType(ctx, cpf, entities.UserTypeAdmin)
 	if err == nil {
-		if existing.Type != entities.UserTypeAdmin {
-			return errors.New("configured admin cpf already belongs to a client")
-		}
 		hash, err := security.HashPassword(admin.Password)
 		if err != nil {
 			return err
@@ -60,6 +60,7 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 		existing.Email = strings.TrimSpace(admin.Email)
 		existing.Phone = validation.OnlyDigits(admin.Phone)
 		existing.MarkupPercent = fallbackFloat(admin.MarkupPercent, 10)
+		existing.MachineFeePercent = admin.MachineFeePercent
 		return service.repo.Update(ctx, existing)
 	}
 	if !errors.Is(err, apperrors.ErrNotFound) {
@@ -70,13 +71,14 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 		return err
 	}
 	user := &entities.User{
-		Name:          fallback(admin.Name, "Administrador EMPI"),
-		CPF:           cpf,
-		PasswordHash:  &hash,
-		Type:          entities.UserTypeAdmin,
-		Email:         admin.Email,
-		Phone:         validation.OnlyDigits(admin.Phone),
-		MarkupPercent: fallbackFloat(admin.MarkupPercent, 10),
+		Name:              fallback(admin.Name, "Administrador EMPI"),
+		CPF:               cpf,
+		PasswordHash:      &hash,
+		Type:              entities.UserTypeAdmin,
+		Email:             admin.Email,
+		Phone:             validation.OnlyDigits(admin.Phone),
+		MarkupPercent:     fallbackFloat(admin.MarkupPercent, 10),
+		MachineFeePercent: admin.MachineFeePercent,
 	}
 	return service.repo.Create(ctx, user)
 }
@@ -89,26 +91,51 @@ func (service *UserService) FindByCPF(ctx context.Context, cpf string) (*entitie
 	return service.repo.FindByCPF(ctx, validation.OnlyDigits(cpf))
 }
 
+func (service *UserService) FindByCPFAndType(ctx context.Context, cpf string, userType entities.UserType) (*entities.User, error) {
+	return service.repo.FindByCPFAndType(ctx, validation.OnlyDigits(cpf), userType)
+}
+
 func (service *UserService) ListClients(ctx context.Context, limit int, offset int) ([]entities.User, int64, error) {
 	return service.repo.ListClients(ctx, limit, offset)
 }
 
+func (service *UserService) FindActiveClientByID(ctx context.Context, id string) (*entities.User, error) {
+	return service.repo.FindActiveClientByID(ctx, id)
+}
+
+func (service *UserService) ArchiveClient(ctx context.Context, id string) (*entities.User, error) {
+	user, err := service.repo.FindActiveClientByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	user.Name = "Cliente removido"
+	user.CPF = ""
+	user.Phone = ""
+	user.Email = ""
+	user.Address = ""
+	user.Notes = ""
+	user.ArchivedAt = &now
+	return user, service.repo.Update(ctx, user)
+}
+
 func (service *UserService) UpsertClient(ctx context.Context, input UpsertClientInput) (*entities.User, error) {
 	cpf := validation.OnlyDigits(input.CPF)
-	if strings.TrimSpace(input.Name) == "" || !validation.IsCPF(cpf) {
+	phone := validation.OnlyDigits(input.Phone)
+	if strings.TrimSpace(input.Name) == "" || !isValidClientIdentifier(cpf, phone) {
 		return nil, apperrors.ErrInvalidInput
 	}
 	user := &entities.User{
 		Name:          strings.TrimSpace(input.Name),
 		CPF:           cpf,
 		Type:          entities.UserTypeClient,
-		Phone:         validation.OnlyDigits(input.Phone),
+		Phone:         phone,
 		Email:         strings.TrimSpace(input.Email),
 		Address:       strings.TrimSpace(input.Address),
 		Notes:         strings.TrimSpace(input.Notes),
 		MarkupPercent: fallbackFloat(input.MarkupPercent, 10),
 	}
-	return service.repo.UpsertClientByCPF(ctx, user)
+	return service.repo.UpsertClient(ctx, user)
 }
 
 func (service *UserService) UpdateProfile(ctx context.Context, userID string, input UpdateProfileInput) (*entities.User, error) {
@@ -120,7 +147,7 @@ func (service *UserService) UpdateProfile(ctx context.Context, userID string, in
 		return nil, apperrors.ErrForbidden
 	}
 	cpf := validation.OnlyDigits(input.CPF)
-	if strings.TrimSpace(input.Name) == "" || !validation.IsCPF(cpf) || input.MarkupPercent < 0 {
+	if strings.TrimSpace(input.Name) == "" || !validation.IsCPF(cpf) || input.MarkupPercent < 0 || input.MachineFeePercent < 0 {
 		return nil, apperrors.ErrInvalidInput
 	}
 	user.Name = strings.TrimSpace(input.Name)
@@ -130,6 +157,7 @@ func (service *UserService) UpdateProfile(ctx context.Context, userID string, in
 	user.Address = strings.TrimSpace(input.Address)
 	user.Notes = strings.TrimSpace(input.Notes)
 	user.MarkupPercent = input.MarkupPercent
+	user.MachineFeePercent = input.MachineFeePercent
 	return user, service.repo.Update(ctx, user)
 }
 
@@ -145,4 +173,11 @@ func fallbackFloat(value float64, defaultValue float64) float64 {
 		return defaultValue
 	}
 	return value
+}
+
+func isValidClientIdentifier(cpf string, phone string) bool {
+	if cpf != "" {
+		return validation.IsCPF(cpf)
+	}
+	return len(phone) == 10 || len(phone) == 11
 }
