@@ -1,0 +1,147 @@
+.client-detail__profile {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px;
+}
+
+.client-detail__profile div,
+.client-receipt__money div {
+  display: grid;
+  gap: 4px;
+}
+
+.client-detail__profile span,
+.client-receipt__money span,
+.client-receipt__muted {
+  color: var(--braip-theme-text-muted);
+}
+
+.client-detail__profile strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.client-detail__receipts {
+  display: grid;
+  gap: 14px;
+}
+
+.client-receipt {
+  min-width: 0;
+}
+
+.client-receipt summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.client-receipt summary::marker {
+  color: var(--braip-brand-primary);
+}
+
+.client-receipt summary div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.client-receipt summary span {
+  color: var(--braip-theme-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.client-receipt__summary-total {
+  text-align: right;
+}
+
+.client-receipt__body {
+  display: grid;
+  gap: 18px;
+  padding: 0 16px 16px;
+}
+
+.client-receipt h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.client-receipt p {
+  margin: 0;
+}
+
+.client-receipt__items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.client-receipt__items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+}
+
+.client-receipt__items em {
+  color: var(--braip-theme-text-muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.client-receipt__money {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.client-receipt__total strong {
+  color: var(--braip-brand-primary);
+}
+
+.client-receipt__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--status-danger);
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .client-detail__profile,
+  .client-receipt__money {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .client-detail__profile,
+  .client-receipt__items li,
+  .client-receipt__money {
+    grid-template-columns: 1fr;
+  }
+
+  .client-receipt summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .client-receipt__summary-total,
+  .client-receipt__actions {
+    text-align: left;
+  }
+}
