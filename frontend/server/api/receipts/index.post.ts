@@ -5,13 +5,26 @@ export default defineEventHandler(async (event) => {
   const authorization = getHeader(event, 'authorization')
   const body = await readBody(event)
 
-  return $fetch<IReceipt>(`${config.apiBase}/api/receipts`, {
-    method: 'POST',
-    body,
-    headers: authorization
-      ? {
-          Authorization: authorization
-        }
-      : undefined
-  })
+  try {
+    return await $fetch<IReceipt>(`${config.apiBase}/api/receipts`, {
+      method: 'POST',
+      body,
+      headers: authorization
+        ? {
+            Authorization: authorization
+          }
+        : undefined
+    })
+  } catch (error: any) {
+    const message = error?.data?.message || error?.statusMessage || 'Não foi possível salvar o recibo.'
+
+    throw createError({
+      statusCode: error?.statusCode || 500,
+      statusMessage: message,
+      message,
+      data: {
+        message
+      }
+    })
+  }
 })
