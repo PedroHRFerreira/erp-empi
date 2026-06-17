@@ -1,0 +1,45 @@
+.metrics-table-section {
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  align-content: start;
+}
+
+.metrics-table-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.metrics-table-section__header h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.metrics-table-section__header .button {
+  flex: 0 0 auto;
+}
+
+.metrics-table-section table {
+  table-layout: fixed;
+}
+
+.metrics-table-section th,
+.metrics-table-section td {
+  padding: 12px 16px;
+}
+
+.metrics-table-section td {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .metrics-table-section__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
