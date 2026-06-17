@@ -1,0 +1,33 @@
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--braip-theme-text);
+  font-weight: 900;
+}
+
+.brand-mark__badge {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--braip-neutral-900);
+  background: var(--braip-brand-secondary);
+}
+
+.brand-mark__content {
+  display: grid;
+  gap: 2px;
+}
+
+.brand-mark__content strong,
+.brand-mark__content small {
+  display: block;
+}
+
+.brand-mark__content small {
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
+}
