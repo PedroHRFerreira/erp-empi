@@ -1,0 +1,123 @@
+.receipts-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px;
+}
+
+.receipts-form__wide {
+  grid-column: 1 / -1;
+}
+
+.receipt-items {
+  display: grid;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.receipt-items__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.receipt-items ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+}
+
+.receipt-items li span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.receipt-items li small {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.receipt-items li button {
+  flex: 0 0 auto;
+  border: 0;
+  color: var(--status-danger);
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.receipt-items__hint {
+  color: var(--braip-theme-text-secondary);
+  font-size: 0.86rem;
+}
+
+.receipt-items--error {
+  border-color: var(--status-danger);
+  padding: 12px;
+  background: var(--status-danger-soft);
+}
+
+.receipt-summary {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+}
+
+.receipt-summary div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.receipt-summary span {
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
+}
+
+.receipt-summary strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-summary__total {
+  padding-top: 10px;
+  border-top: 1px solid var(--braip-theme-border);
+  font-size: 18px;
+}
+
+.receipt-summary__installment strong {
+  color: var(--braip-brand-primary);
+}
+
+.form-error {
+  margin: 0;
+  color: var(--status-danger);
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .receipts-form,
+  .receipt-items__row {
+    grid-template-columns: 1fr;
+  }
+}
