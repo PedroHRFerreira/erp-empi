@@ -15,6 +15,9 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  background:
+    linear-gradient(135deg, rgba(7, 20, 38, 0.96), rgba(2, 6, 13, 0.98)),
+    var(--braip-theme-background);
 }
 
 button,
@@ -61,6 +64,7 @@ a {
   border: 1px solid var(--braip-theme-border);
   border-radius: 8px;
   box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
 }
 
 .button {
@@ -84,13 +88,13 @@ a {
 }
 
 .button--primary {
-  color: var(--braip-neutral-0);
-  background: var(--braip-brand-primary);
+  color: var(--braip-neutral-900);
+  background: var(--braip-brand-secondary);
 }
 
 .button--secondary {
   color: var(--braip-theme-text);
-  background: var(--braip-theme-surface);
+  background: var(--braip-theme-surface-muted);
   border-color: var(--braip-theme-border);
 }
 
@@ -107,6 +111,7 @@ a {
 .field span {
   font-size: 13px;
   font-weight: 700;
+  color: var(--braip-theme-text);
 }
 
 .field input,
@@ -117,8 +122,53 @@ a {
   border: 1px solid var(--braip-theme-border);
   border-radius: 8px;
   padding: 10px 12px;
-  background: var(--braip-neutral-0);
+  background: rgba(3, 9, 18, 0.78);
   color: var(--braip-theme-text);
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #70859d;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: rgba(77, 163, 255, 0.72);
+  box-shadow: var(--focus-ring);
+}
+
+.field--error input,
+.field--error select,
+.field--error textarea {
+  border-color: var(--status-danger);
+  background: var(--status-danger-soft);
+}
+
+.field--error input:focus,
+.field--error select:focus,
+.field--error textarea:focus {
+  border-color: var(--status-danger);
+  box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.14);
+}
+
+.field__error {
+  color: var(--status-danger);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.field__hint {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .field textarea {

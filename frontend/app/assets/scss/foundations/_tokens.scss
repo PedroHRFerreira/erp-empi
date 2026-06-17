@@ -1,17 +1,24 @@
 :root {
-  --braip-theme-background: #f6f7f9;
-  --braip-theme-surface: #ffffff;
-  --braip-theme-surface-muted: #eef1f5;
-  --braip-theme-text: #18202a;
-  --braip-theme-text-muted: #667085;
-  --braip-theme-border: #d8dee8;
-  --braip-brand-primary: #d71920;
-  --braip-brand-primary-strong: #a70f15;
-  --braip-brand-secondary: #1f2937;
+  --braip-theme-background: #02060d;
+  --braip-theme-background-soft: #071426;
+  --braip-theme-surface: rgba(8, 18, 33, 0.88);
+  --braip-theme-surface-strong: #071426;
+  --braip-theme-surface-muted: rgba(255, 255, 255, 0.06);
+  --braip-theme-text: #f5f8fc;
+  --braip-theme-text-muted: #b8c7da;
+  --braip-theme-text-subtle: #91a7c0;
+  --braip-theme-border: rgba(166, 196, 232, 0.18);
+  --braip-theme-border-strong: rgba(77, 163, 255, 0.45);
+  --braip-brand-primary: #4da3ff;
+  --braip-brand-primary-strong: #1265c7;
+  --braip-brand-secondary: #f7c948;
+  --braip-brand-secondary-strong: #d9a916;
   --braip-neutral-0: #ffffff;
-  --braip-neutral-900: #111827;
-  --status-success: #087443;
-  --status-warning: #b54708;
-  --status-danger: #b42318;
-  --shadow-panel: 0 14px 40px rgba(17, 24, 39, 0.08);
+  --braip-neutral-900: #06111f;
+  --status-success: #3ddc97;
+  --status-warning: #f7c948;
+  --status-danger: #ff6b6b;
+  --status-danger-soft: rgba(255, 107, 107, 0.12);
+  --focus-ring: 0 0 0 4px rgba(77, 163, 255, 0.12);
+  --shadow-panel: 0 26px 70px rgba(0, 0, 0, 0.28);
 }
