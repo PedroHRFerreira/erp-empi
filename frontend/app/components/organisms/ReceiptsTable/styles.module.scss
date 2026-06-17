@@ -1,0 +1,135 @@
+.receipts-list {
+  overflow: hidden;
+}
+
+.receipts-list__head,
+.receipts-list__row {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 1.2fr)
+    minmax(140px, 1.1fr)
+    minmax(120px, 0.8fr)
+    minmax(130px, 0.85fr)
+    minmax(150px, 0.95fr)
+    minmax(100px, 0.65fr)
+    176px;
+  gap: 14px;
+  align-items: center;
+}
+
+.receipts-list__head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--braip-theme-border);
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.receipts-list__row {
+  min-width: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--braip-theme-border);
+}
+
+.receipts-list__row:last-of-type {
+  border-bottom: 0;
+}
+
+.receipts-list__cell {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.receipts-list__cell strong {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipts-list__cell small {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.receipts-list__label {
+  display: none;
+}
+
+.receipts-list__cell--money,
+.receipts-list__cell--status {
+  justify-items: end;
+  text-align: right;
+}
+
+.receipts-list__cell--money strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.receipts-list__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 1240px) {
+  .receipts-list {
+    overflow-x: auto;
+  }
+
+  .receipts-list__head,
+  .receipts-list__row {
+    min-width: 1060px;
+  }
+}
+
+@media (max-width: 760px) {
+  .receipts-list {
+    display: grid;
+    gap: 12px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .receipts-list__head {
+    display: none;
+  }
+
+  .receipts-list__row {
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    border: 1px solid var(--braip-theme-border);
+    border-radius: 8px;
+    background: var(--braip-theme-surface);
+  }
+
+  .receipts-list__label {
+    display: block;
+    color: var(--braip-theme-text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .receipts-list__cell--client,
+  .receipts-list__actions {
+    grid-column: 1 / -1;
+  }
+
+  .receipts-list__cell--money,
+  .receipts-list__cell--status {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .receipts-list__actions {
+    justify-content: flex-start;
+  }
+}
