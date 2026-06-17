@@ -9,6 +9,7 @@ export const loginResponseMock: ILoginResponse = {
     email: 'admin@empi.local',
     phone: '33987351922',
     markupPercent: 10,
+    machineFeePercent: 0,
     address: '',
     notes: '',
     createdAt: '2026-06-16T00:00:00Z',
