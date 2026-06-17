@@ -1,17 +1,17 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import LoginTemplate from "../components/templates/LoginTemplate/Index.vue";
+import LoginForm from "../../organisms/LoginForm/Index.vue";
 
 export default defineComponent({
-  name: "LoginPage",
+  name: "LoginTemplate",
   components: {
-    LoginTemplate,
+    LoginForm,
   },
 });
 </script>
 
 <template>
-  <LoginTemplate />
+  <LoginForm />
 </template>
 
 <style scoped lang="scss">

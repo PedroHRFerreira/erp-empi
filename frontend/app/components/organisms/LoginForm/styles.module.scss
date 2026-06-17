@@ -1,0 +1,39 @@
+.login-form {
+  width: min(100%, 420px);
+  padding: 28px;
+}
+
+.login-form :deep(.brand-mark) {
+  margin-bottom: 28px;
+}
+
+.login-form :deep(.brand-mark__badge) {
+  width: 48px;
+  height: 48px;
+}
+
+.login-form__form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form__error {
+  margin: 0;
+  color: var(--status-danger);
+  font-weight: 700;
+}
+
+.login-form__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-top-color: var(--braip-neutral-0);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
