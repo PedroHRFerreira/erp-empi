@@ -1,4 +1,8 @@
 export default defineNuxtRouteMiddleware(async (to) => {
+  if (to.path === '/login') {
+    setPageLayout('auth')
+  }
+
   const auth = useAuthStore()
   await auth.bootstrap()
 
