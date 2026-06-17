@@ -1,0 +1,19 @@
+.stock-table {
+  min-width: 1120px;
+}
+
+.stock-table th,
+.stock-table td {
+  white-space: nowrap;
+}
+
+.stock-table th:first-child,
+.stock-table td:first-child {
+  white-space: normal;
+}
+
+.stock-table__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
