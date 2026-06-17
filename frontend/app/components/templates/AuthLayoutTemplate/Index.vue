@@ -1,19 +1,15 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import AuthLayoutTemplate from "../components/templates/AuthLayoutTemplate/Index.vue";
 
 export default defineComponent({
-  name: "AuthLayout",
-  components: {
-    AuthLayoutTemplate,
-  },
+  name: "AuthLayoutTemplate",
 });
 </script>
 
 <template>
-  <AuthLayoutTemplate>
+  <main class="auth-layout-template">
     <slot />
-  </AuthLayoutTemplate>
+  </main>
 </template>
 
 <style scoped lang="scss">

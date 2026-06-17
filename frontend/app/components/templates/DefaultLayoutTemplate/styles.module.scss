@@ -1,0 +1,20 @@
+.default-layout-template {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.default-layout-template__content {
+  min-width: 0;
+  padding: 32px;
+}
+
+@media (max-width: 900px) {
+  .default-layout-template {
+    grid-template-columns: 1fr;
+  }
+
+  .default-layout-template__content {
+    padding: 20px;
+  }
+}
