@@ -1,0 +1,50 @@
+.metrics-template__domains {
+  display: grid;
+  gap: 28px;
+}
+
+.metrics-template__domain {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.metrics-template__domain-header {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.metrics-template__domain-header span {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.metrics-template__domain-header h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.metrics-template__domain-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+}
+
+.metrics-template__domain-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  .metrics-template__domain-grid {
+    grid-template-columns: 1fr;
+  }
+}
