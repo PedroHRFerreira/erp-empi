@@ -43,7 +43,7 @@ func (service *AuthService) Login(ctx context.Context, input LoginInput) (*Login
 	if !validation.IsCPF(cpf) || input.Password == "" {
 		return nil, apperrors.ErrInvalidCredentials
 	}
-	user, err := service.users.FindByCPF(ctx, cpf)
+	user, err := service.users.FindByCPFAndType(ctx, cpf, entities.UserTypeAdmin)
 	if err != nil || user.Type != entities.UserTypeAdmin || user.PasswordHash == nil {
 		return nil, apperrors.ErrInvalidCredentials
 	}
