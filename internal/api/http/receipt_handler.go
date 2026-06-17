@@ -33,11 +33,15 @@ func (handler *ReceiptHandler) Get(c echo.Context) error {
 }
 
 func (handler *ReceiptHandler) Create(c echo.Context) error {
+	userID, err := getUserID(c)
+	if err != nil {
+		return writeError(c, err)
+	}
 	input := new(receiptservices.ReceiptInput)
 	if err := c.Bind(input); err != nil {
 		return writeError(c, err)
 	}
-	receipt, err := handler.receipts.Create(c.Request().Context(), *input)
+	receipt, err := handler.receipts.Create(c.Request().Context(), userID, *input)
 	if err != nil {
 		return writeError(c, err)
 	}

@@ -29,7 +29,7 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	})
 
 	authHandler := NewAuthHandler(container.Auth)
-	userHandler := NewUserHandler(container.Users)
+	userHandler := NewUserHandler(container.Users, container.Receipts)
 	stockHandler := NewStockHandler(container.Stock)
 	receiptHandler := NewReceiptHandler(container.Receipts)
 	metricsHandler := NewMetricsHandler(container.Metrics)
@@ -43,6 +43,8 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	private.GET("/users/profile", userHandler.Me)
 	private.PUT("/users/profile", userHandler.UpdateProfile)
 	private.GET("/users/clients", userHandler.ListClients)
+	private.GET("/users/clients/:id/detail", userHandler.ClientDetail)
+	private.DELETE("/users/clients/:id", userHandler.ArchiveClient)
 	private.GET("/stock", stockHandler.List)
 	private.POST("/stock", stockHandler.Create)
 	private.PUT("/stock/:id", stockHandler.Update)

@@ -3,16 +3,24 @@ package http
 import (
 	nethttp "net/http"
 
+	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
+	receiptservices "github.com/empi-autocenter/erp-empi/internal/domain/receipts/services"
 	userservices "github.com/empi-autocenter/erp-empi/internal/domain/users/services"
 	"github.com/labstack/echo/v4"
 )
 
 type UserHandler struct {
-	users *userservices.UserService
+	users    *userservices.UserService
+	receipts *receiptservices.ReceiptService
 }
 
-func NewUserHandler(users *userservices.UserService) *UserHandler {
-	return &UserHandler{users: users}
+type clientDetailResponse struct {
+	Client   *entities.User     `json:"client"`
+	Receipts []entities.Receipt `json:"receipts"`
+}
+
+func NewUserHandler(users *userservices.UserService, receipts *receiptservices.ReceiptService) *UserHandler {
+	return &UserHandler{users: users, receipts: receipts}
 }
 
 func (handler *UserHandler) Me(c echo.Context) error {
@@ -50,4 +58,24 @@ func (handler *UserHandler) ListClients(c echo.Context) error {
 		return writeError(c, err)
 	}
 	return c.JSON(nethttp.StatusOK, paginatedResponse{Data: users, Total: total, Limit: limit, Offset: offset})
+}
+
+func (handler *UserHandler) ClientDetail(c echo.Context) error {
+	client, err := handler.users.FindActiveClientByID(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	receipts, err := handler.receipts.ListByUserID(c.Request().Context(), client.ID)
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, clientDetailResponse{Client: client, Receipts: receipts})
+}
+
+func (handler *UserHandler) ArchiveClient(c echo.Context) error {
+	client, err := handler.users.ArchiveClient(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, client)
 }
