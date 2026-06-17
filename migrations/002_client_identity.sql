@@ -1,0 +1,6 @@
+ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_cpf_key;
+ALTER TABLE IF EXISTS users ALTER COLUMN cpf DROP NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+DROP INDEX IF EXISTS idx_users_identity;
