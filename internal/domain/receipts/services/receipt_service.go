@@ -25,14 +25,17 @@ type ReceiptItemInput struct {
 }
 
 type ReceiptInput struct {
-	Client       userservices.UpsertClientInput `json:"client"`
-	VehicleModel string                         `json:"vehicleModel"`
-	VehicleYear  int                            `json:"vehicleYear"`
-	VehiclePlate string                         `json:"vehiclePlate"`
-	Services     string                         `json:"services"`
-	PriceCents   int64                          `json:"priceCents"`
-	Notes        string                         `json:"notes"`
-	Items        []ReceiptItemInput             `json:"items"`
+	Client          userservices.UpsertClientInput `json:"client"`
+	VehicleModel    string                         `json:"vehicleModel"`
+	VehicleYear     int                            `json:"vehicleYear"`
+	VehiclePlate    string                         `json:"vehiclePlate"`
+	Services        string                         `json:"services"`
+	LaborPriceCents int64                          `json:"laborPriceCents"`
+	PriceCents      int64                          `json:"priceCents"`
+	PaymentMethod   entities.PaymentMethod         `json:"paymentMethod"`
+	Installments    int                            `json:"installments"`
+	Notes           string                         `json:"notes"`
+	Items           []ReceiptItemInput             `json:"items"`
 }
 
 func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrepos.StockRepository, users *userservices.UserService) *ReceiptService {
@@ -47,8 +50,16 @@ func (service *ReceiptService) FindByID(ctx context.Context, id string) (*entiti
 	return service.repo.FindByID(ctx, id)
 }
 
-func (service *ReceiptService) Create(ctx context.Context, input ReceiptInput) (*entities.Receipt, error) {
+func (service *ReceiptService) ListByUserID(ctx context.Context, userID string) ([]entities.Receipt, error) {
+	return service.repo.ListByUserID(ctx, userID)
+}
+
+func (service *ReceiptService) Create(ctx context.Context, adminID string, input ReceiptInput) (*entities.Receipt, error) {
 	if err := validateReceiptInput(input); err != nil {
+		return nil, err
+	}
+	admin, err := service.users.FindByID(ctx, adminID)
+	if err != nil {
 		return nil, err
 	}
 	client, err := service.users.UpsertClient(ctx, input.Client)
@@ -56,25 +67,82 @@ func (service *ReceiptService) Create(ctx context.Context, input ReceiptInput) (
 		return nil, err
 	}
 
-	receipt := &entities.Receipt{
-		UserID:       client.ID,
-		VehicleModel: strings.TrimSpace(input.VehicleModel),
-		VehicleYear:  input.VehicleYear,
-		VehiclePlate: strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
-		Services:     strings.TrimSpace(input.Services),
-		PriceCents:   input.PriceCents,
-		Status:       entities.ReceiptStatusPending,
-		Notes:        strings.TrimSpace(input.Notes),
-	}
+	requestedQuantities := make(map[string]int)
+	stockItems := make(map[string]*entities.StockItem)
+	stockItemIDs := make([]string, 0, len(input.Items))
 
 	for _, itemInput := range input.Items {
-		stockItem, err := service.stockRepo.FindByID(ctx, itemInput.StockItemID)
+		if itemInput.StockItemID == "" || itemInput.Quantity <= 0 {
+			return nil, apperrors.ErrInvalidInput
+		}
+		if _, exists := requestedQuantities[itemInput.StockItemID]; !exists {
+			stockItemIDs = append(stockItemIDs, itemInput.StockItemID)
+		}
+		requestedQuantities[itemInput.StockItemID] += itemInput.Quantity
+	}
+
+	reservedQuantities, err := service.repo.ReservedQuantitiesByStockItemIDs(ctx, stockItemIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for stockItemID, quantity := range requestedQuantities {
+		stockItem, err := service.stockRepo.FindByID(ctx, stockItemID)
 		if err != nil {
 			return nil, err
 		}
-		if itemInput.Quantity <= 0 {
-			return nil, apperrors.ErrInvalidInput
+		if stockItem.Quantity < quantity {
+			return nil, apperrors.ErrInsufficientStock
 		}
+		if stockItem.Quantity-reservedQuantities[stockItemID] < quantity {
+			return nil, apperrors.ErrReservedStock
+		}
+		stockItems[stockItemID] = stockItem
+	}
+
+	productsTotalCents := int64(0)
+	for _, itemInput := range input.Items {
+		stockItem := stockItems[itemInput.StockItemID]
+		productsTotalCents += stockItem.ResalePriceCents * int64(itemInput.Quantity)
+	}
+	laborPriceCents := input.LaborPriceCents
+	if input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
+		laborPriceCents = input.PriceCents - productsTotalCents
+		if laborPriceCents < 0 {
+			laborPriceCents = 0
+		}
+	}
+	subtotalCents := laborPriceCents + productsTotalCents
+	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
+	installments := normalizeInstallments(paymentMethod, input.Installments)
+	cardFeePercent := float64(0)
+	cardFeeCents := int64(0)
+	if paymentMethod == entities.PaymentMethodCreditCard {
+		cardFeePercent = admin.MachineFeePercent
+		cardFeeCents = calculatePercentCents(subtotalCents, cardFeePercent)
+	}
+	totalCents := subtotalCents + cardFeeCents
+
+	receipt := &entities.Receipt{
+		UserID:             client.ID,
+		VehicleModel:       strings.TrimSpace(input.VehicleModel),
+		VehicleYear:        input.VehicleYear,
+		VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
+		Services:           strings.TrimSpace(input.Services),
+		LaborPriceCents:    laborPriceCents,
+		ProductsTotalCents: productsTotalCents,
+		SubtotalCents:      subtotalCents,
+		CardFeePercent:     cardFeePercent,
+		CardFeeCents:       cardFeeCents,
+		PaymentMethod:      paymentMethod,
+		Installments:       installments,
+		PriceCents:         totalCents,
+		Status:             entities.ReceiptStatusPending,
+		Notes:              strings.TrimSpace(input.Notes),
+	}
+
+	for _, itemInput := range input.Items {
+		stockItem := stockItems[itemInput.StockItemID]
 		receipt.Items = append(receipt.Items, entities.ReceiptItem{
 			StockItemID:     stockItem.ID,
 			Quantity:        itemInput.Quantity,
@@ -132,8 +200,50 @@ func validateReceiptInput(input ReceiptInput) error {
 		input.VehicleYear < 1950 ||
 		strings.TrimSpace(input.VehiclePlate) == "" ||
 		strings.TrimSpace(input.Services) == "" ||
-		input.PriceCents <= 0 {
+		input.LaborPriceCents < 0 ||
+		input.PriceCents < 0 ||
+		!isValidPaymentMethod(input.PaymentMethod) ||
+		(input.PaymentMethod == entities.PaymentMethodCreditCard && (input.Installments < 0 || input.Installments > 12)) {
+		return apperrors.ErrInvalidInput
+	}
+	if len(input.Items) == 0 {
 		return apperrors.ErrInvalidInput
 	}
 	return nil
+}
+
+func normalizePaymentMethod(method entities.PaymentMethod) entities.PaymentMethod {
+	if method == "" {
+		return entities.PaymentMethodCash
+	}
+	return method
+}
+
+func normalizeInstallments(method entities.PaymentMethod, installments int) int {
+	if method != entities.PaymentMethodCreditCard {
+		return 1
+	}
+	if installments == 0 {
+		return 1
+	}
+	return installments
+}
+
+func isValidPaymentMethod(method entities.PaymentMethod) bool {
+	switch normalizePaymentMethod(method) {
+	case entities.PaymentMethodCreditCard,
+		entities.PaymentMethodDebitCard,
+		entities.PaymentMethodPix,
+		entities.PaymentMethodCash:
+		return true
+	default:
+		return false
+	}
+}
+
+func calculatePercentCents(value int64, percent float64) int64 {
+	if percent <= 0 {
+		return 0
+	}
+	return int64(float64(value) * (percent / 100))
 }
