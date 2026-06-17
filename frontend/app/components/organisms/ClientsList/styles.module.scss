@@ -1,0 +1,42 @@
+.clients-list {
+  table-layout: fixed;
+  min-width: 860px;
+}
+
+.clients-list th:nth-child(1) {
+  width: 24%;
+}
+
+.clients-list th:nth-child(2),
+.clients-list th:nth-child(3) {
+  width: 18%;
+}
+
+.clients-list th:nth-child(4) {
+  width: 28%;
+}
+
+.clients-list th:nth-child(5) {
+  width: 12%;
+}
+
+.clients-list td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clients-list__name {
+  color: var(--braip-brand-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.clients-list__name:hover {
+  text-decoration: underline;
+}
+
+.clients-list__actions-heading,
+.clients-list__actions-cell {
+  text-align: right;
+}
