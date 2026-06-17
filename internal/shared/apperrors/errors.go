@@ -10,4 +10,5 @@ var (
 	ErrInvalidInput       = errors.New("invalid input")
 	ErrConflict           = errors.New("conflict")
 	ErrInsufficientStock  = errors.New("insufficient stock")
+	ErrReservedStock      = errors.New("reserved stock")
 )

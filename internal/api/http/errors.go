@@ -10,30 +10,33 @@ import (
 
 func writeError(c echo.Context, err error) error {
 	status := nethttp.StatusInternalServerError
-	message := "internal server error"
+	message := "Erro interno do servidor."
 
 	switch {
 	case errors.Is(err, apperrors.ErrInvalidCredentials):
 		status = nethttp.StatusUnauthorized
-		message = "invalid credentials"
+		message = "Credenciais inválidas."
 	case errors.Is(err, apperrors.ErrUnauthorized):
 		status = nethttp.StatusUnauthorized
-		message = "unauthorized"
+		message = "Não autorizado."
 	case errors.Is(err, apperrors.ErrForbidden):
 		status = nethttp.StatusForbidden
-		message = "forbidden"
+		message = "Acesso negado."
 	case errors.Is(err, apperrors.ErrNotFound):
 		status = nethttp.StatusNotFound
-		message = "not found"
+		message = "Registro não encontrado."
 	case errors.Is(err, apperrors.ErrInvalidInput):
 		status = nethttp.StatusBadRequest
-		message = "invalid input"
+		message = "Dados inválidos."
 	case errors.Is(err, apperrors.ErrConflict):
 		status = nethttp.StatusConflict
-		message = "conflict"
+		message = "Conflito ao processar a solicitação."
 	case errors.Is(err, apperrors.ErrInsufficientStock):
 		status = nethttp.StatusConflict
-		message = "insufficient stock"
+		message = "Estoque insuficiente."
+	case errors.Is(err, apperrors.ErrReservedStock):
+		status = nethttp.StatusConflict
+		message = "Produto reservado em outro recibo pendente."
 	}
 
 	return c.JSON(status, errorResponse{Message: message})
