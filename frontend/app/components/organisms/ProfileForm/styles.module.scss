@@ -1,0 +1,30 @@
+.profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px;
+}
+
+.profile-form__wide {
+  grid-column: 1 / -1;
+}
+
+.form-error,
+.form-success {
+  margin: 0;
+  font-weight: 700;
+}
+
+.form-error {
+  color: var(--status-danger);
+}
+
+.form-success {
+  color: var(--status-success);
+}
+
+@media (max-width: 760px) {
+  .profile-form {
+    grid-template-columns: 1fr;
+  }
+}
