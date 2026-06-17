@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	"github.com/empi-autocenter/erp-empi/internal/shared/apperrors"
@@ -34,6 +35,15 @@ func (repo *UserRepository) FindByID(ctx context.Context, id string) (*entities.
 	return user, err
 }
 
+func (repo *UserRepository) FindActiveClientByID(ctx context.Context, id string) (*entities.User, error) {
+	user := new(entities.User)
+	err := repo.db.WithContext(ctx).First(user, "id = ? AND type = ? AND archived_at IS NULL", id, entities.UserTypeClient).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.ErrNotFound
+	}
+	return user, err
+}
+
 func (repo *UserRepository) FindByCPF(ctx context.Context, cpf string) (*entities.User, error) {
 	user := new(entities.User)
 	err := repo.db.WithContext(ctx).First(user, "cpf = ?", cpf).Error
@@ -43,10 +53,41 @@ func (repo *UserRepository) FindByCPF(ctx context.Context, cpf string) (*entitie
 	return user, err
 }
 
+func (repo *UserRepository) FindByCPFAndType(ctx context.Context, cpf string, userType entities.UserType) (*entities.User, error) {
+	user := new(entities.User)
+	err := repo.db.WithContext(ctx).First(user, "cpf = ? AND type = ?", cpf, userType).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.ErrNotFound
+	}
+	return user, err
+}
+
+func (repo *UserRepository) FindClientByCPFAndName(ctx context.Context, cpf string, name string) (*entities.User, error) {
+	user := new(entities.User)
+	err := repo.db.WithContext(ctx).
+		First(user, "cpf = ? AND type = ? AND archived_at IS NULL AND LOWER(name) = LOWER(?)", cpf, entities.UserTypeClient, strings.TrimSpace(name)).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.ErrNotFound
+	}
+	return user, err
+}
+
+func (repo *UserRepository) FindClientByPhoneAndName(ctx context.Context, phone string, name string) (*entities.User, error) {
+	user := new(entities.User)
+	err := repo.db.WithContext(ctx).
+		First(user, "phone = ? AND type = ? AND archived_at IS NULL AND LOWER(name) = LOWER(?)", phone, entities.UserTypeClient, strings.TrimSpace(name)).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.ErrNotFound
+	}
+	return user, err
+}
+
 func (repo *UserRepository) ListClients(ctx context.Context, limit int, offset int) ([]entities.User, int64, error) {
 	var users []entities.User
 	var total int64
-	query := repo.db.WithContext(ctx).Model(&entities.User{}).Where("type = ?", entities.UserTypeClient)
+	query := repo.db.WithContext(ctx).Model(&entities.User{}).Where("type = ? AND archived_at IS NULL", entities.UserTypeClient)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -54,10 +95,18 @@ func (repo *UserRepository) ListClients(ctx context.Context, limit int, offset i
 	return users, total, err
 }
 
-func (repo *UserRepository) UpsertClientByCPF(ctx context.Context, user *entities.User) (*entities.User, error) {
-	found, err := repo.FindByCPF(ctx, user.CPF)
+func (repo *UserRepository) UpsertClient(ctx context.Context, user *entities.User) (*entities.User, error) {
+	var found *entities.User
+	var err error
+	if user.CPF != "" {
+		found, err = repo.FindClientByCPFAndName(ctx, user.CPF, user.Name)
+	} else {
+		found, err = repo.FindClientByPhoneAndName(ctx, user.Phone, user.Name)
+	}
 	if err == nil {
-		found.Name = user.Name
+		if user.CPF != "" {
+			found.CPF = user.CPF
+		}
 		found.Phone = user.Phone
 		found.Email = user.Email
 		found.Address = user.Address
