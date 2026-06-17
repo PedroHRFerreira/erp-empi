@@ -1,0 +1,29 @@
+.metric-card {
+  display: grid;
+  min-width: 0;
+  min-height: 132px;
+  align-content: space-between;
+  gap: 10px;
+  padding: 18px;
+}
+
+.metric-card svg {
+  color: var(--braip-brand-primary);
+}
+
+.metric-card span {
+  min-width: 0;
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.metric-card strong {
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(20px, 1.45vw, 28px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+}
