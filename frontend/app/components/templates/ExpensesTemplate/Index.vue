@@ -13,6 +13,7 @@ import FinancialSummaryGrid from '../../organisms/FinancialSummaryGrid/Index.vue
 
 function makeExpenseForm(): ExpenseForm {
   return {
+    receiptId: null,
     description: '',
     category: '',
     amountCents: 0,
@@ -35,12 +36,14 @@ export default defineComponent({
   },
   setup() {
     const expenses = useExpensesStore()
+    const receipts = useReceiptsStore()
     const showForm = ref(false)
     const amountInput = ref('')
     const form = reactive<ExpenseForm>(makeExpenseForm())
     const pages = computed(() => Math.ceil(expenses.total / expenses.limit))
     const currentPage = computed(() => Math.floor(expenses.offset / expenses.limit) + 1)
     const categoryTotals = computed(() => expenses.summary?.expensesByCategory || [])
+    const receiptCosts = computed(() => expenses.summary?.receiptCosts || [])
     const isEditing = computed(() => Boolean(form.id))
     const pageTitle = computed(() => {
       return showForm.value ? (isEditing.value ? 'Editar gasto' : 'Adicionar gasto') : 'Gastos'
@@ -66,6 +69,7 @@ export default defineComponent({
     function startEdit(expense: IExpense) {
       Object.assign(form, {
         id: expense.id,
+        receiptId: expense.receiptId || null,
         description: expense.description,
         category: expense.category,
         amountCents: expense.amountCents,
@@ -127,6 +131,8 @@ export default defineComponent({
       pages,
       previousPage,
       remove,
+      receiptCosts,
+      receipts,
       save,
       showForm,
       startCreate,
@@ -171,6 +177,7 @@ function toDateInputValue(date: Date) {
       :error="expenses.error"
       :field-errors="expenses.fieldErrors"
       :form="form"
+      :receipt-options="receipts.receiptOptions"
       :saving="expenses.saving"
       @cancel="cancelForm"
       @clear-field-error="expenses.clearFieldError"
@@ -206,6 +213,25 @@ function toDateInputValue(date: Date) {
           </div>
         </div>
         <p v-else>Nenhum gasto registrado no período.</p>
+      </section>
+
+      <section class="expenses-template__receipt-costs panel">
+        <header>
+          <span>Recibos</span>
+          <strong>Maiores custos internos</strong>
+        </header>
+        <div v-if="receiptCosts.length" class="expenses-template__receipt-cost-list">
+          <div v-for="receipt in receiptCosts" :key="receipt.receiptId" class="expenses-template__receipt-cost-row">
+            <span>{{ receipt.clientName }}</span>
+            <strong>{{ formatCurrency(receipt.totalCostCents) }}</strong>
+            <small>
+              {{ receipt.vehicleModel }} {{ receipt.vehiclePlate }} /
+              Gastos {{ formatCurrency(receipt.serviceExpensesCents) }} /
+              Produtos {{ formatCurrency(receipt.productCostCents) }}
+            </small>
+          </div>
+        </div>
+        <p v-else>Nenhum custo vinculado a recibos no período.</p>
       </section>
 
       <ExpensesTable :expenses="expenses.expenses" @edit="startEdit" @remove="remove" />

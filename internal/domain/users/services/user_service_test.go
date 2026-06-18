@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestUpsertClientMatchesByCPFAndName(t *testing.T) {
+func TestUpsertClientMatchesByPhoneAndName(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -28,9 +28,10 @@ func TestUpsertClientMatchesByCPFAndName(t *testing.T) {
 
 	first, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
 		Name:  "Cliente Teste",
-		CPF:   "52998224725",
 		Phone: "33999990000",
+		CPF:   "52998224725",
 		Email: "antigo@example.com",
+		Notes: "primeiro",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -38,42 +39,56 @@ func TestUpsertClientMatchesByCPFAndName(t *testing.T) {
 
 	updated, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
 		Name:  "Cliente Teste",
-		CPF:   "52998224725",
-		Phone: "33888880000",
+		Phone: "33999990000",
+		CPF:   "12345678909",
 		Email: "novo@example.com",
+		Notes: "atualizado",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if updated.ID != first.ID {
-		t.Fatalf("expected same client for matching name and cpf")
+		t.Fatalf("expected same client for matching name and phone")
 	}
-	if updated.Phone != "33888880000" || updated.Email != "novo@example.com" {
-		t.Fatalf("expected matching client contact data to be updated")
+	if updated.CPF != "" || updated.Email != "" {
+		t.Fatalf("expected client cpf and email to be ignored, got cpf %q and email %q", updated.CPF, updated.Email)
+	}
+	if updated.Notes != "atualizado" {
+		t.Fatalf("expected matching client notes to be updated")
 	}
 
-	other, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
+	samePhoneDifferentName, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
 		Name:  "Outro Cliente",
-		CPF:   "52998224725",
-		Phone: "33777770000",
+		Phone: "33999990000",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if other.ID == first.ID {
-		t.Fatalf("expected a new client when the cpf matches but the name differs")
+	if samePhoneDifferentName.ID == first.ID {
+		t.Fatalf("expected a new client when the phone matches but the name differs")
+	}
+
+	sameNameDifferentPhone, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
+		Name:  "Cliente Teste",
+		Phone: "33888880000",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sameNameDifferentPhone.ID == first.ID {
+		t.Fatalf("expected a new client when the name matches but the phone differs")
 	}
 
 	clients, total, err := userService.ListClients(ctx, 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 2 || len(clients) != 2 {
-		t.Fatalf("expected 2 clients, got total %d and len %d", total, len(clients))
+	if total != 3 || len(clients) != 3 {
+		t.Fatalf("expected 3 clients, got total %d and len %d", total, len(clients))
 	}
 }
 
-func TestUpsertClientWithoutCPFMatchesByPhoneAndName(t *testing.T) {
+func TestUpsertClientMatchesPhoneWithFormatting(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -88,42 +103,26 @@ func TestUpsertClientWithoutCPFMatchesByPhoneAndName(t *testing.T) {
 	userService := userservices.NewUserService(repositories.NewUserRepository(db))
 
 	first, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
-		Name:  "Cliente Sem CPF",
-		Phone: "33999990000",
-		Email: "antigo@example.com",
+		Name:  "Cliente Formatado",
+		Phone: "(33) 99999-0000",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	updated, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
-		Name:  "Cliente Sem CPF",
+		Name:  "Cliente Formatado",
 		Phone: "33999990000",
-		Email: "novo@example.com",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if updated.ID != first.ID {
-		t.Fatalf("expected same client for matching name and phone without cpf")
-	}
-	if updated.Email != "novo@example.com" {
-		t.Fatalf("expected matching client data to be updated")
-	}
-
-	other, err := userService.UpsertClient(ctx, userservices.UpsertClientInput{
-		Name:  "Outro Cliente",
-		Phone: "33999990000",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if other.ID == first.ID {
-		t.Fatalf("expected a new client when the phone matches but the name differs")
+		t.Fatalf("expected same client for matching normalized phone and name")
 	}
 }
 
-func TestUpsertClientRequiresPhoneWhenCPFIsEmpty(t *testing.T) {
+func TestUpsertClientRequiresPhone(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

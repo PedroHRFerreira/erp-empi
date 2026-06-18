@@ -42,6 +42,7 @@ type Receipt struct {
 	Notes              string        `json:"notes" gorm:"size:700"`
 	PaidAt             *time.Time    `json:"paidAt"`
 	Items              []ReceiptItem `json:"items" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Expenses           []Expense     `json:"expenses,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Timestamps
 }
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
@@ -26,6 +27,16 @@ type ExpenseCategorySummary struct {
 	Count       int64  `json:"count"`
 }
 
+type ReceiptCostSummary struct {
+	ReceiptID            string `json:"receiptId"`
+	ClientName           string `json:"clientName"`
+	VehicleModel         string `json:"vehicleModel"`
+	VehiclePlate         string `json:"vehiclePlate"`
+	ServiceExpensesCents int64  `json:"serviceExpensesCents"`
+	ProductCostCents     int64  `json:"productCostCents"`
+	TotalCostCents       int64  `json:"totalCostCents"`
+}
+
 type Summary struct {
 	StartDate                string                   `json:"startDate"`
 	EndDate                  string                   `json:"endDate"`
@@ -41,6 +52,7 @@ type Summary struct {
 	NetMarginPercent         float64                  `json:"netMarginPercent"`
 	HealthStatus             HealthStatus             `json:"healthStatus"`
 	ExpensesByCategory       []ExpenseCategorySummary `json:"expensesByCategory"`
+	ReceiptCosts             []ReceiptCostSummary     `json:"receiptCosts"`
 }
 
 type receiptTotals struct {
@@ -75,6 +87,10 @@ func (service *FinancialService) Summary(ctx context.Context, start time.Time, e
 	if err != nil {
 		return nil, err
 	}
+	receiptCosts, err := service.loadReceiptCosts(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
 
 	grossProfitCents := receipts.RevenuePaidCents - productCostCents
 	operationalProfitCents := grossProfitCents - expenses.OperationalExpensesCents
@@ -99,6 +115,7 @@ func (service *FinancialService) Summary(ctx context.Context, start time.Time, e
 		NetMarginPercent:         netMarginPercent,
 		HealthStatus:             healthStatus(netProfitCents, netMarginPercent),
 		ExpensesByCategory:       categoryTotals,
+		ReceiptCosts:             receiptCosts,
 	}, nil
 }
 
@@ -161,6 +178,106 @@ func (service *FinancialService) loadExpensesByCategory(ctx context.Context, sta
 		totals = []ExpenseCategorySummary{}
 	}
 	return totals, err
+}
+
+func (service *FinancialService) loadReceiptCosts(ctx context.Context, start time.Time, end time.Time) ([]ReceiptCostSummary, error) {
+	type expenseCostRow struct {
+		ReceiptID            string
+		ServiceExpensesCents int64
+	}
+	type productCostRow struct {
+		ReceiptID        string
+		ProductCostCents int64
+	}
+
+	var expenseRows []expenseCostRow
+	err := service.db.WithContext(ctx).
+		Model(&entities.Expense{}).
+		Where("archived_at IS NULL").
+		Where("receipt_id IS NOT NULL").
+		Where("spent_at >= ? AND spent_at < ?", start, end).
+		Select("receipt_id, COALESCE(SUM(amount_cents), 0) AS service_expenses_cents").
+		Group("receipt_id").
+		Scan(&expenseRows).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	var productRows []productCostRow
+	err = service.db.WithContext(ctx).
+		Table("receipt_items").
+		Select("receipts.id AS receipt_id, COALESCE(SUM(receipt_items.unit_cost_cents * receipt_items.quantity), 0) AS product_cost_cents").
+		Joins("JOIN receipts ON receipts.id = receipt_items.receipt_id").
+		Where("receipts.status = ?", entities.ReceiptStatusPaid).
+		Where("COALESCE(receipts.paid_at, receipts.updated_at) >= ? AND COALESCE(receipts.paid_at, receipts.updated_at) < ?", start, end).
+		Group("receipts.id").
+		Scan(&productRows).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	costsByReceiptID := map[string]*ReceiptCostSummary{}
+	receiptIDs := make([]string, 0, len(expenseRows)+len(productRows))
+
+	ensureCost := func(receiptID string) *ReceiptCostSummary {
+		if cost, exists := costsByReceiptID[receiptID]; exists {
+			return cost
+		}
+		cost := &ReceiptCostSummary{ReceiptID: receiptID}
+		costsByReceiptID[receiptID] = cost
+		receiptIDs = append(receiptIDs, receiptID)
+		return cost
+	}
+
+	for _, row := range expenseRows {
+		ensureCost(row.ReceiptID).ServiceExpensesCents = row.ServiceExpensesCents
+	}
+	for _, row := range productRows {
+		ensureCost(row.ReceiptID).ProductCostCents = row.ProductCostCents
+	}
+	if len(receiptIDs) == 0 {
+		return []ReceiptCostSummary{}, nil
+	}
+
+	var receipts []entities.Receipt
+	err = service.db.WithContext(ctx).
+		Preload("User").
+		Where("id IN ?", receiptIDs).
+		Find(&receipts).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, receipt := range receipts {
+		cost := costsByReceiptID[receipt.ID]
+		if cost == nil {
+			continue
+		}
+		cost.ClientName = receipt.User.Name
+		cost.VehicleModel = receipt.VehicleModel
+		cost.VehiclePlate = receipt.VehiclePlate
+		cost.TotalCostCents = cost.ServiceExpensesCents + cost.ProductCostCents
+	}
+
+	receiptCosts := make([]ReceiptCostSummary, 0, len(costsByReceiptID))
+	for _, cost := range costsByReceiptID {
+		if cost.TotalCostCents > 0 {
+			receiptCosts = append(receiptCosts, *cost)
+		}
+	}
+	sort.Slice(receiptCosts, func(i int, j int) bool {
+		if receiptCosts[i].TotalCostCents == receiptCosts[j].TotalCostCents {
+			return receiptCosts[i].ClientName < receiptCosts[j].ClientName
+		}
+		return receiptCosts[i].TotalCostCents > receiptCosts[j].TotalCostCents
+	})
+	if len(receiptCosts) > 5 {
+		receiptCosts = receiptCosts[:5]
+	}
+	return receiptCosts, nil
 }
 
 func healthStatus(netProfitCents int64, netMarginPercent float64) HealthStatus {

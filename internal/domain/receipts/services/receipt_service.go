@@ -24,6 +24,14 @@ type ReceiptItemInput struct {
 	Quantity    int    `json:"quantity"`
 }
 
+type ReceiptExpenseInput struct {
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	AmountCents int64  `json:"amountCents"`
+	SpentAt     string `json:"spentAt"`
+	Notes       string `json:"notes"`
+}
+
 type ReceiptInput struct {
 	Client          userservices.UpsertClientInput `json:"client"`
 	VehicleModel    string                         `json:"vehicleModel"`
@@ -36,6 +44,7 @@ type ReceiptInput struct {
 	Installments    int                            `json:"installments"`
 	Notes           string                         `json:"notes"`
 	Items           []ReceiptItemInput             `json:"items"`
+	ServiceExpenses []ReceiptExpenseInput          `json:"serviceExpenses"`
 }
 
 func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrepos.StockRepository, users *userservices.UserService) *ReceiptService {
@@ -63,6 +72,10 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		return nil, err
 	}
 	client, err := service.users.UpsertClient(ctx, input.Client)
+	if err != nil {
+		return nil, err
+	}
+	serviceExpenses, err := buildReceiptExpenses(input.ServiceExpenses)
 	if err != nil {
 		return nil, err
 	}
@@ -105,14 +118,18 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		stockItem := stockItems[itemInput.StockItemID]
 		productsTotalCents += stockItem.ResalePriceCents * int64(itemInput.Quantity)
 	}
+	serviceExpensesTotalCents := int64(0)
+	for _, expense := range serviceExpenses {
+		serviceExpensesTotalCents += expense.AmountCents
+	}
 	laborPriceCents := input.LaborPriceCents
 	if input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
-		laborPriceCents = input.PriceCents - productsTotalCents
+		laborPriceCents = input.PriceCents - productsTotalCents - serviceExpensesTotalCents
 		if laborPriceCents < 0 {
 			laborPriceCents = 0
 		}
 	}
-	subtotalCents := laborPriceCents + productsTotalCents
+	subtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents
 	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
 	installments := normalizeInstallments(paymentMethod, input.Installments)
 	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin)
@@ -148,7 +165,22 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		})
 	}
 
-	return receipt, service.repo.Create(ctx, receipt)
+	err = service.repo.Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).Create(receipt).Error; err != nil {
+			return err
+		}
+
+		if len(serviceExpenses) == 0 {
+			return nil
+		}
+
+		receiptID := receipt.ID
+		for index := range serviceExpenses {
+			serviceExpenses[index].ReceiptID = &receiptID
+		}
+		return tx.WithContext(ctx).Create(&serviceExpenses).Error
+	})
+	return receipt, err
 }
 
 func (service *ReceiptService) MarkPaid(ctx context.Context, id string) (*entities.Receipt, error) {
@@ -202,10 +234,45 @@ func validateReceiptInput(input ReceiptInput) error {
 		(input.PaymentMethod == entities.PaymentMethodCreditCard && (input.Installments < 0 || input.Installments > 12)) {
 		return apperrors.ErrInvalidInput
 	}
-	if len(input.Items) == 0 {
-		return apperrors.ErrInvalidInput
-	}
 	return nil
+}
+
+func buildReceiptExpenses(inputs []ReceiptExpenseInput) ([]entities.Expense, error) {
+	expenses := make([]entities.Expense, 0, len(inputs))
+
+	for _, input := range inputs {
+		description := strings.TrimSpace(input.Description)
+		category := strings.TrimSpace(input.Category)
+		notes := strings.TrimSpace(input.Notes)
+		spentAt, err := parseReceiptExpenseDate(input.SpentAt)
+		if err != nil || description == "" || category == "" || input.AmountCents <= 0 {
+			return nil, apperrors.ErrInvalidInput
+		}
+
+		expenses = append(expenses, entities.Expense{
+			Description: description,
+			Category:    category,
+			AmountCents: input.AmountCents,
+			SpentAt:     spentAt,
+			Notes:       notes,
+		})
+	}
+
+	return expenses, nil
+}
+
+func parseReceiptExpenseDate(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, apperrors.ErrInvalidInput
+	}
+	if parsed, err := time.ParseInLocation("2006-01-02", value, time.Local); err == nil {
+		return parsed, nil
+	}
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed, nil
+	}
+	return time.Time{}, apperrors.ErrInvalidInput
 }
 
 func normalizePaymentMethod(method entities.PaymentMethod) entities.PaymentMethod {

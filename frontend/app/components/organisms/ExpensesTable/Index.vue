@@ -30,10 +30,16 @@ export default defineComponent({
       emit('remove', expense)
     }
 
+    function receiptLabel(expense: IExpense) {
+      if (!expense.receipt) return 'Sem vínculo'
+      return `${expense.receipt.user?.name || 'Cliente'} - ${expense.receipt.vehiclePlate}`
+    }
+
     return {
       edit,
       formatCurrency,
       formatExpenseDate,
+      receiptLabel,
       remove
     }
   }
@@ -51,6 +57,7 @@ function formatExpenseDate(value: string) {
     <div v-if="expenses.length" class="expenses-table__head" aria-hidden="true">
       <span>Descrição</span>
       <span>Categoria</span>
+      <span>Recibo</span>
       <span>Valor</span>
       <span>Data</span>
       <span>Ações</span>
@@ -65,6 +72,11 @@ function formatExpenseDate(value: string) {
       <div class="expenses-table__cell">
         <span class="expenses-table__label">Categoria</span>
         <strong>{{ expense.category }}</strong>
+      </div>
+      <div class="expenses-table__cell">
+        <span class="expenses-table__label">Recibo</span>
+        <strong>{{ receiptLabel(expense) }}</strong>
+        <small v-if="expense.receipt">{{ expense.receipt.vehicleModel }}</small>
       </div>
       <div class="expenses-table__cell expenses-table__cell--money">
         <span class="expenses-table__label">Valor</span>

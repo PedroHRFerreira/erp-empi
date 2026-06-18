@@ -1,5 +1,6 @@
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue'
+import type { IReceipt } from '../../../../server/contracts/types'
 import type { ExpenseForm as IExpenseForm } from '../../../stores/useExpensesStore'
 import { maskCurrency } from '../../../utils/masks'
 
@@ -17,6 +18,10 @@ export default defineComponent({
     categories: {
       type: Array as PropType<string[]>,
       required: true
+    },
+    receiptOptions: {
+      type: Array as PropType<IReceipt[]>,
+      default: () => []
     },
     fieldErrors: {
       type: Object as PropType<Record<string, string>>,
@@ -51,9 +56,14 @@ export default defineComponent({
       emit('update:amount-input', maskCurrency(input.value))
     }
 
+    function receiptLabel(receipt: IReceipt) {
+      return `${receipt.user?.name || 'Cliente'} - ${receipt.vehicleModel} ${receipt.vehiclePlate}`
+    }
+
     return {
       cancel,
       clearFieldError,
+      receiptLabel,
       save,
       updateAmountInput
     }
@@ -90,6 +100,16 @@ export default defineComponent({
       <span>Data</span>
       <input v-model="form.spentAt" required type="date" @input="clearFieldError('spentAt')" />
       <small v-if="fieldErrors.spentAt" class="field__error">{{ fieldErrors.spentAt }}</small>
+    </label>
+
+    <label class="field">
+      <span>Recibo vinculado</span>
+      <select v-model="form.receiptId" @change="clearFieldError('receiptId')">
+        <option :value="null">Sem recibo</option>
+        <option v-for="receipt in receiptOptions" :key="receipt.id" :value="receipt.id">
+          {{ receiptLabel(receipt) }}
+        </option>
+      </select>
     </label>
 
     <label class="field expenses-form__wide">

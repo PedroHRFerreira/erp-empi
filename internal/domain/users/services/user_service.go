@@ -124,17 +124,14 @@ func (service *UserService) ArchiveClient(ctx context.Context, id string) (*enti
 }
 
 func (service *UserService) UpsertClient(ctx context.Context, input UpsertClientInput) (*entities.User, error) {
-	cpf := validation.OnlyDigits(input.CPF)
 	phone := validation.OnlyDigits(input.Phone)
-	if strings.TrimSpace(input.Name) == "" || !isValidClientIdentifier(cpf, phone) {
+	if strings.TrimSpace(input.Name) == "" || !isValidClientPhone(phone) {
 		return nil, apperrors.ErrInvalidInput
 	}
 	user := &entities.User{
 		Name:          strings.TrimSpace(input.Name),
-		CPF:           cpf,
 		Type:          entities.UserTypeClient,
 		Phone:         phone,
-		Email:         strings.TrimSpace(input.Email),
 		Address:       strings.TrimSpace(input.Address),
 		Notes:         strings.TrimSpace(input.Notes),
 		MarkupPercent: fallbackFloat(input.MarkupPercent, 10),
@@ -180,9 +177,6 @@ func fallbackFloat(value float64, defaultValue float64) float64 {
 	return value
 }
 
-func isValidClientIdentifier(cpf string, phone string) bool {
-	if cpf != "" {
-		return validation.IsCPF(cpf)
-	}
+func isValidClientPhone(phone string) bool {
 	return len(phone) == 10 || len(phone) == 11
 }

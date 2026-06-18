@@ -1,14 +1,15 @@
 <script lang="ts">
 import { computed, defineComponent, reactive, ref, type PropType } from 'vue'
 import type { IStockItem } from '../../../../server/contracts/types'
-import type { ReceiptForm } from '../../../stores/useReceiptsStore'
+import { expenseCategories } from '../../../stores/useExpensesStore'
+import type { ReceiptForm, ReceiptServiceExpenseForm } from '../../../stores/useReceiptsStore'
 import type { IStoreActionResult } from '../../../stores/types'
 import { formatCurrency } from '../../../utils/format'
-import { currencyMaskToCents, maskCpf, maskCurrency, maskPhone, maskVehiclePlate } from '../../../utils/masks'
+import { currencyMaskToCents, maskCurrency, maskPhone, maskVehiclePlate } from '../../../utils/masks'
 
 function makeReceiptForm(): ReceiptForm {
   return {
-    client: { name: '', cpf: '', phone: '', email: '' },
+    client: { name: '', phone: '' },
     vehicleModel: '',
     vehicleYear: new Date().getFullYear(),
     vehiclePlate: '',
@@ -18,7 +19,18 @@ function makeReceiptForm(): ReceiptForm {
     paymentMethod: 'cash',
     installments: 1,
     notes: '',
-    items: []
+    items: [],
+    serviceExpenses: []
+  }
+}
+
+function makeServiceExpense(): ReceiptServiceExpenseForm {
+  return {
+    description: '',
+    category: '',
+    amountCents: 0,
+    spentAt: toDateInputValue(new Date()),
+    notes: ''
   }
 }
 
@@ -46,9 +58,12 @@ export default defineComponent({
   setup(props, { emit }) {
     const auth = useAuthStore()
     const form = reactive<ReceiptForm>(makeReceiptForm())
+    const serviceExpense = reactive<ReceiptServiceExpenseForm>(makeServiceExpense())
     const selectedStockId = ref('')
     const selectedQuantity = ref(1)
     const laborPriceInput = ref('')
+    const serviceExpenseAmountInput = ref('')
+    const serviceExpenseError = ref('')
     const itemError = ref('')
     const installmentOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
@@ -66,7 +81,10 @@ export default defineComponent({
     const productsTotalCents = computed(() => {
       return form.items.reduce((total, item) => total + itemTotalCents(item), 0)
     })
-    const subtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value)
+    const serviceExpensesTotalCents = computed(() => {
+      return form.serviceExpenses.reduce((total, expense) => total + expense.amountCents, 0)
+    })
+    const subtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
     const machineFeePercent = computed(() => Number(auth.user?.machineFeePercent || 0))
     const installmentFeePercent = computed(() => Number(auth.user?.installmentFeePercent || 0))
     const isCardPayment = computed(() => {
@@ -137,6 +155,11 @@ export default defineComponent({
       clearFieldError('items')
     }
 
+    function clearServiceExpensesError() {
+      serviceExpenseError.value = ''
+      clearFieldError('serviceExpenses')
+    }
+
     function usedQuantityInForm(id: string) {
       return form.items
         .filter((item) => item.stockItemId === id)
@@ -175,10 +198,60 @@ export default defineComponent({
       clearFieldError('items')
     }
 
+    function maskServiceExpenseAmount() {
+      clearServiceExpensesError()
+      serviceExpenseAmountInput.value = maskCurrency(serviceExpenseAmountInput.value)
+    }
+
+    function resetServiceExpenseForm() {
+      Object.assign(serviceExpense, makeServiceExpense())
+      serviceExpenseAmountInput.value = ''
+      serviceExpenseError.value = ''
+    }
+
+    function addServiceExpense() {
+      clearServiceExpensesError()
+      const amountCents = currencyMaskToCents(serviceExpenseAmountInput.value)
+
+      if (!serviceExpense.description.trim()) {
+        serviceExpenseError.value = 'Informe a descrição do gasto.'
+        return
+      }
+      if (!serviceExpense.category.trim()) {
+        serviceExpenseError.value = 'Selecione a categoria.'
+        return
+      }
+      if (amountCents <= 0) {
+        serviceExpenseError.value = 'Informe um valor maior que zero.'
+        return
+      }
+      if (!serviceExpense.spentAt) {
+        serviceExpenseError.value = 'Informe a data do gasto.'
+        return
+      }
+
+      form.serviceExpenses.push({
+        description: serviceExpense.description.trim(),
+        category: serviceExpense.category,
+        amountCents,
+        spentAt: serviceExpense.spentAt,
+        notes: serviceExpense.notes.trim()
+      })
+      resetServiceExpenseForm()
+    }
+
+    function removeServiceExpense(index: number) {
+      form.serviceExpenses.splice(index, 1)
+      clearServiceExpensesError()
+    }
+
     function resetForm() {
       Object.assign(form, makeReceiptForm())
+      selectedStockId.value = ''
+      selectedQuantity.value = 1
       laborPriceInput.value = ''
       itemError.value = ''
+      resetServiceExpenseForm()
     }
 
     async function createReceipt() {
@@ -193,12 +266,6 @@ export default defineComponent({
       if (result.status === 'success') {
         resetForm()
       }
-    }
-
-    function maskClientCpf() {
-      clearFieldError('client.cpf')
-      clearFieldError('client.phone')
-      form.client.cpf = maskCpf(form.client.cpf)
     }
 
     function maskClientPhone() {
@@ -228,10 +295,13 @@ export default defineComponent({
       addItem,
       activeCardFeeLabel,
       activeCardFeePercent,
+      addServiceExpense,
       availableQuantity,
       cardFeeCents,
+      categories: expenseCategories,
       clearFieldError,
       clearItemsError,
+      clearServiceExpensesError,
       createReceipt,
       form,
       formatCurrency,
@@ -244,16 +314,21 @@ export default defineComponent({
       itemError,
       laborPriceCents,
       laborPriceInput,
-      maskClientCpf,
       maskClientPhone,
       maskLaborPrice,
       maskPlate,
+      maskServiceExpenseAmount,
       machineFeePercent,
       productsTotalCents,
       removeItem,
+      removeServiceExpense,
       selectedQuantity,
       selectedStockId,
       selectedStockItem,
+      serviceExpense,
+      serviceExpenseAmountInput,
+      serviceExpenseError,
+      serviceExpensesTotalCents,
       stockName,
       subtotalCents,
       totalCents,
@@ -261,6 +336,13 @@ export default defineComponent({
     }
   }
 })
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 </script>
 
 <template>
@@ -271,21 +353,10 @@ export default defineComponent({
       <small v-if="fieldErrors['client.name']" class="field__error">{{ fieldErrors['client.name'] }}</small>
     </label>
 
-    <label class="field" :class="{ 'field--error': fieldErrors['client.cpf'] }">
-      <span>CPF opcional</span>
-      <input v-model="form.client.cpf" inputmode="numeric" placeholder="000.000.000-00" @input="maskClientCpf" />
-      <small v-if="fieldErrors['client.cpf']" class="field__error">{{ fieldErrors['client.cpf'] }}</small>
-    </label>
-
     <label class="field" :class="{ 'field--error': fieldErrors['client.phone'] }">
       <span>Telefone</span>
       <input v-model="form.client.phone" inputmode="numeric" placeholder="(33) 98735-1922" @input="maskClientPhone" />
       <small v-if="fieldErrors['client.phone']" class="field__error">{{ fieldErrors['client.phone'] }}</small>
-    </label>
-
-    <label class="field">
-      <span>E-mail opcional</span>
-      <input v-model="form.client.email" type="email" placeholder="cliente@email.com" @input="clearFieldError('client.email')" />
     </label>
 
     <label class="field" :class="{ 'field--error': fieldErrors.vehicleModel }">
@@ -323,9 +394,9 @@ export default defineComponent({
       <small v-if="fieldErrors.paymentMethod" class="field__error">{{ fieldErrors.paymentMethod }}</small>
     </label>
 
-    <label class="field" :class="{ 'field--error': fieldErrors.installments }">
+    <label v-if="form.paymentMethod === 'credit_card'" class="field" :class="{ 'field--error': fieldErrors.installments }">
       <span>Parcelas</span>
-      <select v-model.number="form.installments" :disabled="form.paymentMethod !== 'credit_card'" @change="clearFieldError('installments')">
+      <select v-model.number="form.installments" @change="clearFieldError('installments')">
         <option v-for="installment in installmentOptions" :key="installment" :value="installment">
           {{ installment }}x de {{ formatCurrency(installmentValueFor(installment)) }}
         </option>
@@ -377,6 +448,60 @@ export default defineComponent({
       <small v-if="fieldErrors.items" class="field__error">{{ fieldErrors.items }}</small>
     </div>
 
+    <div class="receipts-form__wide service-expenses" :class="{ 'service-expenses--error': fieldErrors.serviceExpenses }">
+      <header class="service-expenses__header">
+        <span>Gastos do serviço</span>
+        <strong>{{ formatCurrency(serviceExpensesTotalCents) }}</strong>
+      </header>
+
+      <div class="service-expenses__form">
+        <label class="field">
+          <span>Descrição</span>
+          <input v-model="serviceExpense.description" placeholder="Gasolina, peça avulsa..." @input="clearServiceExpensesError" />
+        </label>
+
+        <label class="field">
+          <span>Categoria</span>
+          <select v-model="serviceExpense.category" @change="clearServiceExpensesError">
+            <option value="">Selecione</option>
+            <option v-for="category in categories" :key="category" :value="category">
+              {{ category }}
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Valor</span>
+          <input v-model="serviceExpenseAmountInput" inputmode="numeric" placeholder="R$ 80,00" @input="maskServiceExpenseAmount" />
+        </label>
+
+        <label class="field">
+          <span>Data</span>
+          <input v-model="serviceExpense.spentAt" type="date" @input="clearServiceExpensesError" />
+        </label>
+
+        <button class="button button--secondary" type="button" @click="addServiceExpense">Adicionar gasto</button>
+
+        <label class="field service-expenses__notes">
+          <span>Observações</span>
+          <input v-model="serviceExpense.notes" placeholder="Detalhes do gasto" @input="clearServiceExpensesError" />
+        </label>
+      </div>
+
+      <ul v-if="form.serviceExpenses.length">
+        <li v-for="(expense, index) in form.serviceExpenses" :key="`${expense.description}-${index}`">
+          <span>
+            {{ expense.description }}
+            <small>{{ expense.category }} / {{ formatCurrency(expense.amountCents) }}</small>
+          </span>
+          <button type="button" @click="removeServiceExpense(index)">Remover</button>
+        </li>
+      </ul>
+
+      <small v-if="serviceExpenseError" class="field__error">{{ serviceExpenseError }}</small>
+      <small v-if="fieldErrors.serviceExpenses" class="field__error">{{ fieldErrors.serviceExpenses }}</small>
+    </div>
+
     <label class="field receipts-form__wide">
       <span>Observações</span>
       <textarea v-model="form.notes" placeholder="Informações adicionais" @input="clearFieldError('notes')" />
@@ -390,6 +515,10 @@ export default defineComponent({
       <div>
         <span>Produtos utilizados</span>
         <strong>{{ formatCurrency(productsTotalCents) }}</strong>
+      </div>
+      <div v-if="serviceExpensesTotalCents">
+        <span>Gastos do serviço</span>
+        <strong>{{ formatCurrency(serviceExpensesTotalCents) }}</strong>
       </div>
       <div>
         <span>Subtotal</span>

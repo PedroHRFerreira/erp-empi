@@ -9,20 +9,15 @@
 }
 
 .clients-list th:nth-child(1) {
-  width: 24%;
+  width: 48%;
 }
 
-.clients-list th:nth-child(2),
+.clients-list th:nth-child(2) {
+  width: 34%;
+}
+
 .clients-list th:nth-child(3) {
   width: 18%;
-}
-
-.clients-list th:nth-child(4) {
-  width: 28%;
-}
-
-.clients-list th:nth-child(5) {
-  width: 12%;
 }
 
 .clients-list td {

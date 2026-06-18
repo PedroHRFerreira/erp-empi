@@ -62,17 +62,6 @@ func (repo *UserRepository) FindByCPFAndType(ctx context.Context, cpf string, us
 	return user, err
 }
 
-func (repo *UserRepository) FindClientByCPFAndName(ctx context.Context, cpf string, name string) (*entities.User, error) {
-	user := new(entities.User)
-	err := repo.db.WithContext(ctx).
-		First(user, "cpf = ? AND type = ? AND archived_at IS NULL AND LOWER(name) = LOWER(?)", cpf, entities.UserTypeClient, strings.TrimSpace(name)).
-		Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperrors.ErrNotFound
-	}
-	return user, err
-}
-
 func (repo *UserRepository) FindClientByPhoneAndName(ctx context.Context, phone string, name string) (*entities.User, error) {
 	user := new(entities.User)
 	err := repo.db.WithContext(ctx).
@@ -96,19 +85,9 @@ func (repo *UserRepository) ListClients(ctx context.Context, limit int, offset i
 }
 
 func (repo *UserRepository) UpsertClient(ctx context.Context, user *entities.User) (*entities.User, error) {
-	var found *entities.User
-	var err error
-	if user.CPF != "" {
-		found, err = repo.FindClientByCPFAndName(ctx, user.CPF, user.Name)
-	} else {
-		found, err = repo.FindClientByPhoneAndName(ctx, user.Phone, user.Name)
-	}
+	found, err := repo.FindClientByPhoneAndName(ctx, user.Phone, user.Name)
 	if err == nil {
-		if user.CPF != "" {
-			found.CPF = user.CPF
-		}
 		found.Phone = user.Phone
-		found.Email = user.Email
 		found.Address = user.Address
 		found.Notes = user.Notes
 		if user.MarkupPercent > 0 {

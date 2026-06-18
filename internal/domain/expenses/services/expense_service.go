@@ -17,11 +17,12 @@ type ExpenseService struct {
 }
 
 type ExpenseInput struct {
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	AmountCents int64  `json:"amountCents"`
-	SpentAt     string `json:"spentAt"`
-	Notes       string `json:"notes"`
+	Description string  `json:"description"`
+	Category    string  `json:"category"`
+	AmountCents int64   `json:"amountCents"`
+	SpentAt     string  `json:"spentAt"`
+	Notes       string  `json:"notes"`
+	ReceiptID   *string `json:"receiptId"`
 }
 
 func NewExpenseService(repo *repositories.ExpenseRepository) *ExpenseService {
@@ -33,11 +34,14 @@ func (service *ExpenseService) List(ctx context.Context, limit int, offset int, 
 }
 
 func (service *ExpenseService) Create(ctx context.Context, input ExpenseInput) (*entities.Expense, error) {
-	expense, err := service.buildExpense(input, nil)
+	expense, err := service.buildExpense(ctx, input, nil)
 	if err != nil {
 		return nil, err
 	}
-	return expense, service.repo.Create(ctx, expense)
+	if err := service.repo.Create(ctx, expense); err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, expense.ID)
 }
 
 func (service *ExpenseService) Update(ctx context.Context, id string, input ExpenseInput) (*entities.Expense, error) {
@@ -45,11 +49,14 @@ func (service *ExpenseService) Update(ctx context.Context, id string, input Expe
 	if err != nil {
 		return nil, err
 	}
-	expense, err := service.buildExpense(input, current)
+	expense, err := service.buildExpense(ctx, input, current)
 	if err != nil {
 		return nil, err
 	}
-	return expense, service.repo.Update(ctx, expense)
+	if err := service.repo.Update(ctx, expense); err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, expense.ID)
 }
 
 func (service *ExpenseService) Archive(ctx context.Context, id string) error {
@@ -62,10 +69,14 @@ func (service *ExpenseService) Archive(ctx context.Context, id string) error {
 	return service.repo.Update(ctx, expense)
 }
 
-func (service *ExpenseService) buildExpense(input ExpenseInput, current *entities.Expense) (*entities.Expense, error) {
+func (service *ExpenseService) buildExpense(ctx context.Context, input ExpenseInput, current *entities.Expense) (*entities.Expense, error) {
 	description := strings.TrimSpace(input.Description)
 	category := strings.TrimSpace(input.Category)
 	notes := strings.TrimSpace(input.Notes)
+	receiptID, err := service.normalizeReceiptID(ctx, input.ReceiptID)
+	if err != nil {
+		return nil, err
+	}
 	spentAt, err := ParseExpenseDate(input.SpentAt)
 	if err != nil || description == "" || category == "" || input.AmountCents <= 0 {
 		return nil, apperrors.ErrInvalidInput
@@ -80,7 +91,27 @@ func (service *ExpenseService) buildExpense(input ExpenseInput, current *entitie
 	expense.AmountCents = input.AmountCents
 	expense.SpentAt = spentAt
 	expense.Notes = notes
+	expense.ReceiptID = receiptID
+	expense.Receipt = nil
 	return expense, nil
+}
+
+func (service *ExpenseService) normalizeReceiptID(ctx context.Context, receiptID *string) (*string, error) {
+	if receiptID == nil {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(*receiptID)
+	if trimmed == "" {
+		return nil, nil
+	}
+	exists, err := service.repo.ReceiptExists(ctx, trimmed)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, apperrors.ErrInvalidInput
+	}
+	return &trimmed, nil
 }
 
 func ParseExpenseDate(value string) (time.Time, error) {

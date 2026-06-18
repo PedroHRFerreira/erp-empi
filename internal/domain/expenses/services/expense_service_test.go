@@ -74,6 +74,63 @@ func TestExpenseServiceCreatesUpdatesAndArchivesExpenses(t *testing.T) {
 	}
 }
 
+func TestExpenseServiceCreatesAndUpdatesReceiptLink(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testDB(t)
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := receiptrepos.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db))
+	admin := createAdmin(t, ctx, userRepo)
+	start, _ := currentDayRange()
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Vinculado",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Diagnostico",
+		LaborPriceCents: 10000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expense, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
+		Description: "Gasolina",
+		Category:    "combustível",
+		AmountCents: 3000,
+		SpentAt:     start.Format("2006-01-02"),
+		ReceiptID:   &receipt.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expense.ReceiptID == nil || *expense.ReceiptID != receipt.ID {
+		t.Fatalf("expected expense linked to receipt %s, got %+v", receipt.ID, expense.ReceiptID)
+	}
+
+	updated, err := expenseService.Update(ctx, expense.ID, expenseservices.ExpenseInput{
+		Description: "Gasolina oficina",
+		Category:    "combustível",
+		AmountCents: 3500,
+		SpentAt:     start.Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ReceiptID != nil {
+		t.Fatalf("expected receipt link to be cleared, got %+v", updated.ReceiptID)
+	}
+}
+
 func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) {
 	t.Parallel()
 
@@ -145,6 +202,7 @@ func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) 
 		Category:    "combustível",
 		AmountCents: 3000,
 		SpentAt:     start.Format("2006-01-02"),
+		ReceiptID:   &paidReceipt.ID,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -180,6 +238,17 @@ func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) 
 	}
 	if summary.PaidReceiptsCount != 1 || summary.ExpensesCount != 1 {
 		t.Fatalf("expected one paid receipt and one expense, got %+v", summary)
+	}
+	if len(summary.ReceiptCosts) != 1 {
+		t.Fatalf("expected one receipt cost summary, got %d", len(summary.ReceiptCosts))
+	}
+	if summary.ReceiptCosts[0].ReceiptID != paidReceipt.ID {
+		t.Fatalf("expected receipt cost for paid receipt, got %+v", summary.ReceiptCosts[0])
+	}
+	if summary.ReceiptCosts[0].ServiceExpensesCents != 3000 ||
+		summary.ReceiptCosts[0].ProductCostCents != 10000 ||
+		summary.ReceiptCosts[0].TotalCostCents != 13000 {
+		t.Fatalf("unexpected receipt cost summary: %+v", summary.ReceiptCosts[0])
 	}
 }
 

@@ -3,7 +3,7 @@ import { defineComponent } from 'vue'
 import MetricsSummaryGrid from '../../organisms/MetricsSummaryGrid/Index.vue'
 import MetricsTableSection from '../../organisms/MetricsTableSection/Index.vue'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
-import { formatCpf, formatCurrency, formatDateTime } from '../../../utils/format'
+import { formatCurrency, formatDateTime } from '../../../utils/format'
 
 export default defineComponent({
   name: 'MetricsTemplate',
@@ -16,7 +16,6 @@ export default defineComponent({
     const metrics = useMetricsStore()
 
     return {
-      formatCpf,
       formatCurrency,
       formatDateTime,
       metrics
@@ -169,7 +168,6 @@ export default defineComponent({
                 <thead>
                   <tr>
                     <th>Cliente</th>
-                    <th>CPF</th>
                     <th>Recibos</th>
                     <th>Último recibo</th>
                   </tr>
@@ -177,7 +175,6 @@ export default defineComponent({
                 <tbody>
                   <tr v-for="client in metrics.summary.recentClients" :key="client.id">
                     <td>{{ client.name }}</td>
-                    <td>{{ client.cpf ? formatCpf(client.cpf) : '-' }}</td>
                     <td>{{ client.receiptsCount }}</td>
                     <td>{{ formatDateTime(client.lastReceiptAt) }}</td>
                   </tr>

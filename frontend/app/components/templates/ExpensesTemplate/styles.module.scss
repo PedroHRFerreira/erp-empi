@@ -13,41 +13,48 @@
   padding: 16px;
 }
 
-.expenses-template__categories {
+.expenses-template__categories,
+.expenses-template__receipt-costs {
   display: grid;
   gap: 16px;
   padding: 18px;
 }
 
-.expenses-template__categories header {
+.expenses-template__categories header,
+.expenses-template__receipt-costs header {
   display: grid;
   gap: 4px;
 }
 
-.expenses-template__categories header span {
+.expenses-template__categories header span,
+.expenses-template__receipt-costs header span {
   color: var(--braip-theme-text-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.expenses-template__categories header strong {
+.expenses-template__categories header strong,
+.expenses-template__receipt-costs header strong {
   font-size: 18px;
 }
 
-.expenses-template__categories p {
+.expenses-template__categories p,
+.expenses-template__receipt-costs p {
   margin: 0;
   color: var(--braip-theme-text-muted);
   font-weight: 700;
 }
 
-.expenses-template__category-list {
+.expenses-template__category-list,
+.expenses-template__receipt-cost-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
 }
 
-.expenses-template__category-row {
+.expenses-template__category-row,
+.expenses-template__receipt-cost-row {
   display: grid;
   gap: 6px;
   min-height: 92px;
@@ -57,19 +64,22 @@
   background: var(--braip-theme-surface-muted);
 }
 
-.expenses-template__category-row span {
+.expenses-template__category-row span,
+.expenses-template__receipt-cost-row span {
   color: var(--braip-theme-text-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.expenses-template__category-row strong {
+.expenses-template__category-row strong,
+.expenses-template__receipt-cost-row strong {
   font-size: 18px;
   color: var(--status-danger);
 }
 
-.expenses-template__category-row small {
+.expenses-template__category-row small,
+.expenses-template__receipt-cost-row small {
   color: var(--braip-theme-text-subtle);
   font-weight: 700;
 }

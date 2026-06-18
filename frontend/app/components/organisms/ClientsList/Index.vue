@@ -2,7 +2,6 @@
 import { Trash2 } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IUser } from '../../../../server/contracts/types'
-import { formatCpf } from '../../../utils/format'
 import { maskPhone } from '../../../utils/masks'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
 import EmptyState from '../../molecules/EmptyState/Index.vue'
@@ -36,7 +35,6 @@ export default defineComponent({
 
     return {
       clientPhone,
-      formatCpf,
       openDetail,
       remove
     }
@@ -50,9 +48,7 @@ export default defineComponent({
       <thead>
         <tr>
           <th>Cliente</th>
-          <th>CPF</th>
           <th>Telefone</th>
-          <th>E-mail</th>
           <th class="clients-list__actions-heading">Ações</th>
         </tr>
       </thead>
@@ -63,9 +59,7 @@ export default defineComponent({
               {{ client.name }}
             </a>
           </td>
-          <td>{{ client.cpf ? formatCpf(client.cpf) : '-' }}</td>
           <td>{{ clientPhone(client.phone) }}</td>
-          <td>{{ client.email || '-' }}</td>
           <td>
             <div class="clients-list__actions">
               <IconActionButton title="Remover" variant="danger" @click="remove(client)">

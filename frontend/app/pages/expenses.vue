@@ -9,7 +9,8 @@ export default defineComponent({
   },
   async setup() {
     const expenses = useExpensesStore()
-    await expenses.load()
+    const receipts = useReceiptsStore()
+    await Promise.all([expenses.load(), receipts.loadOptions()])
 
     return {}
   }

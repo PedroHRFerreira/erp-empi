@@ -8,6 +8,8 @@ import (
 
 type Expense struct {
 	ID          string     `json:"id" gorm:"type:char(36);primaryKey"`
+	ReceiptID   *string    `json:"receiptId" gorm:"type:char(36);index"`
+	Receipt     *Receipt   `json:"receipt,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Description string     `json:"description" gorm:"size:180;not null"`
 	Category    string     `json:"category" gorm:"size:80;not null;index"`
 	AmountCents int64      `json:"amountCents" gorm:"not null"`

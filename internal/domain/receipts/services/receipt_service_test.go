@@ -50,8 +50,8 @@ func TestMarkPaidDecreasesStockOnce(t *testing.T) {
 
 	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
 		Client: userservices.UpsertClientInput{
-			Name: "Cliente Teste",
-			CPF:  "52998224725",
+			Name:  "Cliente Teste",
+			Phone: "33999990000",
 		},
 		VehicleModel: "Gol",
 		VehicleYear:  2020,
@@ -82,6 +82,109 @@ func TestMarkPaidDecreasesStockOnce(t *testing.T) {
 	}
 	if updated.UsedQuantity != 2 {
 		t.Fatalf("expected used quantity 2, got %d", updated.UsedQuantity)
+	}
+}
+
+func TestCreateAllowsReceiptWithoutProducts(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Sem Produto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Diagnostico",
+		LaborPriceCents: 15000,
+		PaymentMethod:   entities.PaymentMethodCash,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(receipt.Items) != 0 {
+		t.Fatalf("expected no receipt items, got %d", len(receipt.Items))
+	}
+	if receipt.ProductsTotalCents != 0 || receipt.PriceCents != 15000 {
+		t.Fatalf("expected total from labor only, got products %d and total %d", receipt.ProductsTotalCents, receipt.PriceCents)
+	}
+}
+
+func TestCreatePersistsServiceExpensesAndChargesReceiptTotal(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Gasto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Fiesta",
+		VehicleYear:     2021,
+		VehiclePlate:    "DEF1D23",
+		Services:        "Reparo",
+		LaborPriceCents: 20000,
+		PaymentMethod:   entities.PaymentMethodCash,
+		ServiceExpenses: []receiptservices.ReceiptExpenseInput{
+			{
+				Description: "Gasolina",
+				Category:    "combustível",
+				AmountCents: 3000,
+				SpentAt:     "2026-06-18",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.SubtotalCents != 23000 {
+		t.Fatalf("expected service expense in subtotal, got %d", receipt.SubtotalCents)
+	}
+	if receipt.PriceCents != 23000 {
+		t.Fatalf("expected service expense to change receipt total, got %d", receipt.PriceCents)
+	}
+
+	var expenses []entities.Expense
+	if err := db.Where("receipt_id = ?", receipt.ID).Find(&expenses).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(expenses) != 1 {
+		t.Fatalf("expected one linked expense, got %d", len(expenses))
+	}
+	if expenses[0].ReceiptID == nil || *expenses[0].ReceiptID != receipt.ID {
+		t.Fatalf("expected expense linked to receipt %s, got %+v", receipt.ID, expenses[0].ReceiptID)
 	}
 }
 
@@ -117,8 +220,8 @@ func TestCreateRejectsQuantityAboveStock(t *testing.T) {
 
 	_, err = receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
 		Client: userservices.UpsertClientInput{
-			Name: "Cliente Teste",
-			CPF:  "52998224725",
+			Name:  "Cliente Teste",
+			Phone: "33999990000",
 		},
 		VehicleModel: "Gol",
 		VehicleYear:  2020,
@@ -223,8 +326,8 @@ func TestCreateCalculatesReceiptTotalsWithInstallmentFee(t *testing.T) {
 
 	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
 		Client: userservices.UpsertClientInput{
-			Name: "Cliente Teste",
-			CPF:  "52998224725",
+			Name:  "Cliente Teste",
+			Phone: "33999990000",
 		},
 		VehicleModel:    "Gol",
 		VehicleYear:     2020,

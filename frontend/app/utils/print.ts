@@ -1,5 +1,5 @@
 import type { IReceipt, IStockItem } from "../../server/contracts/types";
-import { formatCpf, formatCurrency, formatDateTime } from "./format";
+import { formatCurrency, formatDateTime } from "./format";
 
 const PRINT_STYLES = `
   @page {
@@ -119,6 +119,9 @@ const PRINT_STYLES = `
 
 export function printReceiptDocument(receipt: IReceipt) {
   const items = Array.isArray(receipt.items) ? receipt.items : [];
+  const serviceExpenses = Array.isArray(receipt.expenses)
+    ? receipt.expenses
+    : [];
   const installments =
     receipt.paymentMethod === "credit_card" ? receipt.installments || 1 : 1;
   const installmentValueCents = Math.ceil(receipt.priceCents / installments);
@@ -135,6 +138,17 @@ export function printReceiptDocument(receipt: IReceipt) {
         })
         .join("")
     : '<tr><td colspan="2">Nenhum produto vinculado.</td></tr>';
+  const serviceExpenseRows = serviceExpenses
+    .map((expense) => {
+      return `
+        <tr>
+          <td>${escapeHtml(expense.description)}</td>
+          <td>${escapeHtml(expense.category)}</td>
+          <td class="right">${formatCurrency(expense.amountCents)}</td>
+        </tr>
+      `;
+    })
+    .join("");
 
   openPrintDocument(
     `Recibo EMPI Autocenter`,
@@ -157,9 +171,7 @@ export function printReceiptDocument(receipt: IReceipt) {
           <article class="box">
             <h2>Cliente</h2>
             <p><strong>${escapeHtml(receipt.user.name)}</strong></p>
-            <p>CPF: ${formatCpf(receipt.user.cpf || "")}</p>
             <p>Telefone: ${escapeHtml(receipt.user.phone || "-")}</p>
-            <p>E-mail: ${escapeHtml(receipt.user.email || "-")}</p>
           </article>
 
           <article class="box">
@@ -187,6 +199,26 @@ export function printReceiptDocument(receipt: IReceipt) {
             <tbody>${rows}</tbody>
           </table>
         </section>
+
+        ${
+          serviceExpenses.length
+            ? `
+              <section>
+                <h2>Gastos do serviço</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Categoria</th>
+                      <th class="right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>${serviceExpenseRows}</tbody>
+                </table>
+              </section>
+            `
+            : ""
+        }
 
         ${
           receipt.paymentMethod === "credit_card"

@@ -21,6 +21,7 @@ export default defineComponent({
   },
   setup() {
     const auth = useAuthStore()
+    const router = useRouter()
     const stock = useStockStore()
     const showForm = ref(false)
     const costInput = ref('')
@@ -40,18 +41,7 @@ export default defineComponent({
     const currentPage = computed(() => Math.floor(stock.offset / stock.limit) + 1)
 
     function startCreate() {
-      Object.assign(form, {
-        id: '',
-        name: '',
-        description: '',
-        costCents: 0,
-        markupPercent: defaultMarkupPercent.value,
-        quantity: 0
-      })
-      costInput.value = ''
-      stock.error = ''
-      stock.fieldErrors = {}
-      showForm.value = true
+      return router.push('/stock/new')
     }
 
     function startEdit(item: IStockItem) {

@@ -1,5 +1,5 @@
 import type { IReceipt } from '../../server/contracts/types'
-import { formatCpf, formatCurrency, formatDateTime } from './format'
+import { formatCurrency, formatDateTime } from './format'
 
 type PdfLine = {
   text: string
@@ -13,6 +13,9 @@ export function receiptWhatsAppMessage(receipt: IReceipt) {
   const productLines = receipt.items.length
     ? ['Produtos utilizados:', ...receipt.items.map((item) => `- ${item.quantity}x ${item.stockItem?.name || item.stockItemId}`)]
     : ['Produtos utilizados: nenhum produto vinculado.']
+  const serviceExpenseLines = receipt.expenses?.length
+    ? ['Gastos do serviço:', ...receipt.expenses.map((expense) => `- ${expense.description}: ${formatCurrency(expense.amountCents)}`)]
+    : []
 
   return [
     'Recibo EMPI Autocenter',
@@ -21,6 +24,7 @@ export function receiptWhatsAppMessage(receipt: IReceipt) {
     `Placa: ${receipt.vehiclePlate}`,
     `Serviços: ${receipt.services}`,
     ...productLines,
+    ...serviceExpenseLines,
     `Pagamento: ${paymentMethodLabel(receipt)}`,
     `Valor total: ${formatCurrency(receipt.priceCents)}`,
     'Este recibo não é uma nota fiscal.'
@@ -72,10 +76,9 @@ function buildReceiptPdfBytes(receipt: IReceipt) {
   addLine(lines, receipt.user.name, 48, y, 11, 'F2')
   addLine(lines, `${receipt.vehicleModel} ${receipt.vehicleYear}`, 320, y, 11, 'F2')
   y -= 15
-  addLine(lines, `CPF: ${receipt.user.cpf ? formatCpf(receipt.user.cpf) : '-'}`, 48, y)
+  addLine(lines, `Telefone: ${receipt.user.phone || '-'}`, 48, y)
   addLine(lines, `Placa: ${receipt.vehiclePlate}`, 320, y)
   y -= 15
-  addLine(lines, `Telefone: ${receipt.user.phone || '-'}`, 48, y)
   addLine(lines, `Status: ${statusLabel(receipt.status)}`, 320, y)
   y -= 32
 
@@ -111,6 +114,21 @@ function buildReceiptPdfBytes(receipt: IReceipt) {
     y -= 14
   }
   y -= 22
+
+  if (receipt.expenses?.length) {
+    addLine(lines, 'Gastos do serviço', 48, y, 12, 'F2')
+    y -= 18
+    addLine(lines, 'Descrição', 48, y, 9, 'F2')
+    addLine(lines, 'Valor', 450, y, 9, 'F2')
+    y -= 14
+
+    for (const expense of receipt.expenses) {
+      addLine(lines, truncate(expense.description, 58), 48, y)
+      addLine(lines, formatCurrency(expense.amountCents), 450, y)
+      y -= 14
+    }
+    y -= 22
+  }
 
   addLine(lines, 'Resumo financeiro', 48, y, 12, 'F2')
   y -= 18

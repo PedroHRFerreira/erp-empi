@@ -76,6 +76,7 @@ export interface IReceipt {
   notes: string
   paidAt?: string
   items: IReceiptItem[]
+  expenses?: IExpense[]
   createdAt: string
   updatedAt: string
 }
@@ -89,6 +90,8 @@ export type FinancialHealthStatus = 'red' | 'yellow' | 'green'
 
 export interface IExpense {
   id: string
+  receiptId?: string | null
+  receipt?: IReceipt
   description: string
   category: string
   amountCents: number
@@ -101,6 +104,7 @@ export interface IExpense {
 
 export interface IExpenseForm {
   id?: string
+  receiptId?: string | null
   description: string
   category: string
   amountCents: number
@@ -112,6 +116,16 @@ export interface IExpenseCategorySummary {
   category: string
   amountCents: number
   count: number
+}
+
+export interface IReceiptCostSummary {
+  receiptId: string
+  clientName: string
+  vehicleModel: string
+  vehiclePlate: string
+  serviceExpensesCents: number
+  productCostCents: number
+  totalCostCents: number
 }
 
 export interface IFinancialSummary {
@@ -129,6 +143,7 @@ export interface IFinancialSummary {
   netMarginPercent: number
   healthStatus: FinancialHealthStatus
   expensesByCategory: IExpenseCategorySummary[]
+  receiptCosts: IReceiptCostSummary[]
 }
 
 export interface IMetricsSummary {
@@ -147,7 +162,7 @@ export interface IMetricsSummary {
   lastStockItem: { id: string; name: string; quantity: number; usedQuantity: number; createdAt: string } | null
   topProducts: Array<{ id: string; name: string; usedQuantity: number }>
   lowStockProducts: Array<{ id: string; name: string; quantity: number; usedQuantity: number; createdAt: string }>
-  recentClients: Array<{ id: string; name: string; cpf: string; receiptsCount: number; lastReceiptAt: string }>
+  recentClients: Array<{ id: string; name: string; receiptsCount: number; lastReceiptAt: string }>
   pendingReceipts: Array<{ id: string; clientName: string; priceCents: number; status: string; createdAt: string }>
   paidReceipts: Array<{ id: string; clientName: string; priceCents: number; status: string; createdAt: string }>
 }

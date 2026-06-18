@@ -33,7 +33,7 @@ func (repo *ReceiptRepository) UpdateWithTx(tx *gorm.DB, receipt *entities.Recei
 func (repo *ReceiptRepository) List(ctx context.Context, limit int, offset int, status string) ([]entities.Receipt, int64, error) {
 	var receipts []entities.Receipt
 	var total int64
-	query := repo.db.WithContext(ctx).Model(&entities.Receipt{}).Preload("User").Preload("Items.StockItem")
+	query := repo.db.WithContext(ctx).Model(&entities.Receipt{}).Preload("User").Preload("Items.StockItem").Preload("Expenses")
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -49,6 +49,7 @@ func (repo *ReceiptRepository) ListByUserID(ctx context.Context, userID string) 
 	err := repo.db.WithContext(ctx).
 		Preload("User").
 		Preload("Items.StockItem").
+		Preload("Expenses").
 		Where("user_id = ?", userID).
 		Order("created_at desc").
 		Find(&receipts).
@@ -87,7 +88,7 @@ func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDs(ctx context.Cont
 
 func (repo *ReceiptRepository) FindByID(ctx context.Context, id string) (*entities.Receipt, error) {
 	receipt := new(entities.Receipt)
-	err := repo.db.WithContext(ctx).Preload("User").Preload("Items.StockItem").First(receipt, "id = ?", id).Error
+	err := repo.db.WithContext(ctx).Preload("User").Preload("Items.StockItem").Preload("Expenses").First(receipt, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperrors.ErrNotFound
 	}

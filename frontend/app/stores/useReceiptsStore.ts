@@ -2,17 +2,23 @@ import { defineStore } from 'pinia'
 import type { IPaginated, IReceipt } from '../../server/contracts/types'
 import { formatCurrency } from '../utils/format'
 import { receiptWhatsAppMessage, shareReceiptPdf } from '../utils/receiptPdf'
-import { isCpf, isPlate, onlyDigits } from '../utils/validation'
+import { isPlate, onlyDigits } from '../utils/validation'
 import type { IStoreActionResult } from './types'
 
 export type ReceiptPaymentMethod = 'credit_card' | 'debit_card' | 'pix' | 'cash'
 
+export type ReceiptServiceExpenseForm = {
+  description: string
+  category: string
+  amountCents: number
+  spentAt: string
+  notes: string
+}
+
 export type ReceiptForm = {
   client: {
     name: string
-    cpf: string
     phone: string
-    email: string
   }
   vehicleModel: string
   vehicleYear: number
@@ -24,17 +30,20 @@ export type ReceiptForm = {
   installments: number
   notes: string
   items: Array<{ stockItemId: string; quantity: number }>
+  serviceExpenses: ReceiptServiceExpenseForm[]
 }
 
 export const useReceiptsStore = defineStore('receipts', {
   state: () => {
     return {
       receipts: [] as IReceipt[],
+      receiptOptions: [] as IReceipt[],
       total: 0,
       limit: 10,
       offset: 0,
       isLoading: false,
       loading: false,
+      optionsLoading: false,
       error: '',
       fieldErrors: {} as Record<string, string>
     }
@@ -43,13 +52,11 @@ export const useReceiptsStore = defineStore('receipts', {
     validate(form: ReceiptForm): boolean {
       this.fieldErrors = {}
 
-      const clientCpf = onlyDigits(form.client.cpf)
       const clientPhone = onlyDigits(form.client.phone)
 
       if (!form.client.name.trim()) this.fieldErrors['client.name'] = 'Informe o nome do cliente.'
-      if (clientCpf && !isCpf(clientCpf)) this.fieldErrors['client.cpf'] = 'Informe um CPF válido.'
-      if (!clientCpf && !clientPhone) {
-        this.fieldErrors['client.phone'] = 'Informe um telefone quando o CPF não for preenchido.'
+      if (!clientPhone) {
+        this.fieldErrors['client.phone'] = 'Informe o telefone do cliente.'
       }
       if (clientPhone && ![10, 11].includes(clientPhone.length)) {
         this.fieldErrors['client.phone'] = 'Informe um telefone com DDD.'
@@ -67,6 +74,18 @@ export const useReceiptsStore = defineStore('receipts', {
       }
       if (form.items.some((item) => !item.stockItemId || item.quantity <= 0)) {
         this.fieldErrors.items = 'Revise os itens utilizados.'
+      }
+      if (
+        form.serviceExpenses.some((expense) => {
+          return (
+            !expense.description.trim() ||
+            !expense.category.trim() ||
+            expense.amountCents <= 0 ||
+            !expense.spentAt
+          )
+        })
+      ) {
+        this.fieldErrors.serviceExpenses = 'Revise os gastos do serviço.'
       }
 
       this.error = Object.values(this.fieldErrors)[0] || ''
@@ -108,6 +127,21 @@ export const useReceiptsStore = defineStore('receipts', {
         }
       }
     },
+    async loadOptions(): Promise<IStoreActionResult<IReceipt[]>> {
+      this.optionsLoading = true
+      const { data, status } = await useApiFetch<IPaginated<IReceipt>>('/receipts', {
+        query: { limit: 100, offset: 0 }
+      })
+      this.optionsLoading = false
+
+      if (status.value === 'error' || !data.value) {
+        this.error = 'Não foi possível carregar os recibos.'
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      this.receiptOptions = Array.isArray(data.value.data) ? data.value.data : []
+      return { status: 'success', data: this.receiptOptions }
+    },
     async create(form: ReceiptForm): Promise<IStoreActionResult> {
       if (!this.validate(form)) {
         return { status: 'error', errors: this.fieldErrors, message: this.error }
@@ -117,8 +151,7 @@ export const useReceiptsStore = defineStore('receipts', {
         body: {
           ...form,
           client: {
-            ...form.client,
-            cpf: onlyDigits(form.client.cpf),
+            name: form.client.name.trim(),
             phone: onlyDigits(form.client.phone)
           },
           vehiclePlate: form.vehiclePlate.toUpperCase()

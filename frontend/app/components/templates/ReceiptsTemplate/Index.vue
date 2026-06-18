@@ -1,11 +1,9 @@
 <script lang="ts">
 import { Plus } from '@lucide/vue'
-import { computed, defineComponent, ref } from 'vue'
+import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
-import type { ReceiptForm } from '../../../stores/useReceiptsStore'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
 import PaginationControls from '../../molecules/PaginationControls/Index.vue'
-import ReceiptsForm from '../../organisms/ReceiptsForm/Index.vue'
 import ReceiptsTable from '../../organisms/ReceiptsTable/Index.vue'
 import { printReceiptDocument } from '../../../utils/print'
 
@@ -15,28 +13,20 @@ export default defineComponent({
     PageHeader,
     PaginationControls,
     Plus,
-    ReceiptsForm,
     ReceiptsTable
   },
   setup() {
+    const router = useRouter()
     const receipts = useReceiptsStore()
-    const stock = useStockStore()
-    const showForm = ref(false)
     const pages = computed(() => Math.ceil(receipts.total / receipts.limit))
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
 
-    async function createReceipt(form: ReceiptForm) {
-      const result = await receipts.create(form)
-
-      if (result.status === 'success') {
-        showForm.value = false
-      }
-
-      return result
-    }
-
     function printReceipt(receipt: IReceipt) {
       printReceiptDocument(receipt)
+    }
+
+    function startCreate() {
+      return router.push('/receipts/new')
     }
 
     function previousPage() {
@@ -48,15 +38,13 @@ export default defineComponent({
     }
 
     return {
-      createReceipt,
       currentPage,
       nextPage,
       pages,
       previousPage,
       printReceipt,
       receipts,
-      showForm,
-      stock
+      startCreate
     }
   }
 })
@@ -66,21 +54,12 @@ export default defineComponent({
   <section class="page">
     <PageHeader title="Recibos" subtitle="Crie orçamentos, acompanhe pagamentos e baixe produtos do estoque.">
       <template #actions>
-        <button class="button button--primary" type="button" @click="showForm = !showForm">
+        <button class="button button--primary" type="button" @click="startCreate">
           <Plus :size="18" />
           Adicionar
         </button>
       </template>
     </PageHeader>
-
-    <ReceiptsForm
-      v-if="showForm"
-      :error="receipts.error"
-      :field-errors="receipts.fieldErrors"
-      :on-create="createReceipt"
-      :stock-items="stock.items"
-      @clear-field-error="receipts.clearFieldError"
-    />
 
     <ReceiptsTable
       :receipts="receipts.receipts"

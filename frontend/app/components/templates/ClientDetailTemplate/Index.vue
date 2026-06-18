@@ -2,7 +2,7 @@
 import { ArrowLeft, MessageCircle, Printer } from '@lucide/vue'
 import { defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
-import { formatCpf, formatCurrency, formatDateTime } from '../../../utils/format'
+import { formatCurrency, formatDateTime } from '../../../utils/format'
 import { maskPhone } from '../../../utils/masks'
 import { printReceiptDocument } from '../../../utils/print'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
@@ -40,9 +40,12 @@ export default defineComponent({
       return item.unitResaleCents * item.quantity
     }
 
+    function serviceExpensesTotal(receipt: IReceipt) {
+      return receipt.expenses?.reduce((total, expense) => total + expense.amountCents, 0) || 0
+    }
+
     return {
       clients,
-      formatCpf,
       formatCurrency,
       formatDateTime,
       itemTotal,
@@ -50,6 +53,7 @@ export default defineComponent({
       phone,
       printReceiptDocument,
       receipts,
+      serviceExpensesTotal,
       statusLabel
     }
   }
@@ -76,16 +80,8 @@ export default defineComponent({
     <template v-else-if="clients.detail">
       <section class="client-detail__profile panel">
         <div>
-          <span>CPF</span>
-          <strong>{{ clients.detail.client.cpf ? formatCpf(clients.detail.client.cpf) : '-' }}</strong>
-        </div>
-        <div>
           <span>Telefone</span>
           <strong>{{ phone(clients.detail.client.phone) }}</strong>
-        </div>
-        <div>
-          <span>E-mail</span>
-          <strong>{{ clients.detail.client.email || '-' }}</strong>
         </div>
         <div>
           <span>Recibos</span>
@@ -133,6 +129,10 @@ export default defineComponent({
               <div>
                 <span>Produtos</span>
                 <strong>{{ formatCurrency(receipt.productsTotalCents) }}</strong>
+              </div>
+              <div v-if="serviceExpensesTotal(receipt)">
+                <span>Gastos do serviço</span>
+                <strong>{{ formatCurrency(serviceExpensesTotal(receipt)) }}</strong>
               </div>
               <div>
                 <span>Subtotal</span>

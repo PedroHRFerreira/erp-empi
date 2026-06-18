@@ -123,7 +123,8 @@ export const useExpensesStore = defineStore('expenses', {
 
       const summary: IFinancialSummary = {
         ...data.value,
-        expensesByCategory: Array.isArray(data.value.expensesByCategory) ? data.value.expensesByCategory : []
+        expensesByCategory: Array.isArray(data.value.expensesByCategory) ? data.value.expensesByCategory : [],
+        receiptCosts: Array.isArray(data.value.receiptCosts) ? data.value.receiptCosts : []
       }
       this.summary = summary
       this.error = ''

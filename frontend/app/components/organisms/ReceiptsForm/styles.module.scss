@@ -16,6 +16,13 @@
   border-radius: 8px;
 }
 
+.service-expenses {
+  display: grid;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
 .receipt-items__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 140px auto;
@@ -23,7 +30,36 @@
   gap: 12px;
 }
 
-.receipt-items ul {
+.service-expenses__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.service-expenses__header span {
+  color: var(--braip-theme-text-muted);
+  font-weight: 800;
+}
+
+.service-expenses__header strong {
+  color: var(--status-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.service-expenses__form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.8fr) 140px 150px auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.service-expenses__notes {
+  grid-column: 1 / -1;
+}
+
+.receipt-items ul,
+.service-expenses ul {
   display: grid;
   gap: 8px;
   margin: 0;
@@ -31,7 +67,8 @@
   list-style: none;
 }
 
-.receipt-items li {
+.receipt-items li,
+.service-expenses li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -41,19 +78,22 @@
   border-radius: 8px;
 }
 
-.receipt-items li span {
+.receipt-items li span,
+.service-expenses li span {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
 
-.receipt-items li small {
+.receipt-items li small,
+.service-expenses li small {
   color: var(--braip-theme-text-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
-.receipt-items li button {
+.receipt-items li button,
+.service-expenses li button {
   flex: 0 0 auto;
   border: 0;
   color: var(--status-danger);
@@ -69,6 +109,12 @@
 }
 
 .receipt-items--error {
+  border-color: var(--status-danger);
+  padding: 12px;
+  background: var(--status-danger-soft);
+}
+
+.service-expenses--error {
   border-color: var(--status-danger);
   padding: 12px;
   background: var(--status-danger-soft);
@@ -117,7 +163,8 @@
 
 @media (max-width: 980px) {
   .receipts-form,
-  .receipt-items__row {
+  .receipt-items__row,
+  .service-expenses__form {
     grid-template-columns: 1fr;
   }
 }

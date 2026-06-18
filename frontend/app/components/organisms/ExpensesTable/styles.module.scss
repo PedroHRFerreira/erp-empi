@@ -5,7 +5,7 @@
 .expenses-table__head,
 .expenses-table__row {
   display: grid;
-  grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(160px, 0.8fr) 96px;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(130px, 0.7fr) minmax(170px, 0.9fr) minmax(120px, 0.65fr) minmax(140px, 0.75fr) 96px;
   column-gap: 22px;
   align-items: center;
   padding: 14px 16px;

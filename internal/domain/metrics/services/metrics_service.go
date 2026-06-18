@@ -51,7 +51,6 @@ type StockMetric struct {
 type ClientMetric struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
-	CPF           string `json:"cpf"`
 	ReceiptsCount int64  `json:"receiptsCount"`
 	LastReceiptAt string `json:"lastReceiptAt"`
 }
@@ -217,17 +216,16 @@ func (service *MetricsService) loadClientMetrics(ctx context.Context, summary *S
 	type row struct {
 		ID            string
 		Name          string
-		CPF           string
 		ReceiptsCount int64
 		LastReceiptAt *time.Time
 	}
 	var rows []row
 	err := service.db.WithContext(ctx).
 		Table("users").
-		Select("users.id, users.name, users.cpf, COUNT(receipts.id) as receipts_count, MAX(receipts.created_at) as last_receipt_at").
+		Select("users.id, users.name, COUNT(receipts.id) as receipts_count, MAX(receipts.created_at) as last_receipt_at").
 		Joins("LEFT JOIN receipts ON receipts.user_id = users.id").
 		Where("users.type = ?", entities.UserTypeClient).
-		Group("users.id, users.name, users.cpf").
+		Group("users.id, users.name").
 		Order("last_receipt_at desc").
 		Limit(5).
 		Scan(&rows).Error
@@ -242,7 +240,6 @@ func (service *MetricsService) loadClientMetrics(ctx context.Context, summary *S
 		summary.RecentClients = append(summary.RecentClients, ClientMetric{
 			ID:            row.ID,
 			Name:          row.Name,
-			CPF:           row.CPF,
 			ReceiptsCount: row.ReceiptsCount,
 			LastReceiptAt: lastReceiptAt,
 		})
