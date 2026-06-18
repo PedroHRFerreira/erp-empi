@@ -50,6 +50,8 @@ export const useClientsStore = defineStore('clients', {
     },
     async loadDetail(id: string): Promise<IStoreActionResult<IClientDetail>> {
       this.setLoading(true)
+      this.detail = null
+      this.error = ''
       const { data, status } = await useApiFetch<IClientDetail>(`/users/clients/${id}/detail`)
       this.setLoading(false)
 

@@ -24,6 +24,10 @@ export default defineComponent({
       await clients.remove(client.id)
     }
 
+    function openDetail(client: IUser) {
+      return navigateTo(`/clients/${client.id}`)
+    }
+
     function previousPage() {
       return clients.load(clients.offset - clients.limit)
     }
@@ -36,6 +40,7 @@ export default defineComponent({
       clients,
       currentPage,
       nextPage,
+      openDetail,
       pages,
       previousPage,
       remove
@@ -50,7 +55,7 @@ export default defineComponent({
 
     <div v-if="clients.loading" class="panel empty">Carregando clientes...</div>
     <p v-else-if="clients.error" class="form-error">{{ clients.error }}</p>
-    <ClientsList v-else :clients="clients.clients" @remove="remove" />
+    <ClientsList v-else :clients="clients.clients" @open-detail="openDetail" @remove="remove" />
 
     <PaginationControls :current-page="currentPage" :pages="pages" @next="nextPage" @previous="previousPage" />
   </section>

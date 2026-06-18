@@ -4,6 +4,11 @@
 
 .stock-table th,
 .stock-table td {
+  text-align: left;
+}
+
+.stock-table th,
+.stock-table td {
   white-space: nowrap;
 }
 
@@ -14,6 +19,6 @@
 
 .stock-table__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
 }

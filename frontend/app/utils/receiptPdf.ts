@@ -33,8 +33,13 @@ export async function shareReceiptPdf(receipt: IReceipt) {
   }
 
   if (navigator.canShare?.(shareData)) {
-    await navigator.share(shareData)
-    return true
+    try {
+      await navigator.share(shareData)
+      return true
+    } catch {
+      downloadReceiptPdf(file)
+      return false
+    }
   }
 
   downloadReceiptPdf(file)

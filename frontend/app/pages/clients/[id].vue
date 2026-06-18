@@ -1,26 +1,33 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-import ClientDetailTemplate from '../../components/templates/ClientDetailTemplate/Index.vue'
+import { defineComponent, watch } from "vue";
+import ClientDetailTemplate from "../../components/templates/ClientDetailTemplate/Index.vue";
 
 export default defineComponent({
-  name: 'ClientDetailPage',
+  name: "ClientDetailPage",
   components: {
-    ClientDetailTemplate
+    ClientDetailTemplate,
   },
-  async setup() {
-    const route = useRoute()
-    const clients = useClientsStore()
-    await clients.loadDetail(String(route.params.id))
+  setup() {
+    const route = useRoute();
+    const clients = useClientsStore();
 
-    return {}
-  }
-})
+    watch(
+      () => route.params.id,
+      (id) => {
+        if (!id) {
+          return;
+        }
+
+        void clients.loadDetail(String(id));
+      },
+      { immediate: true },
+    );
+
+    return {};
+  },
+});
 </script>
 
 <template>
   <ClientDetailTemplate />
 </template>
-
-<style scoped lang="scss">
-@use "../styles.module.scss";
-</style>

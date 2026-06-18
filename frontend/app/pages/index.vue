@@ -1,25 +1,21 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-import MetricsTemplate from '../components/templates/MetricsTemplate/Index.vue'
+import { defineComponent } from "vue";
+import MetricsTemplate from "../components/templates/MetricsTemplate/Index.vue";
 
 export default defineComponent({
-  name: 'MetricsPage',
+  name: "MetricsPage",
   components: {
-    MetricsTemplate
+    MetricsTemplate,
   },
   async setup() {
-    const metrics = useMetricsStore()
-    await metrics.load()
+    const metrics = useMetricsStore();
+    await metrics.load();
 
-    return {}
-  }
-})
+    return {};
+  },
+});
 </script>
 
 <template>
   <MetricsTemplate />
 </template>
-
-<style scoped lang="scss">
-@use "styles.module.scss";
-</style>

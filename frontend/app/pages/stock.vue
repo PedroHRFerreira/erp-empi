@@ -1,25 +1,21 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-import StockTemplate from '../components/templates/StockTemplate/Index.vue'
+import { defineComponent } from "vue";
+import StockTemplate from "../components/templates/StockTemplate/Index.vue";
 
 export default defineComponent({
-  name: 'StockPage',
+  name: "StockPage",
   components: {
-    StockTemplate
+    StockTemplate,
   },
   async setup() {
-    const stock = useStockStore()
-    await stock.load()
+    const stock = useStockStore();
+    await stock.load();
 
-    return {}
-  }
-})
+    return {};
+  },
+});
 </script>
 
 <template>
   <StockTemplate />
 </template>
-
-<style scoped lang="scss">
-@use "styles.module.scss";
-</style>

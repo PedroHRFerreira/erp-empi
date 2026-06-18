@@ -158,10 +158,19 @@ export const useReceiptsStore = defineStore('receipts', {
     },
     async shareWhatsApp(receipt: IReceipt) {
       const text = receiptWhatsAppMessage(receipt)
-      const shared = await shareReceiptPdf(receipt)
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
+      const whatsappWindow = window.open(whatsappUrl, '_blank')
 
-      if (!shared) {
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+      if (whatsappWindow) {
+        whatsappWindow.opener = null
+      } else {
+        window.location.href = whatsappUrl
+      }
+
+      try {
+        await shareReceiptPdf(receipt)
+      } catch {
+        this.error = 'Não foi possível gerar o PDF do recibo.'
       }
     },
     async copyInstagramText(receipt: IReceipt) {

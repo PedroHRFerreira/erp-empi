@@ -3,6 +3,11 @@
   min-width: 860px;
 }
 
+.clients-list th,
+.clients-list td {
+  text-align: left;
+}
+
 .clients-list th:nth-child(1) {
   width: 24%;
 }
@@ -27,8 +32,11 @@
 }
 
 .clients-list__name {
+  display: inline-flex;
+  max-width: 100%;
   color: var(--braip-brand-primary);
   font-weight: 800;
+  line-height: 1.25;
   text-decoration: none;
 }
 
@@ -36,7 +44,8 @@
   text-decoration: underline;
 }
 
-.clients-list__actions-heading,
-.clients-list__actions-cell {
-  text-align: right;
+.clients-list__actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
 }

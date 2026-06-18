@@ -6,29 +6,31 @@
 .receipts-list__row {
   display: grid;
   grid-template-columns:
-    minmax(140px, 1.2fr)
-    minmax(140px, 1.1fr)
-    minmax(120px, 0.8fr)
-    minmax(130px, 0.85fr)
-    minmax(150px, 0.95fr)
-    minmax(100px, 0.65fr)
-    176px;
-  gap: 14px;
+    minmax(150px, 1.25fr)
+    minmax(150px, 1.15fr)
+    minmax(120px, 0.85fr)
+    minmax(135px, 0.95fr)
+    minmax(155px, 1fr)
+    minmax(110px, 0.75fr)
+    184px;
+  gap: 18px;
   align-items: center;
 }
 
 .receipts-list__head {
-  padding: 14px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--braip-theme-border);
   color: var(--braip-theme-text-muted);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
   text-transform: uppercase;
 }
 
 .receipts-list__row {
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--braip-theme-border);
 }
 
@@ -40,6 +42,8 @@
   display: grid;
   min-width: 0;
   gap: 3px;
+  justify-items: start;
+  text-align: left;
 }
 
 .receipts-list__cell strong {
@@ -61,19 +65,13 @@
   display: none;
 }
 
-.receipts-list__cell--money,
-.receipts-list__cell--status {
-  justify-items: end;
-  text-align: right;
-}
-
 .receipts-list__cell--money strong {
   font-variant-numeric: tabular-nums;
 }
 
 .receipts-list__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -84,7 +82,7 @@
 
   .receipts-list__head,
   .receipts-list__row {
-    min-width: 1060px;
+    min-width: 1090px;
   }
 }
 
@@ -121,12 +119,6 @@
   .receipts-list__cell--client,
   .receipts-list__actions {
     grid-column: 1 / -1;
-  }
-
-  .receipts-list__cell--money,
-  .receipts-list__cell--status {
-    justify-items: start;
-    text-align: left;
   }
 
   .receipts-list__actions {

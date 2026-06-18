@@ -13,7 +13,3 @@ export default defineComponent({
 <template>
   <ProfileTemplate />
 </template>
-
-<style scoped lang="scss">
-@use "styles.module.scss";
-</style>

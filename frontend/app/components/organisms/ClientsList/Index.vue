@@ -20,8 +20,12 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['remove'],
+  emits: ['open-detail', 'remove'],
   setup(_, { emit }) {
+    function openDetail(client: IUser) {
+      emit('open-detail', client)
+    }
+
     function remove(client: IUser) {
       emit('remove', client)
     }
@@ -33,6 +37,7 @@ export default defineComponent({
     return {
       clientPhone,
       formatCpf,
+      openDetail,
       remove
     }
   }
@@ -54,17 +59,19 @@ export default defineComponent({
       <tbody>
         <tr v-for="client in clients" :key="client.id">
           <td>
-            <NuxtLink class="clients-list__name" :to="`/clients/${client.id}`">
+            <a class="clients-list__name" :href="`/clients/${client.id}`" @click.prevent="openDetail(client)">
               {{ client.name }}
-            </NuxtLink>
+            </a>
           </td>
           <td>{{ client.cpf ? formatCpf(client.cpf) : '-' }}</td>
           <td>{{ clientPhone(client.phone) }}</td>
           <td>{{ client.email || '-' }}</td>
-          <td class="clients-list__actions-cell">
-            <IconActionButton title="Remover" variant="danger" @click="remove(client)">
-              <Trash2 :size="16" />
-            </IconActionButton>
+          <td>
+            <div class="clients-list__actions">
+              <IconActionButton title="Remover" variant="danger" @click="remove(client)">
+                <Trash2 :size="16" />
+              </IconActionButton>
+            </div>
           </td>
         </tr>
       </tbody>
