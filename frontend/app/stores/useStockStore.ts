@@ -30,7 +30,7 @@ export const useStockStore = defineStore('stock', {
 
       if (!form.name.trim()) this.fieldErrors.name = 'Informe o produto.'
       if (form.costCents <= 0) this.fieldErrors.costCents = 'Informe um custo válido.'
-      if (form.markupPercent < 0) this.fieldErrors.markupPercent = 'Markup não pode ser negativo.'
+      if (form.markupPercent < 0) this.fieldErrors.markupPercent = 'Margem de revenda não pode ser negativa.'
       if (form.quantity < 0) this.fieldErrors.quantity = 'Quantidade não pode ser negativa.'
 
       this.error = Object.values(this.fieldErrors)[0] || ''

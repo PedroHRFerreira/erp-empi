@@ -15,6 +15,7 @@ function emptyUser(): IUser {
     phone: '',
     markupPercent: 0,
     machineFeePercent: 0,
+    installmentFeePercent: 0,
     address: '',
     notes: '',
     createdAt: '',
@@ -66,7 +67,7 @@ export default defineComponent({
 
 <template>
   <section class="page">
-    <PageHeader title="Perfil" subtitle="Dados do administrador e markup padrão da oficina." />
+    <PageHeader title="Perfil" subtitle="Dados do administrador, margem de revenda e juros de cartão." />
 
     <ProfileForm
       :error="profile.error"

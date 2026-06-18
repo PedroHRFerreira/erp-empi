@@ -30,13 +30,14 @@ type DatabaseConfig struct {
 }
 
 type AdminConfig struct {
-	Name              string  `mapstructure:"name"`
-	CPF               string  `mapstructure:"cpf"`
-	Password          string  `mapstructure:"password"`
-	Email             string  `mapstructure:"email"`
-	Phone             string  `mapstructure:"phone"`
-	MarkupPercent     float64 `mapstructure:"markupPercent"`
-	MachineFeePercent float64 `mapstructure:"machineFeePercent"`
+	Name                  string  `mapstructure:"name"`
+	CPF                   string  `mapstructure:"cpf"`
+	Password              string  `mapstructure:"password"`
+	Email                 string  `mapstructure:"email"`
+	Phone                 string  `mapstructure:"phone"`
+	MarkupPercent         float64 `mapstructure:"markupPercent"`
+	MachineFeePercent     float64 `mapstructure:"machineFeePercent"`
+	InstallmentFeePercent float64 `mapstructure:"installmentFeePercent"`
 }
 
 func Load() (*Config, error) {
@@ -54,6 +55,7 @@ func Load() (*Config, error) {
 	v.SetDefault("jwt.refreshTTLHours", 168)
 	v.SetDefault("admin.markupPercent", 10)
 	v.SetDefault("admin.machineFeePercent", 0)
+	v.SetDefault("admin.installmentFeePercent", 0)
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, err

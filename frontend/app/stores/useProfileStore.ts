@@ -21,8 +21,11 @@ export const useProfileStore = defineStore('profile', {
       if (user.phone && ![10, 11].includes(onlyDigits(user.phone).length)) {
         this.fieldErrors.phone = 'Informe um telefone com DDD.'
       }
-      if ((user.markupPercent || 0) < 0) this.fieldErrors.markupPercent = 'Markup não pode ser negativo.'
+      if ((user.markupPercent || 0) < 0) this.fieldErrors.markupPercent = 'Margem de revenda não pode ser negativa.'
       if ((user.machineFeePercent || 0) < 0) this.fieldErrors.machineFeePercent = 'Juros da maquininha não pode ser negativo.'
+      if ((user.installmentFeePercent || 0) < 0) {
+        this.fieldErrors.installmentFeePercent = 'Juros de parcelamento não pode ser negativo.'
+      }
 
       this.error = Object.values(this.fieldErrors)[0] || ''
       return Object.keys(this.fieldErrors).length === 0

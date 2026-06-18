@@ -19,25 +19,27 @@ type UserService struct {
 }
 
 type UpsertClientInput struct {
-	Name              string  `json:"name"`
-	CPF               string  `json:"cpf"`
-	Phone             string  `json:"phone"`
-	Email             string  `json:"email"`
-	Address           string  `json:"address"`
-	Notes             string  `json:"notes"`
-	MarkupPercent     float64 `json:"markupPercent"`
-	MachineFeePercent float64 `json:"machineFeePercent"`
+	Name                  string  `json:"name"`
+	CPF                   string  `json:"cpf"`
+	Phone                 string  `json:"phone"`
+	Email                 string  `json:"email"`
+	Address               string  `json:"address"`
+	Notes                 string  `json:"notes"`
+	MarkupPercent         float64 `json:"markupPercent"`
+	MachineFeePercent     float64 `json:"machineFeePercent"`
+	InstallmentFeePercent float64 `json:"installmentFeePercent"`
 }
 
 type UpdateProfileInput struct {
-	Name              string  `json:"name"`
-	CPF               string  `json:"cpf"`
-	Phone             string  `json:"phone"`
-	Email             string  `json:"email"`
-	Address           string  `json:"address"`
-	Notes             string  `json:"notes"`
-	MarkupPercent     float64 `json:"markupPercent"`
-	MachineFeePercent float64 `json:"machineFeePercent"`
+	Name                  string  `json:"name"`
+	CPF                   string  `json:"cpf"`
+	Phone                 string  `json:"phone"`
+	Email                 string  `json:"email"`
+	Address               string  `json:"address"`
+	Notes                 string  `json:"notes"`
+	MarkupPercent         float64 `json:"markupPercent"`
+	MachineFeePercent     float64 `json:"machineFeePercent"`
+	InstallmentFeePercent float64 `json:"installmentFeePercent"`
 }
 
 func NewUserService(repo *repositories.UserRepository) *UserService {
@@ -61,6 +63,7 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 		existing.Phone = validation.OnlyDigits(admin.Phone)
 		existing.MarkupPercent = fallbackFloat(admin.MarkupPercent, 10)
 		existing.MachineFeePercent = admin.MachineFeePercent
+		existing.InstallmentFeePercent = admin.InstallmentFeePercent
 		return service.repo.Update(ctx, existing)
 	}
 	if !errors.Is(err, apperrors.ErrNotFound) {
@@ -71,14 +74,15 @@ func (service *UserService) SeedAdmin(ctx context.Context, admin config.AdminCon
 		return err
 	}
 	user := &entities.User{
-		Name:              fallback(admin.Name, "Administrador EMPI"),
-		CPF:               cpf,
-		PasswordHash:      &hash,
-		Type:              entities.UserTypeAdmin,
-		Email:             admin.Email,
-		Phone:             validation.OnlyDigits(admin.Phone),
-		MarkupPercent:     fallbackFloat(admin.MarkupPercent, 10),
-		MachineFeePercent: admin.MachineFeePercent,
+		Name:                  fallback(admin.Name, "Administrador EMPI"),
+		CPF:                   cpf,
+		PasswordHash:          &hash,
+		Type:                  entities.UserTypeAdmin,
+		Email:                 admin.Email,
+		Phone:                 validation.OnlyDigits(admin.Phone),
+		MarkupPercent:         fallbackFloat(admin.MarkupPercent, 10),
+		MachineFeePercent:     admin.MachineFeePercent,
+		InstallmentFeePercent: admin.InstallmentFeePercent,
 	}
 	return service.repo.Create(ctx, user)
 }
@@ -147,7 +151,7 @@ func (service *UserService) UpdateProfile(ctx context.Context, userID string, in
 		return nil, apperrors.ErrForbidden
 	}
 	cpf := validation.OnlyDigits(input.CPF)
-	if strings.TrimSpace(input.Name) == "" || !validation.IsCPF(cpf) || input.MarkupPercent < 0 || input.MachineFeePercent < 0 {
+	if strings.TrimSpace(input.Name) == "" || !validation.IsCPF(cpf) || input.MarkupPercent < 0 || input.MachineFeePercent < 0 || input.InstallmentFeePercent < 0 {
 		return nil, apperrors.ErrInvalidInput
 	}
 	user.Name = strings.TrimSpace(input.Name)
@@ -158,6 +162,7 @@ func (service *UserService) UpdateProfile(ctx context.Context, userID string, in
 	user.Notes = strings.TrimSpace(input.Notes)
 	user.MarkupPercent = input.MarkupPercent
 	user.MachineFeePercent = input.MachineFeePercent
+	user.InstallmentFeePercent = input.InstallmentFeePercent
 	return user, service.repo.Update(ctx, user)
 }
 

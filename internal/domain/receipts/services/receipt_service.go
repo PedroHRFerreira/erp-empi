@@ -115,12 +115,8 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	subtotalCents := laborPriceCents + productsTotalCents
 	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
 	installments := normalizeInstallments(paymentMethod, input.Installments)
-	cardFeePercent := float64(0)
-	cardFeeCents := int64(0)
-	if paymentMethod == entities.PaymentMethodCreditCard {
-		cardFeePercent = admin.MachineFeePercent
-		cardFeeCents = calculatePercentCents(subtotalCents, cardFeePercent)
-	}
+	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin)
+	cardFeeCents := calculatePercentCents(subtotalCents, cardFeePercent)
 	totalCents := subtotalCents + cardFeeCents
 
 	receipt := &entities.Receipt{
@@ -246,4 +242,18 @@ func calculatePercentCents(value int64, percent float64) int64 {
 		return 0
 	}
 	return int64(float64(value) * (percent / 100))
+}
+
+func selectCardFeePercent(method entities.PaymentMethod, installments int, admin *entities.User) float64 {
+	switch method {
+	case entities.PaymentMethodDebitCard:
+		return admin.MachineFeePercent
+	case entities.PaymentMethodCreditCard:
+		if installments > 1 {
+			return admin.InstallmentFeePercent
+		}
+		return admin.MachineFeePercent
+	default:
+		return 0
+	}
 }

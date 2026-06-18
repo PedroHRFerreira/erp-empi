@@ -68,9 +68,21 @@ export default defineComponent({
     })
     const subtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value)
     const machineFeePercent = computed(() => Number(auth.user?.machineFeePercent || 0))
+    const installmentFeePercent = computed(() => Number(auth.user?.installmentFeePercent || 0))
+    const isCardPayment = computed(() => {
+      return form.paymentMethod === 'credit_card' || form.paymentMethod === 'debit_card'
+    })
+    const activeCardFeePercent = computed(() => {
+      return cardFeePercentFor(form.paymentMethod, form.installments || 1)
+    })
+    const activeCardFeeLabel = computed(() => {
+      if (form.paymentMethod === 'credit_card' && (form.installments || 1) > 1) {
+        return 'Juros de parcelamento'
+      }
+      return 'Juros da maquininha'
+    })
     const cardFeeCents = computed(() => {
-      if (form.paymentMethod !== 'credit_card' || machineFeePercent.value <= 0) return 0
-      return Math.trunc(subtotalCents.value * (machineFeePercent.value / 100))
+      return calculateFeeCents(subtotalCents.value, activeCardFeePercent.value)
     })
     const totalCents = computed(() => subtotalCents.value + cardFeeCents.value)
     const installmentValueCents = computed(() => {
@@ -92,6 +104,28 @@ export default defineComponent({
 
     function itemUnitCents(id: string) {
       return stockItemById(id)?.resalePriceCents || 0
+    }
+
+    function cardFeePercentFor(paymentMethod: ReceiptForm['paymentMethod'], installments: number) {
+      if (paymentMethod === 'debit_card') return machineFeePercent.value
+      if (paymentMethod === 'credit_card') {
+        return installments > 1 ? installmentFeePercent.value : machineFeePercent.value
+      }
+      return 0
+    }
+
+    function calculateFeeCents(value: number, percent: number) {
+      if (percent <= 0) return 0
+      return Math.trunc(value * (percent / 100))
+    }
+
+    function totalCentsForInstallment(installments: number) {
+      const percent = cardFeePercentFor('credit_card', installments)
+      return subtotalCents.value + calculateFeeCents(subtotalCents.value, percent)
+    }
+
+    function installmentValueFor(installments: number) {
+      return Math.ceil(totalCentsForInstallment(installments) / installments)
     }
 
     function clearFieldError(field: string) {
@@ -192,6 +226,8 @@ export default defineComponent({
 
     return {
       addItem,
+      activeCardFeeLabel,
+      activeCardFeePercent,
       availableQuantity,
       cardFeeCents,
       clearFieldError,
@@ -201,6 +237,8 @@ export default defineComponent({
       formatCurrency,
       installmentOptions,
       installmentValueCents,
+      installmentValueFor,
+      isCardPayment,
       itemTotalCents,
       itemUnitCents,
       itemError,
@@ -289,7 +327,7 @@ export default defineComponent({
       <span>Parcelas</span>
       <select v-model.number="form.installments" :disabled="form.paymentMethod !== 'credit_card'" @change="clearFieldError('installments')">
         <option v-for="installment in installmentOptions" :key="installment" :value="installment">
-          {{ installment }}x de {{ formatCurrency(Math.ceil(totalCents / installment)) }}
+          {{ installment }}x de {{ formatCurrency(installmentValueFor(installment)) }}
         </option>
       </select>
       <small v-if="fieldErrors.installments" class="field__error">{{ fieldErrors.installments }}</small>
@@ -357,8 +395,8 @@ export default defineComponent({
         <span>Subtotal</span>
         <strong>{{ formatCurrency(subtotalCents) }}</strong>
       </div>
-      <div v-if="form.paymentMethod === 'credit_card'">
-        <span>Juros da maquininha ({{ machineFeePercent }}%)</span>
+      <div v-if="isCardPayment">
+        <span>{{ activeCardFeeLabel }} ({{ activeCardFeePercent }}%)</span>
         <strong>{{ formatCurrency(cardFeeCents) }}</strong>
       </div>
       <div class="receipt-summary__total">

@@ -111,7 +111,7 @@ export default defineComponent({
 
 <template>
   <section class="page">
-    <PageHeader title="Estoque" subtitle="Controle produtos, markup de revenda e uso em recibos.">
+    <PageHeader title="Estoque" subtitle="Controle produtos, margem de revenda e uso em recibos.">
       <template #actions>
         <StockToolbar @add="startCreate" @export="stock.exportCsv" @print="printStock" />
       </template>

@@ -10,6 +10,7 @@ export const loginResponseMock: ILoginResponse = {
     phone: '33987351922',
     markupPercent: 10,
     machineFeePercent: 0,
+    installmentFeePercent: 0,
     address: '',
     notes: '',
     createdAt: '2026-06-16T00:00:00Z',

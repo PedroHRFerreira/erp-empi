@@ -36,7 +36,7 @@ func TestMarkPaidDecreasesStockOnce(t *testing.T) {
 	userService := userservices.NewUserService(userRepo)
 	stockService := stockservices.NewStockService(stockRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	admin := createAdmin(t, ctx, userRepo, 0)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
 
 	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
 		Name:          "Filtro de oleo",
@@ -103,7 +103,7 @@ func TestCreateRejectsQuantityAboveStock(t *testing.T) {
 	userService := userservices.NewUserService(userRepo)
 	stockService := stockservices.NewStockService(stockRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	admin := createAdmin(t, ctx, userRepo, 0)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
 
 	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
 		Name:          "Pastilha de freio",
@@ -153,7 +153,7 @@ func TestCreateRejectsReservedPendingStock(t *testing.T) {
 	userService := userservices.NewUserService(userRepo)
 	stockService := stockservices.NewStockService(stockRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	admin := createAdmin(t, ctx, userRepo, 0)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
 
 	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
 		Name:          "Oleo unico",
@@ -191,7 +191,7 @@ func TestCreateRejectsReservedPendingStock(t *testing.T) {
 	}
 }
 
-func TestCreateCalculatesReceiptTotalsWithCreditCardFee(t *testing.T) {
+func TestCreateCalculatesReceiptTotalsWithInstallmentFee(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -209,7 +209,7 @@ func TestCreateCalculatesReceiptTotalsWithCreditCardFee(t *testing.T) {
 	userService := userservices.NewUserService(userRepo)
 	stockService := stockservices.NewStockService(stockRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	admin := createAdmin(t, ctx, userRepo, 5)
+	admin := createAdmin(t, ctx, userRepo, 5, 8)
 
 	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
 		Name:          "Oleo",
@@ -247,26 +247,164 @@ func TestCreateCalculatesReceiptTotalsWithCreditCardFee(t *testing.T) {
 	if receipt.SubtotalCents != 17700 {
 		t.Fatalf("expected subtotal 17700, got %d", receipt.SubtotalCents)
 	}
-	if receipt.CardFeeCents != 885 {
-		t.Fatalf("expected card fee 885, got %d", receipt.CardFeeCents)
+	if receipt.CardFeeCents != 1416 {
+		t.Fatalf("expected card fee 1416, got %d", receipt.CardFeeCents)
 	}
-	if receipt.PriceCents != 18585 {
-		t.Fatalf("expected total 18585, got %d", receipt.PriceCents)
+	if receipt.PriceCents != 19116 {
+		t.Fatalf("expected total 19116, got %d", receipt.PriceCents)
 	}
 	if receipt.Installments != 3 {
 		t.Fatalf("expected 3 installments, got %d", receipt.Installments)
 	}
 }
 
-func createAdmin(t *testing.T, ctx context.Context, repo *userrepos.UserRepository, machineFeePercent float64) *entities.User {
+func TestCreateSelectsSingleCardFeeByPaymentMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		paymentMethod      entities.PaymentMethod
+		installments       int
+		expectedFeePercent float64
+		expectedFeeCents   int64
+		expectedTotalCents int64
+	}{
+		{
+			name:               "debit uses machine fee",
+			paymentMethod:      entities.PaymentMethodDebitCard,
+			installments:       1,
+			expectedFeePercent: 5,
+			expectedFeeCents:   750,
+			expectedTotalCents: 15750,
+		},
+		{
+			name:               "credit in one installment uses machine fee",
+			paymentMethod:      entities.PaymentMethodCreditCard,
+			installments:       1,
+			expectedFeePercent: 5,
+			expectedFeeCents:   750,
+			expectedTotalCents: 15750,
+		},
+		{
+			name:               "credit in multiple installments uses installment fee",
+			paymentMethod:      entities.PaymentMethodCreditCard,
+			installments:       4,
+			expectedFeePercent: 8,
+			expectedFeeCents:   1200,
+			expectedTotalCents: 16200,
+		},
+		{
+			name:               "pix has no card fee",
+			paymentMethod:      entities.PaymentMethodPix,
+			installments:       1,
+			expectedFeePercent: 0,
+			expectedFeeCents:   0,
+			expectedTotalCents: 15000,
+		},
+		{
+			name:               "cash has no card fee",
+			paymentMethod:      entities.PaymentMethodCash,
+			installments:       1,
+			expectedFeePercent: 0,
+			expectedFeeCents:   0,
+			expectedTotalCents: 15000,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			receipt := createReceiptForFeeTest(t, test.paymentMethod, test.installments, 5, 8)
+
+			if receipt.CardFeePercent != test.expectedFeePercent {
+				t.Fatalf("expected fee percent %.2f, got %.2f", test.expectedFeePercent, receipt.CardFeePercent)
+			}
+			if receipt.CardFeeCents != test.expectedFeeCents {
+				t.Fatalf("expected fee cents %d, got %d", test.expectedFeeCents, receipt.CardFeeCents)
+			}
+			if receipt.PriceCents != test.expectedTotalCents {
+				t.Fatalf("expected total %d, got %d", test.expectedTotalCents, receipt.PriceCents)
+			}
+		})
+	}
+}
+
+func createReceiptForFeeTest(
+	t *testing.T,
+	paymentMethod entities.PaymentMethod,
+	installments int,
+	machineFeePercent float64,
+	installmentFeePercent float64,
+) *entities.Receipt {
+	t.Helper()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, machineFeePercent, installmentFeePercent)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Filtro",
+		CostCents:     5000,
+		MarkupPercent: 0,
+		Quantity:      10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Taxa",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		PaymentMethod:   paymentMethod,
+		Installments:    installments,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return receipt
+}
+
+func createAdmin(
+	t *testing.T,
+	ctx context.Context,
+	repo *userrepos.UserRepository,
+	machineFeePercent float64,
+	installmentFeePercent float64,
+) *entities.User {
 	t.Helper()
 
 	admin := &entities.User{
-		Name:              "Admin",
-		CPF:               "52998224725",
-		Type:              entities.UserTypeAdmin,
-		MarkupPercent:     10,
-		MachineFeePercent: machineFeePercent,
+		Name:                  "Admin",
+		CPF:                   "52998224725",
+		Type:                  entities.UserTypeAdmin,
+		MarkupPercent:         10,
+		MachineFeePercent:     machineFeePercent,
+		InstallmentFeePercent: installmentFeePercent,
 	}
 	if err := repo.Create(ctx, admin); err != nil {
 		t.Fatal(err)

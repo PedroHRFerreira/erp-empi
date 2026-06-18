@@ -87,7 +87,7 @@ export default defineComponent({
     </label>
 
     <label class="field" :class="{ 'field--error': fieldErrors.markupPercent }">
-      <span>Markup acima do produto (%)</span>
+      <span>Margem de revenda padrão (%)</span>
       <input v-model.number="form.markupPercent" min="0" step="0.1" type="number" @input="clearFieldError('markupPercent')" />
       <small v-if="!fieldErrors.markupPercent" class="field__hint">Usado como padrão ao adicionar novos produtos no estoque.</small>
       <small v-if="fieldErrors.markupPercent" class="field__error">{{ fieldErrors.markupPercent }}</small>
@@ -96,8 +96,21 @@ export default defineComponent({
     <label class="field" :class="{ 'field--error': fieldErrors.machineFeePercent }">
       <span>Juros da maquininha (%)</span>
       <input v-model.number="form.machineFeePercent" min="0" step="0.1" type="number" @input="clearFieldError('machineFeePercent')" />
-      <small v-if="!fieldErrors.machineFeePercent" class="field__hint">Aplicado ao total quando o recibo for pago no cartão de crédito.</small>
+      <small v-if="!fieldErrors.machineFeePercent" class="field__hint">Aplicado ao débito e ao crédito à vista.</small>
       <small v-if="fieldErrors.machineFeePercent" class="field__error">{{ fieldErrors.machineFeePercent }}</small>
+    </label>
+
+    <label class="field" :class="{ 'field--error': fieldErrors.installmentFeePercent }">
+      <span>Juros de parcelamento (%)</span>
+      <input
+        v-model.number="form.installmentFeePercent"
+        min="0"
+        step="0.1"
+        type="number"
+        @input="clearFieldError('installmentFeePercent')"
+      />
+      <small v-if="!fieldErrors.installmentFeePercent" class="field__hint">Aplicado ao crédito em 2x ou mais.</small>
+      <small v-if="fieldErrors.installmentFeePercent" class="field__error">{{ fieldErrors.installmentFeePercent }}</small>
     </label>
 
     <label class="field profile-form__wide">

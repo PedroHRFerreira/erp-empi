@@ -7,6 +7,7 @@ export interface IUser {
   phone: string
   markupPercent: number
   machineFeePercent: number
+  installmentFeePercent: number
   address: string
   notes: string
   archivedAt?: string

@@ -8,6 +8,7 @@ CREATE TABLE users (
   phone VARCHAR(20),
   markup_percent NUMERIC NOT NULL DEFAULT 10,
   machine_fee_percent NUMERIC NOT NULL DEFAULT 0,
+  installment_fee_percent NUMERIC NOT NULL DEFAULT 0,
   address VARCHAR(255),
   notes VARCHAR(500),
   archived_at TIMESTAMP,

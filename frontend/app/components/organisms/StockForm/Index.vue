@@ -63,7 +63,7 @@ export default defineComponent({
     </label>
 
     <label class="field" :class="{ 'field--error': fieldErrors.markupPercent }">
-      <span>Markup (%)</span>
+      <span>Margem de revenda (%)</span>
       <input v-model.number="form.markupPercent" required type="number" min="0" step="0.1" @input="clearFieldError('markupPercent')" />
       <small v-if="fieldErrors.markupPercent" class="field__error">{{ fieldErrors.markupPercent }}</small>
     </label>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	"github.com/empi-autocenter/erp-empi/internal/domain/users/repositories"
 	userservices "github.com/empi-autocenter/erp-empi/internal/domain/users/services"
 	"github.com/empi-autocenter/erp-empi/internal/infra/database"
@@ -177,5 +178,48 @@ func TestArchiveClientHidesAndAnonymizesClient(t *testing.T) {
 	}
 	if total != 0 || len(clients) != 0 {
 		t.Fatalf("expected archived client to be hidden, got total %d and len %d", total, len(clients))
+	}
+}
+
+func TestUpdateProfileSavesCardFees(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := repositories.NewUserRepository(db)
+	userService := userservices.NewUserService(repo)
+	admin := &entities.User{
+		Name:          "Admin",
+		CPF:           "52998224725",
+		Type:          entities.UserTypeAdmin,
+		MarkupPercent: 10,
+	}
+	if err := repo.Create(ctx, admin); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := userService.UpdateProfile(ctx, admin.ID, userservices.UpdateProfileInput{
+		Name:                  "Admin Atualizado",
+		CPF:                   "52998224725",
+		MarkupPercent:         12,
+		MachineFeePercent:     4.5,
+		InstallmentFeePercent: 8.25,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if updated.MachineFeePercent != 4.5 {
+		t.Fatalf("expected machine fee 4.5, got %.2f", updated.MachineFeePercent)
+	}
+	if updated.InstallmentFeePercent != 8.25 {
+		t.Fatalf("expected installment fee 8.25, got %.2f", updated.InstallmentFeePercent)
 	}
 }

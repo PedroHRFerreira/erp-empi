@@ -47,7 +47,7 @@ pnpm --dir frontend dev
 - Estoque paginado, com adicionar, editar, inativar, CSV/Excel e impressao/PDF.
 - Ao marcar recibo como pago, o estoque e baixado uma unica vez.
 - Metricas calculadas a partir de users, receipts e stock_items.
-- Perfil do admin com markup percentual.
+- Perfil do admin com margem de revenda e juros de cartão.
 
 ## Validacao
 
