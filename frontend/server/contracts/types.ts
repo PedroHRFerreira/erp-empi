@@ -85,6 +85,52 @@ export interface IClientDetail {
   receipts: IReceipt[]
 }
 
+export type FinancialHealthStatus = 'red' | 'yellow' | 'green'
+
+export interface IExpense {
+  id: string
+  description: string
+  category: string
+  amountCents: number
+  spentAt: string
+  notes: string
+  archivedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IExpenseForm {
+  id?: string
+  description: string
+  category: string
+  amountCents: number
+  spentAt: string
+  notes: string
+}
+
+export interface IExpenseCategorySummary {
+  category: string
+  amountCents: number
+  count: number
+}
+
+export interface IFinancialSummary {
+  startDate: string
+  endDate: string
+  paidReceiptsCount: number
+  expensesCount: number
+  revenuePaidCents: number
+  productCostCents: number
+  cardFeesCents: number
+  grossProfitCents: number
+  operationalExpensesCents: number
+  operationalProfitCents: number
+  netProfitCents: number
+  netMarginPercent: number
+  healthStatus: FinancialHealthStatus
+  expensesByCategory: IExpenseCategorySummary[]
+}
+
 export interface IMetricsSummary {
   clientsTotal: number
   receiptsTotal: number

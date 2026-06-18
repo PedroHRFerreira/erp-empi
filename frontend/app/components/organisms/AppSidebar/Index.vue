@@ -1,5 +1,5 @@
 <script lang="ts">
-import { BarChart3, Boxes, FileText, LogOut, UserRound, UsersRound } from '@lucide/vue'
+import { BarChart3, Boxes, CircleDollarSign, FileText, LogOut, UserRound, UsersRound } from '@lucide/vue'
 import { defineComponent } from 'vue'
 import BrandMark from '../../atoms/BrandMark/Index.vue'
 
@@ -10,6 +10,7 @@ export default defineComponent({
     Boxes,
     BrandMark,
     FileText,
+    CircleDollarSign,
     LogOut,
     UserRound,
     UsersRound
@@ -20,6 +21,7 @@ export default defineComponent({
       { to: '/', label: 'Métricas', icon: BarChart3 },
       { to: '/receipts', label: 'Recibos', icon: FileText },
       { to: '/clients', label: 'Clientes', icon: UsersRound },
+      { to: '/expenses', label: 'Gastos', icon: CircleDollarSign },
       { to: '/stock', label: 'Estoque', icon: Boxes },
       { to: '/profile', label: 'Perfil', icon: UserRound }
     ]

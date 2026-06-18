@@ -31,6 +31,7 @@ func AutoMigrate(db *gorm.DB) error {
 		new(entities.StockItem),
 		new(entities.Receipt),
 		new(entities.ReceiptItem),
+		new(entities.Expense),
 	)
 }
 

@@ -10,16 +10,20 @@ type PdfLine = {
 }
 
 export function receiptWhatsAppMessage(receipt: IReceipt) {
+  const productLines = receipt.items.length
+    ? ['Produtos utilizados:', ...receipt.items.map((item) => `- ${item.quantity}x ${item.stockItem?.name || item.stockItemId}`)]
+    : ['Produtos utilizados: nenhum produto vinculado.']
+
   return [
     'Recibo EMPI Autocenter',
     `Cliente: ${receipt.user.name}`,
     `Veículo: ${receipt.vehicleModel} ${receipt.vehicleYear}`,
     `Placa: ${receipt.vehiclePlate}`,
     `Serviços: ${receipt.services}`,
-    `Mão de obra: ${formatCurrency(receipt.laborPriceCents || 0)}`,
-    `Produtos: ${formatCurrency(receipt.productsTotalCents || 0)}`,
-    `Total final: ${formatCurrency(receipt.priceCents)}`,
-    `Pagamento: ${paymentMethodLabel(receipt)}`
+    ...productLines,
+    `Pagamento: ${paymentMethodLabel(receipt)}`,
+    `Valor total: ${formatCurrency(receipt.priceCents)}`,
+    'Este recibo não é uma nota fiscal.'
   ].join('\n')
 }
 
@@ -27,7 +31,7 @@ export async function shareReceiptPdf(receipt: IReceipt) {
   const file = buildReceiptPdfFile(receipt)
   const text = receiptWhatsAppMessage(receipt)
   const shareData = {
-    title: `Recibo EMPI - ${receipt.user.name}`,
+    title: `Recibo EMPI Autocenter - ${receipt.user.name}`,
     text,
     files: [file]
   }
@@ -59,8 +63,6 @@ function buildReceiptPdfBytes(receipt: IReceipt) {
   addLine(lines, 'EMPI Autocenter', 48, y, 18, 'F2')
   addLine(lines, 'Recibo de serviço', 395, y, 18, 'F2')
   y -= 20
-  addLine(lines, `Código: ${receipt.id}`, 395, y, 9)
-  y -= 14
   addLine(lines, `Emissão: ${formatDateTime(receipt.createdAt)}`, 395, y, 9)
   y -= 30
 
@@ -95,17 +97,13 @@ function buildReceiptPdfBytes(receipt: IReceipt) {
   addLine(lines, 'Produtos utilizados', 48, y, 12, 'F2')
   y -= 18
   addLine(lines, 'Produto', 48, y, 9, 'F2')
-  addLine(lines, 'Qtd.', 310, y, 9, 'F2')
-  addLine(lines, 'Unitário', 360, y, 9, 'F2')
-  addLine(lines, 'Subtotal', 450, y, 9, 'F2')
+  addLine(lines, 'Qtd.', 450, y, 9, 'F2')
   y -= 14
 
   if (receipt.items.length) {
     for (const item of receipt.items) {
-      addLine(lines, truncate(item.stockItem?.name || item.stockItemId, 38), 48, y)
-      addLine(lines, String(item.quantity), 310, y)
-      addLine(lines, formatCurrency(item.unitResaleCents), 360, y)
-      addLine(lines, formatCurrency(item.unitResaleCents * item.quantity), 450, y)
+      addLine(lines, truncate(item.stockItem?.name || item.stockItemId, 58), 48, y)
+      addLine(lines, String(item.quantity), 450, y)
       y -= 14
     }
   } else {
@@ -116,16 +114,12 @@ function buildReceiptPdfBytes(receipt: IReceipt) {
 
   addLine(lines, 'Resumo financeiro', 48, y, 12, 'F2')
   y -= 18
-  addMoneyLine(lines, 'Mão de obra', receipt.laborPriceCents || 0, y)
-  y -= 15
-  addMoneyLine(lines, 'Produtos utilizados', receipt.productsTotalCents || 0, y)
-  y -= 15
-  addMoneyLine(lines, 'Subtotal', receipt.subtotalCents || receipt.laborPriceCents + receipt.productsTotalCents, y)
-  y -= 15
   addLine(lines, 'Pagamento', 48, y)
   addLine(lines, paymentMethodLabel(receipt), 360, y, 10, 'F2')
   y -= 18
-  addMoneyLine(lines, 'Total final', receipt.priceCents, y, 13)
+  addMoneyLine(lines, 'Valor total', receipt.priceCents, y, 13)
+  y -= 50
+  addLine(lines, 'Este recibo não é uma nota fiscal.', 48, Math.max(y, 54), 10, 'F2')
 
   const stream = lines.map((line) => drawText(line)).join('\n')
   return createPdf(stream)

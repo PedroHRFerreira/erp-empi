@@ -1,0 +1,92 @@
+.expenses-table {
+  overflow: hidden;
+}
+
+.expenses-table__head,
+.expenses-table__row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(160px, 0.8fr) 96px;
+  column-gap: 22px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.expenses-table__head {
+  border-bottom: 1px solid var(--braip-theme-border);
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.expenses-table__row {
+  min-height: 72px;
+  border-bottom: 1px solid var(--braip-theme-border);
+}
+
+.expenses-table__row:last-of-type {
+  border-bottom: 0;
+}
+
+.expenses-table__cell {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.expenses-table__cell strong,
+.expenses-table__cell small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.expenses-table__cell small {
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
+}
+
+.expenses-table__cell--money strong {
+  color: var(--status-danger);
+}
+
+.expenses-table__label {
+  display: none;
+}
+
+.expenses-table__actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+@media (max-width: 880px) {
+  .expenses-table {
+    display: grid;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .expenses-table__head {
+    display: none;
+  }
+
+  .expenses-table__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--braip-theme-border);
+    border-radius: 8px;
+    background: var(--braip-theme-surface);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .expenses-table__label {
+    display: inline;
+    color: var(--braip-theme-text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+}

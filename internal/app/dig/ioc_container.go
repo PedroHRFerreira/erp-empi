@@ -3,6 +3,9 @@ package dig
 import (
 	"github.com/empi-autocenter/erp-empi/config"
 	authservices "github.com/empi-autocenter/erp-empi/internal/domain/auth/services"
+	expenserepos "github.com/empi-autocenter/erp-empi/internal/domain/expenses/repositories"
+	expenseservices "github.com/empi-autocenter/erp-empi/internal/domain/expenses/services"
+	financialservices "github.com/empi-autocenter/erp-empi/internal/domain/financial/services"
 	metricservices "github.com/empi-autocenter/erp-empi/internal/domain/metrics/services"
 	receiptrepos "github.com/empi-autocenter/erp-empi/internal/domain/receipts/repositories"
 	receiptservices "github.com/empi-autocenter/erp-empi/internal/domain/receipts/services"
@@ -14,29 +17,36 @@ import (
 )
 
 type Container struct {
-	Auth     *authservices.AuthService
-	Users    *userservices.UserService
-	Stock    *stockservices.StockService
-	Receipts *receiptservices.ReceiptService
-	Metrics  *metricservices.MetricsService
+	Auth      *authservices.AuthService
+	Users     *userservices.UserService
+	Stock     *stockservices.StockService
+	Receipts  *receiptservices.ReceiptService
+	Metrics   *metricservices.MetricsService
+	Expenses  *expenseservices.ExpenseService
+	Financial *financialservices.FinancialService
 }
 
 func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 	userRepo := userrepos.NewUserRepository(db)
 	stockRepo := stockrepos.NewStockRepository(db)
 	receiptRepo := receiptrepos.NewReceiptRepository(db)
+	expenseRepo := expenserepos.NewExpenseRepository(db)
 
 	users := userservices.NewUserService(userRepo)
 	auth := authservices.NewAuthService(cfg, users)
 	stock := stockservices.NewStockService(stockRepo)
 	receipts := receiptservices.NewReceiptService(receiptRepo, stockRepo, users)
 	metrics := metricservices.NewMetricsService(db)
+	expenses := expenseservices.NewExpenseService(expenseRepo)
+	financial := financialservices.NewFinancialService(db)
 
 	return &Container{
-		Auth:     auth,
-		Users:    users,
-		Stock:    stock,
-		Receipts: receipts,
-		Metrics:  metrics,
+		Auth:      auth,
+		Users:     users,
+		Stock:     stock,
+		Receipts:  receipts,
+		Metrics:   metrics,
+		Expenses:  expenses,
+		Financial: financial,
 	}, nil
 }

@@ -119,18 +119,6 @@ const PRINT_STYLES = `
 
 export function printReceiptDocument(receipt: IReceipt) {
   const items = Array.isArray(receipt.items) ? receipt.items : [];
-  const productsTotalCents =
-    receipt.productsTotalCents ||
-    items.reduce(
-      (total, item) => total + item.unitResaleCents * item.quantity,
-      0,
-    );
-  const cardFeeCents = receipt.cardFeeCents || 0;
-  const laborPriceCents =
-    receipt.laborPriceCents ||
-    Math.max(receipt.priceCents - productsTotalCents - cardFeeCents, 0);
-  const subtotalCents =
-    receipt.subtotalCents || laborPriceCents + productsTotalCents;
   const installments =
     receipt.paymentMethod === "credit_card" ? receipt.installments || 1 : 1;
   const installmentValueCents = Math.ceil(receipt.priceCents / installments);
@@ -142,26 +130,23 @@ export function printReceiptDocument(receipt: IReceipt) {
             <tr>
               <td>${name}</td>
               <td class="right">${item.quantity}</td>
-              <td class="right">${formatCurrency(item.unitResaleCents)}</td>
-              <td class="right">${formatCurrency(item.unitResaleCents * item.quantity)}</td>
             </tr>
           `;
         })
         .join("")
-    : '<tr><td colspan="4">Nenhum produto vinculado.</td></tr>';
+    : '<tr><td colspan="2">Nenhum produto vinculado.</td></tr>';
 
   openPrintDocument(
-    `Recibo ${receipt.id}`,
+    `Recibo EMPI Autocenter`,
     `
       <main class="document">
         <header class="header">
           <div class="brand">
             <strong>EMPI Autocenter</strong>
-            <span class="muted">Controle operacional e recibos</span>
+            <span class="muted">Recibo de serviço</span>
           </div>
           <div>
             <h1>Recibo</h1>
-            <p class="muted">Código: ${escapeHtml(receipt.id)}</p>
             <p class="muted">Emissão: ${formatDate(receipt.createdAt)}</p>
             <p class="muted">Status: ${statusLabel(receipt.status)}</p>
             <p class="muted">Pagamento: ${paymentMethodLabel(receipt)}</p>
@@ -197,52 +182,31 @@ export function printReceiptDocument(receipt: IReceipt) {
               <tr>
                 <th>Produto</th>
                 <th class="right">Qtd.</th>
-                <th class="right">Valor unitário</th>
-                <th class="right">Subtotal</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </section>
 
-        <section>
-          <h2>Resumo financeiro</h2>
-          <table>
-            <tbody>
-              <tr>
-                <td>Mão de obra</td>
-                <td class="right">${formatCurrency(laborPriceCents)}</td>
-              </tr>
-              <tr>
-                <td>Produtos utilizados</td>
-                <td class="right">${formatCurrency(productsTotalCents)}</td>
-              </tr>
-              <tr>
-                <td>Subtotal</td>
-                <td class="right">${formatCurrency(subtotalCents)}</td>
-              </tr>
-              ${
-                receipt.paymentMethod === "credit_card"
-                  ? `
-                    <tr>
-                      <td>Parcelamento</td>
-                      <td class="right">${installments}x de ${formatCurrency(installmentValueCents)}</td>
-                    </tr>
-                  `
-                  : ""
-              }
-            </tbody>
-          </table>
-        </section>
+        ${
+          receipt.paymentMethod === "credit_card"
+            ? `
+              <section class="box">
+                <h2>Parcelamento</h2>
+                <p>${installments}x de ${formatCurrency(installmentValueCents)}</p>
+              </section>
+            `
+            : ""
+        }
 
         <section class="total">
-          <span>Total final</span>
+          <span>Valor total</span>
           <span>${formatCurrency(receipt.priceCents)}</span>
         </section>
 
         <footer class="footer">
-          <p>Documento gerado pelo EMPI ERP.</p>
-          <p>Este recibo resume os serviços prestados e os produtos utilizados.</p>
+          <p>Documento gerado pela EMPI Autocenter.</p>
+          <p><strong>Este recibo não é uma nota fiscal.</strong></p>
         </footer>
       </main>
     `,
