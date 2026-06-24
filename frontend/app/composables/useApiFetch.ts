@@ -91,11 +91,6 @@ export function useApiFetch<T>(
       error.value = fetchError
       status.value = 'error'
 
-      if (fetchError.response?.status === 401 || fetchError.statusCode === 401) {
-        useAuthToken().removeTokenCookie()
-        await useRouter().push('/login')
-      }
-
       return {
         data,
         error,

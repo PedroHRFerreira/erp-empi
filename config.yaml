@@ -3,9 +3,7 @@ apiPort: ${API_PORT}
 frontendURL: ${FRONTEND_URL}
 jwt:
   accessSecret: ${JWT_ACCESS_SECRET}
-  refreshSecret: ${JWT_REFRESH_SECRET}
   accessTTLMinutes: ${JWT_ACCESS_TTL_MINUTES}
-  refreshTTLHours: ${JWT_REFRESH_TTL_HOURS}
 database:
   postgresDSN: ${DB_WRITE_DSN}
 admin:

@@ -51,7 +51,7 @@ export const useAuthStore = defineStore('auth', {
       this.error = ''
       const { data, status } = await useApiFetch<{
         user: IUser
-        tokens: { accessToken: string; refreshToken: string }
+        tokens: { accessToken: string; expiresIn: number }
       }>('/auth/login', {
         method: 'POST',
         body: credentials
@@ -67,7 +67,7 @@ export const useAuthStore = defineStore('auth', {
       useAuthToken().setTokenCookie({
         access_token: data.value.tokens.accessToken,
         token_type: 'Bearer',
-        expires_in: 60 * 15
+        expires_in: data.value.tokens.expiresIn
       })
       this.user = data.value.user
       this.loaded = true

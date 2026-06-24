@@ -17,7 +17,7 @@ export interface IUser {
 
 export interface IAuthTokens {
   accessToken: string
-  refreshToken: string
+  expiresIn: number
 }
 
 export interface ILoginResponse {

@@ -37,7 +37,6 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 
 	api := e.Group("/api")
 	api.POST("/auth/login", authHandler.Login)
-	api.POST("/auth/refresh", authHandler.Refresh)
 
 	private := api.Group("", authMiddleware(container.Auth))
 	private.GET("/auth/me", userHandler.Me)

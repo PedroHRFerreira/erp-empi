@@ -20,9 +20,7 @@ type Config struct {
 
 type JWTConfig struct {
 	AccessSecret     string `mapstructure:"accessSecret"`
-	RefreshSecret    string `mapstructure:"refreshSecret"`
 	AccessTTLMinutes int    `mapstructure:"accessTTLMinutes"`
-	RefreshTTLHours  int    `mapstructure:"refreshTTLHours"`
 }
 
 type DatabaseConfig struct {
@@ -52,7 +50,6 @@ func Load() (*Config, error) {
 	v.SetDefault("apiPort", "8080")
 	v.SetDefault("frontendURL", "http://localhost:3000")
 	v.SetDefault("jwt.accessTTLMinutes", 15)
-	v.SetDefault("jwt.refreshTTLHours", 168)
 	v.SetDefault("admin.markupPercent", 10)
 	v.SetDefault("admin.machineFeePercent", 0)
 	v.SetDefault("admin.installmentFeePercent", 0)
@@ -82,9 +79,6 @@ func normalizeConfig(cfg *Config) {
 	}
 	if cfg.JWT.AccessTTLMinutes == 0 {
 		cfg.JWT.AccessTTLMinutes = int(parseDurationEnv("JWT_ACCESS_TTL_MINUTES", 15*time.Minute).Minutes())
-	}
-	if cfg.JWT.RefreshTTLHours == 0 {
-		cfg.JWT.RefreshTTLHours = int(parseDurationEnv("JWT_REFRESH_TTL_HOURS", 168*time.Hour).Hours())
 	}
 }
 

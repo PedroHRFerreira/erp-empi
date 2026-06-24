@@ -18,6 +18,6 @@ export const loginResponseMock: ILoginResponse = {
   },
   tokens: {
     accessToken: 'access-token',
-    refreshToken: 'refresh-token'
+    expiresIn: 60 * 60 * 24 * 7
   }
 }
