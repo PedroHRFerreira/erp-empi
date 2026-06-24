@@ -1,65 +1,106 @@
 .receipts-form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
   padding: 18px;
 }
 
-.receipts-form__wide {
+:deep(.receipt-step) {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+  background: var(--braip-theme-surface);
+}
+
+:deep(.receipt-step__header) {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--braip-theme-border);
+}
+
+:deep(.receipt-step__header span) {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+:deep(.receipt-step__header h2) {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+:deep(.receipt-step__grid) {
+  display: grid;
+  gap: 16px;
+}
+
+:deep(.receipt-step__grid--two) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+:deep(.receipt-step__grid--three) {
+  grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 0.6fr);
+}
+
+:deep(.receipt-step__wide) {
   grid-column: 1 / -1;
 }
 
-.receipt-items {
-  display: grid;
-  gap: 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+:deep(.receipt-step__empty) {
+  margin: 0;
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
 }
 
-.service-expenses {
+:deep(.receipt-items),
+:deep(.service-expenses) {
   display: grid;
   gap: 12px;
   border: 1px solid transparent;
   border-radius: 8px;
 }
 
-.receipt-items__row {
+:deep(.receipt-items__row) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 140px auto;
   align-items: end;
   gap: 12px;
 }
 
-.service-expenses__header {
+:deep(.service-expenses__header) {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
 }
 
-.service-expenses__header span {
+:deep(.service-expenses__header span) {
   color: var(--braip-theme-text-muted);
   font-weight: 800;
 }
 
-.service-expenses__header strong {
+:deep(.service-expenses__header strong) {
   color: var(--status-danger);
   font-variant-numeric: tabular-nums;
 }
 
-.service-expenses__form {
+:deep(.service-expenses__form) {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.8fr) 140px 150px auto;
   align-items: end;
   gap: 12px;
 }
 
-.service-expenses__notes {
+:deep(.service-expenses__notes) {
   grid-column: 1 / -1;
 }
 
-.receipt-items ul,
-.service-expenses ul {
+:deep(.receipt-items ul),
+:deep(.service-expenses ul) {
   display: grid;
   gap: 8px;
   margin: 0;
@@ -67,8 +108,8 @@
   list-style: none;
 }
 
-.receipt-items li,
-.service-expenses li {
+:deep(.receipt-items li),
+:deep(.service-expenses li) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -78,22 +119,22 @@
   border-radius: 8px;
 }
 
-.receipt-items li span,
-.service-expenses li span {
+:deep(.receipt-items li span),
+:deep(.service-expenses li span) {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
 
-.receipt-items li small,
-.service-expenses li small {
+:deep(.receipt-items li small),
+:deep(.service-expenses li small) {
   color: var(--braip-theme-text-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
-.receipt-items li button,
-.service-expenses li button {
+:deep(.receipt-items li button),
+:deep(.service-expenses li button) {
   flex: 0 0 auto;
   border: 0;
   color: var(--status-danger);
@@ -103,24 +144,25 @@
   cursor: pointer;
 }
 
-.receipt-items__hint {
+:deep(.receipt-items__hint) {
   color: var(--braip-theme-text-secondary);
   font-size: 0.86rem;
 }
 
-.receipt-items--error {
+:deep(.receipt-items__total) {
+  color: var(--braip-theme-text);
+  font-variant-numeric: tabular-nums;
+}
+
+:deep(.receipt-items--error),
+:deep(.service-expenses--error) {
   border-color: var(--status-danger);
   padding: 12px;
   background: var(--status-danger-soft);
 }
 
-.service-expenses--error {
-  border-color: var(--status-danger);
-  padding: 12px;
-  background: var(--status-danger-soft);
-}
-
-.receipt-summary {
+:deep(.receipt-mini-summary),
+:deep(.receipt-summary) {
   display: grid;
   gap: 10px;
   padding: 14px;
@@ -128,43 +170,67 @@
   border-radius: 8px;
 }
 
-.receipt-summary div {
+:deep(.receipt-mini-summary div),
+:deep(.receipt-summary div) {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
 }
 
-.receipt-summary span {
+:deep(.receipt-mini-summary span),
+:deep(.receipt-summary span) {
   color: var(--braip-theme-text-muted);
   font-weight: 700;
 }
 
-.receipt-summary strong {
+:deep(.receipt-mini-summary strong),
+:deep(.receipt-summary strong) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.receipt-summary__total {
+:deep(.receipt-summary__total) {
   padding-top: 10px;
   border-top: 1px solid var(--braip-theme-border);
   font-size: 18px;
 }
 
-.receipt-summary__installment strong {
+:deep(.receipt-summary__installment strong) {
   color: var(--braip-brand-primary);
 }
 
-.form-error {
+.receipt-wizard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.form-error,
+:deep(.form-error) {
   margin: 0;
   color: var(--status-danger);
   font-weight: 700;
 }
 
-@media (max-width: 980px) {
-  .receipts-form,
-  .receipt-items__row,
-  .service-expenses__form {
+@media (max-width: 1180px) {
+  :deep(.service-expenses__form) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  :deep(.receipt-step__grid--two),
+  :deep(.receipt-step__grid--three),
+  :deep(.receipt-items__row),
+  :deep(.service-expenses__form) {
+    grid-template-columns: 1fr;
+  }
+
+  .receipt-wizard-actions {
+    display: grid;
     grid-template-columns: 1fr;
   }
 }

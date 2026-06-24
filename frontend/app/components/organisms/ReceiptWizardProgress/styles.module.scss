@@ -1,0 +1,77 @@
+.receipt-wizard-progress ol {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-wizard-progress__step {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+  background: var(--braip-theme-surface-muted);
+}
+
+.receipt-wizard-progress__step span {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--braip-theme-surface);
+}
+
+.receipt-wizard-progress__step strong {
+  min-width: 0;
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.receipt-wizard-progress__step--active {
+  border-color: var(--braip-brand-primary);
+  background: var(--braip-theme-surface);
+}
+
+.receipt-wizard-progress__step--active span {
+  color: var(--braip-neutral-900);
+  background: var(--braip-brand-primary);
+}
+
+.receipt-wizard-progress__step--active strong {
+  color: var(--braip-theme-text);
+}
+
+.receipt-wizard-progress__step--done {
+  border-color: var(--status-success);
+  background: var(--status-success-soft, rgba(61, 220, 151, 0.12));
+}
+
+.receipt-wizard-progress__step--done span {
+  color: var(--braip-neutral-900);
+  background: var(--status-success);
+}
+
+.receipt-wizard-progress__step--done strong {
+  color: var(--status-success);
+}
+
+@media (max-width: 1180px) {
+  .receipt-wizard-progress ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .receipt-wizard-progress ol {
+    grid-template-columns: 1fr;
+  }
+}

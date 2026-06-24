@@ -57,7 +57,11 @@ export default defineComponent({
         { label: 'Gastos operacionais', value: formatCurrency(summary.operationalExpensesCents), tone: 'negative' },
         { label: 'Lucro operacional', value: formatCurrency(summary.operationalProfitCents), tone: summary.operationalProfitCents < 0 ? 'negative' : 'positive' },
         { label: 'Lucro líquido', value: formatCurrency(summary.netProfitCents), tone: summary.netProfitCents < 0 ? 'negative' : 'positive' },
-        { label: 'Margem líquida', value: `${summary.netMarginPercent.toFixed(1)}%`, tone: summary.netMarginPercent < 15 ? 'warning' : 'positive' }
+        {
+          label: 'Margem líquida',
+          value: `${summary.netMarginPercent.toFixed(1)}%`,
+          tone: summary.netMarginPercent < 0 ? 'negative' : summary.netMarginPercent < 15 ? 'warning' : 'positive'
+        }
       ]
     })
 

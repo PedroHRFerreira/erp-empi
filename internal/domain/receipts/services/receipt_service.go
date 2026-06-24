@@ -40,6 +40,7 @@ type ReceiptInput struct {
 	Services        string                         `json:"services"`
 	LaborPriceCents int64                          `json:"laborPriceCents"`
 	PriceCents      int64                          `json:"priceCents"`
+	CardFeePercent  *float64                       `json:"cardFeePercent"`
 	PaymentMethod   entities.PaymentMethod         `json:"paymentMethod"`
 	Installments    int                            `json:"installments"`
 	Notes           string                         `json:"notes"`
@@ -132,7 +133,7 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	subtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents
 	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
 	installments := normalizeInstallments(paymentMethod, input.Installments)
-	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin)
+	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin, input.CardFeePercent)
 	cardFeeCents := calculatePercentCents(subtotalCents, cardFeePercent)
 	totalCents := subtotalCents + cardFeeCents
 
@@ -230,6 +231,7 @@ func validateReceiptInput(input ReceiptInput) error {
 		strings.TrimSpace(input.Services) == "" ||
 		input.LaborPriceCents < 0 ||
 		input.PriceCents < 0 ||
+		(input.CardFeePercent != nil && *input.CardFeePercent < 0) ||
 		!isValidPaymentMethod(input.PaymentMethod) ||
 		(input.PaymentMethod == entities.PaymentMethodCreditCard && (input.Installments < 0 || input.Installments > 12)) {
 		return apperrors.ErrInvalidInput
@@ -311,11 +313,17 @@ func calculatePercentCents(value int64, percent float64) int64 {
 	return int64(float64(value) * (percent / 100))
 }
 
-func selectCardFeePercent(method entities.PaymentMethod, installments int, admin *entities.User) float64 {
+func selectCardFeePercent(method entities.PaymentMethod, installments int, admin *entities.User, customPercent *float64) float64 {
 	switch method {
 	case entities.PaymentMethodDebitCard:
+		if customPercent != nil {
+			return *customPercent
+		}
 		return admin.MachineFeePercent
 	case entities.PaymentMethodCreditCard:
+		if customPercent != nil {
+			return *customPercent
+		}
 		if installments > 1 {
 			return admin.InstallmentFeePercent
 		}

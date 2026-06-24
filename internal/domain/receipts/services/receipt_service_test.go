@@ -434,12 +434,65 @@ func TestCreateSelectsSingleCardFeeByPaymentMethod(t *testing.T) {
 	}
 }
 
+func TestCreateUsesCustomCardFeePercent(t *testing.T) {
+	t.Parallel()
+
+	customPercent := 2.5
+	receipt := createReceiptForFeeTestWithCustom(t, entities.PaymentMethodCreditCard, 4, 5, 8, &customPercent)
+
+	if receipt.CardFeePercent != customPercent {
+		t.Fatalf("expected custom fee percent %.2f, got %.2f", customPercent, receipt.CardFeePercent)
+	}
+	if receipt.CardFeeCents != 375 {
+		t.Fatalf("expected custom card fee 375, got %d", receipt.CardFeeCents)
+	}
+	if receipt.PriceCents != 15375 {
+		t.Fatalf("expected total 15375, got %d", receipt.PriceCents)
+	}
+}
+
+func TestCreateRejectsNegativeCustomCardFeePercent(t *testing.T) {
+	t.Parallel()
+
+	negativePercent := -1.0
+	receiptService := receiptservices.NewReceiptService(nil, nil, nil)
+
+	_, err := receiptService.Create(context.Background(), "admin-id", receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Taxa",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		CardFeePercent:  &negativePercent,
+		PaymentMethod:   entities.PaymentMethodCreditCard,
+		Installments:    1,
+	})
+	if !errors.Is(err, apperrors.ErrInvalidInput) {
+		t.Fatalf("expected invalid input, got %v", err)
+	}
+}
+
 func createReceiptForFeeTest(
 	t *testing.T,
 	paymentMethod entities.PaymentMethod,
 	installments int,
 	machineFeePercent float64,
 	installmentFeePercent float64,
+) *entities.Receipt {
+	return createReceiptForFeeTestWithCustom(t, paymentMethod, installments, machineFeePercent, installmentFeePercent, nil)
+}
+
+func createReceiptForFeeTestWithCustom(
+	t *testing.T,
+	paymentMethod entities.PaymentMethod,
+	installments int,
+	machineFeePercent float64,
+	installmentFeePercent float64,
+	customPercent *float64,
 ) *entities.Receipt {
 	t.Helper()
 
@@ -480,6 +533,7 @@ func createReceiptForFeeTest(
 		VehiclePlate:    "ABC1D23",
 		Services:        "Servico",
 		LaborPriceCents: 10000,
+		CardFeePercent:  customPercent,
 		PaymentMethod:   paymentMethod,
 		Installments:    installments,
 		Items: []receiptservices.ReceiptItemInput{

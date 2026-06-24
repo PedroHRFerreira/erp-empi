@@ -15,6 +15,17 @@ export type ReceiptServiceExpenseForm = {
   notes: string
 }
 
+export const receiptWizardSteps = [
+  { key: 'client', title: 'Informações do cliente' },
+  { key: 'vehicle', title: 'Informações do veículo' },
+  { key: 'services', title: 'Serviços' },
+  { key: 'products', title: 'Produtos usados' },
+  { key: 'serviceExpenses', title: 'Gastos do serviço' },
+  { key: 'finish', title: 'Finalizar recibo' }
+] as const
+
+export type ReceiptWizardStepKey = (typeof receiptWizardSteps)[number]['key']
+
 export type ReceiptForm = {
   client: {
     name: string
@@ -26,6 +37,9 @@ export type ReceiptForm = {
   services: string
   laborPriceCents: number
   priceCents: number
+  cardFeePercent: number
+  machineFeePercent: number
+  installmentFeePercent: number
   paymentMethod: ReceiptPaymentMethod
   installments: number
   notes: string
@@ -33,11 +47,46 @@ export type ReceiptForm = {
   serviceExpenses: ReceiptServiceExpenseForm[]
 }
 
+export function makeReceiptForm(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}): ReceiptForm {
+  const machineFeePercent = Number(defaultFees.machineFeePercent || 0)
+  const installmentFeePercent = Number(defaultFees.installmentFeePercent || 0)
+
+  return {
+    client: { name: '', phone: '' },
+    vehicleModel: '',
+    vehicleYear: new Date().getFullYear(),
+    vehiclePlate: '',
+    services: '',
+    laborPriceCents: 0,
+    priceCents: 0,
+    cardFeePercent: 0,
+    machineFeePercent,
+    installmentFeePercent,
+    paymentMethod: 'cash',
+    installments: 1,
+    notes: '',
+    items: [],
+    serviceExpenses: []
+  }
+}
+
+export function makeReceiptServiceExpense(): ReceiptServiceExpenseForm {
+  return {
+    description: '',
+    category: '',
+    amountCents: 0,
+    spentAt: toDateInputValue(new Date()),
+    notes: ''
+  }
+}
+
 export const useReceiptsStore = defineStore('receipts', {
   state: () => {
     return {
       receipts: [] as IReceipt[],
       receiptOptions: [] as IReceipt[],
+      receiptDraft: makeReceiptForm(),
+      receiptWizardStep: 0,
       total: 0,
       limit: 10,
       offset: 0,
@@ -49,9 +98,63 @@ export const useReceiptsStore = defineStore('receipts', {
     }
   },
   actions: {
+    resetReceiptWizard(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}) {
+      this.receiptDraft = makeReceiptForm(defaultFees)
+      this.receiptWizardStep = 0
+      this.error = ''
+      this.fieldErrors = {}
+    },
+    applyReceiptDefaultFees(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number }) {
+      this.receiptDraft.machineFeePercent = Number(defaultFees.machineFeePercent || 0)
+      this.receiptDraft.installmentFeePercent = Number(defaultFees.installmentFeePercent || 0)
+    },
+    previousReceiptStep() {
+      this.receiptWizardStep = Math.max(this.receiptWizardStep - 1, 0)
+    },
+    nextReceiptStep() {
+      this.receiptWizardStep = Math.min(this.receiptWizardStep + 1, receiptWizardSteps.length - 1)
+    },
+    validateReceiptStep(stepIndex?: number): boolean {
+      const step = receiptWizardSteps[stepIndex ?? this.receiptWizardStep]?.key
+      const form = this.receiptDraft
+
+      this.clearReceiptStepErrors(step)
+
+      if (step === 'client') {
+        this.validateClientFields(form)
+      }
+      if (step === 'vehicle') {
+        this.validateVehicleFields(form)
+      }
+      if (step === 'services') {
+        this.validateServiceFields(form)
+      }
+      if (step === 'products') {
+        this.validateProductFields(form)
+      }
+      if (step === 'serviceExpenses') {
+        this.validateServiceExpenseFields(form)
+      }
+      if (step === 'finish') {
+        return this.validate(form)
+      }
+
+      this.error = Object.values(this.fieldErrors)[0] || ''
+      return !this.error
+    },
     validate(form: ReceiptForm): boolean {
       this.fieldErrors = {}
 
+      this.validateClientFields(form)
+      this.validateVehicleFields(form)
+      this.validateServiceFields(form)
+      this.validateProductFields(form)
+      this.validateServiceExpenseFields(form)
+
+      this.error = Object.values(this.fieldErrors)[0] || ''
+      return Object.keys(this.fieldErrors).length === 0
+    },
+    validateClientFields(form: ReceiptForm) {
       const clientPhone = onlyDigits(form.client.phone)
 
       if (!form.client.name.trim()) this.fieldErrors['client.name'] = 'Informe o nome do cliente.'
@@ -61,9 +164,13 @@ export const useReceiptsStore = defineStore('receipts', {
       if (clientPhone && ![10, 11].includes(clientPhone.length)) {
         this.fieldErrors['client.phone'] = 'Informe um telefone com DDD.'
       }
+    },
+    validateVehicleFields(form: ReceiptForm) {
       if (!form.vehicleModel.trim()) this.fieldErrors.vehicleModel = 'Informe o veículo.'
       if (form.vehicleYear < 1950) this.fieldErrors.vehicleYear = 'Informe um ano válido.'
       if (!isPlate(form.vehiclePlate)) this.fieldErrors.vehiclePlate = 'Informe uma placa válida.'
+    },
+    validateServiceFields(form: ReceiptForm) {
       if (!form.services.trim()) this.fieldErrors.services = 'Informe os serviços.'
       if (form.laborPriceCents < 0) this.fieldErrors.laborPriceCents = 'Informe um valor válido para a mão de obra.'
       if (!['credit_card', 'debit_card', 'pix', 'cash'].includes(form.paymentMethod)) {
@@ -72,9 +179,16 @@ export const useReceiptsStore = defineStore('receipts', {
       if (form.paymentMethod === 'credit_card' && (form.installments < 1 || form.installments > 12)) {
         this.fieldErrors.installments = 'Informe entre 1 e 12 parcelas.'
       }
+      if ((form.paymentMethod === 'credit_card' || form.paymentMethod === 'debit_card') && form.cardFeePercent < 0) {
+        this.fieldErrors.cardFeePercent = 'Informe um juros válido.'
+      }
+    },
+    validateProductFields(form: ReceiptForm) {
       if (form.items.some((item) => !item.stockItemId || item.quantity <= 0)) {
         this.fieldErrors.items = 'Revise os itens utilizados.'
       }
+    },
+    validateServiceExpenseFields(form: ReceiptForm) {
       if (
         form.serviceExpenses.some((expense) => {
           return (
@@ -87,9 +201,21 @@ export const useReceiptsStore = defineStore('receipts', {
       ) {
         this.fieldErrors.serviceExpenses = 'Revise os gastos do serviço.'
       }
+    },
+    clearReceiptStepErrors(step: ReceiptWizardStepKey | undefined) {
+      const fieldsByStep: Record<ReceiptWizardStepKey, string[]> = {
+        client: ['client.name', 'client.phone'],
+        vehicle: ['vehicleModel', 'vehicleYear', 'vehiclePlate'],
+        services: ['services', 'laborPriceCents', 'paymentMethod', 'installments', 'cardFeePercent'],
+        products: ['items'],
+        serviceExpenses: ['serviceExpenses'],
+        finish: []
+      }
 
-      this.error = Object.values(this.fieldErrors)[0] || ''
-      return Object.keys(this.fieldErrors).length === 0
+      if (!step) return
+      for (const field of fieldsByStep[step]) {
+        delete this.fieldErrors[field]
+      }
     },
     setLoading(isLoading: boolean) {
       this.isLoading = isLoading
@@ -149,12 +275,22 @@ export const useReceiptsStore = defineStore('receipts', {
       const { error, status } = await useApiFetch('/receipts', {
         method: 'POST',
         body: {
-          ...form,
           client: {
             name: form.client.name.trim(),
             phone: onlyDigits(form.client.phone)
           },
-          vehiclePlate: form.vehiclePlate.toUpperCase()
+          vehicleModel: form.vehicleModel.trim(),
+          vehicleYear: form.vehicleYear,
+          vehiclePlate: form.vehiclePlate.toUpperCase(),
+          services: form.services.trim(),
+          laborPriceCents: form.laborPriceCents,
+          priceCents: form.priceCents,
+          cardFeePercent: ['credit_card', 'debit_card'].includes(form.paymentMethod) ? form.cardFeePercent : 0,
+          paymentMethod: form.paymentMethod,
+          installments: form.paymentMethod === 'credit_card' ? form.installments : 1,
+          notes: form.notes.trim(),
+          items: form.items,
+          serviceExpenses: form.serviceExpenses
         }
       })
 
@@ -191,7 +327,7 @@ export const useReceiptsStore = defineStore('receipts', {
     },
     async shareWhatsApp(receipt: IReceipt) {
       const text = receiptWhatsAppMessage(receipt)
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
+      const whatsappUrl = buildReceiptWhatsAppUrl(receipt, text)
       const whatsappWindow = window.open(whatsappUrl, '_blank')
 
       if (whatsappWindow) {
@@ -212,6 +348,36 @@ export const useReceiptsStore = defineStore('receipts', {
     }
   }
 })
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function buildReceiptWhatsAppUrl(receipt: IReceipt, text: string) {
+  const phone = whatsappPhoneNumber(receipt.user?.phone || '')
+  const encodedText = encodeURIComponent(text)
+
+  if (!phone) {
+    return `https://wa.me/?text=${encodedText}`
+  }
+
+  return `https://wa.me/${phone}?text=${encodedText}`
+}
+
+function whatsappPhoneNumber(phone: string) {
+  const digits = onlyDigits(phone)
+
+  if ([12, 13].includes(digits.length) && digits.startsWith('55')) {
+    return digits
+  }
+  if ([10, 11].includes(digits.length)) {
+    return `55${digits}`
+  }
+  return ''
+}
 
 function getReceiptErrorMessage(message: string | undefined, fallback: string) {
   if (message === 'insufficient stock' || message === 'Estoque insuficiente.') {

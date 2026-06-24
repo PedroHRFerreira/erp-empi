@@ -57,6 +57,7 @@ export default defineComponent({
       :field-errors="receipts.fieldErrors"
       :on-create="createReceipt"
       :stock-items="stock.items"
+      @back-to-list="backToList"
       @clear-field-error="receipts.clearFieldError"
     />
   </section>
