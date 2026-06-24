@@ -39,6 +39,9 @@ func dropLegacyUserCPFUniqueIndex(db *gorm.DB) error {
 	if db.Dialector.Name() != "postgres" {
 		return nil
 	}
+	if !db.Migrator().HasTable(new(entities.User)) {
+		return nil
+	}
 	if err := db.Exec("ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_cpf_key").Error; err != nil {
 		return err
 	}
