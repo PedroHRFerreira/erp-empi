@@ -192,12 +192,14 @@ func (service *FinancialService) loadReceiptCosts(ctx context.Context, start tim
 
 	var expenseRows []expenseCostRow
 	err := service.db.WithContext(ctx).
-		Model(&entities.Expense{}).
-		Where("archived_at IS NULL").
-		Where("receipt_id IS NOT NULL").
-		Where("spent_at >= ? AND spent_at < ?", start, end).
-		Select("receipt_id, COALESCE(SUM(amount_cents), 0) AS service_expenses_cents").
-		Group("receipt_id").
+		Table("expenses").
+		Select("expenses.receipt_id, COALESCE(SUM(expenses.amount_cents), 0) AS service_expenses_cents").
+		Joins("JOIN receipts ON receipts.id = expenses.receipt_id").
+		Where("expenses.archived_at IS NULL").
+		Where("expenses.receipt_id IS NOT NULL").
+		Where("receipts.status <> ?", entities.ReceiptStatusCancelled).
+		Where("expenses.spent_at >= ? AND expenses.spent_at < ?", start, end).
+		Group("expenses.receipt_id").
 		Scan(&expenseRows).
 		Error
 	if err != nil {

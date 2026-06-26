@@ -118,8 +118,12 @@ describe('receipt document helpers', () => {
       'Gasto do serviço: Deslocamento'
     ])
     expect(document.lines.at(0)?.taxLabel).toBe('-')
-    expect(document.summaryRows.map((row) => row.label)).toEqual(['Subtotal', 'Taxa do cartão', 'Total', 'Total pendente'])
-    expect(document.summaryRows.find((row) => row.label === 'Taxa do cartão')?.valueCents).toBe(1150)
+    expect(document.summaryRows.map((row) => row.label)).toEqual(['Total'])
+    expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Taxa do cartão' }))
+    expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Total pendente' }))
+    expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Total pago' }))
+    expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Total cancelado' }))
+    expect(document.summaryRows.at(0)?.valueCents).toBe(24150)
   })
 
   it('builds the invoice helper notice without replacing a fiscal document', () => {
@@ -127,7 +131,7 @@ describe('receipt document helpers', () => {
 
     expect(document.title).toBe('Dados para nota fiscal - Recibo 2025-ABC123')
     expect(document.notice).toContain('não substitui uma nota fiscal')
-    expect(document.summaryRows.map((row) => row.label)).toContain('Total pago')
+    expect(document.summaryRows.map((row) => row.label)).toEqual(['Total'])
     expect(document.portalRows).toContainEqual({ label: 'CNPJ do prestador', value: '46.377.137/0001-60' })
     expect(document.portalRows).toContainEqual({ label: 'Município da prestação', value: 'Governador Valadares/MG' })
     expect(document.portalRows).toContainEqual({ label: 'CPF/CNPJ do tomador', value: '529.982.247-25' })

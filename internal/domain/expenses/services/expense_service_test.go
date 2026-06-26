@@ -252,6 +252,62 @@ func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) 
 	}
 }
 
+func TestFinancialSummaryDoesNotIncludeCancelledReceiptCosts(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testDB(t)
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := receiptrepos.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db))
+	financialService := financialservices.NewFinancialService(db)
+	admin := createAdmin(t, ctx, userRepo)
+	start, end := currentDayRange()
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Cancelado",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico cancelado",
+		LaborPriceCents: 10000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Cancel(ctx, receipt.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
+		Description: "Gasolina",
+		Category:    "combustível",
+		AmountCents: 3000,
+		SpentAt:     start.Format("2006-01-02"),
+		ReceiptID:   &receipt.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := financialService.Summary(ctx, start, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(summary.ReceiptCosts) != 0 {
+		t.Fatalf("expected cancelled receipt to be absent from receipt costs, got %+v", summary.ReceiptCosts)
+	}
+	if summary.OperationalExpensesCents != 3000 {
+		t.Fatalf("expected operational expense to remain counted, got %d", summary.OperationalExpensesCents)
+	}
+}
+
 func TestExpenseServiceRejectsInvalidExpense(t *testing.T) {
 	t.Parallel()
 

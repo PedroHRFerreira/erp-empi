@@ -34,6 +34,13 @@ export default defineComponent({
       return receipts.shareWhatsApp(receipt, auth.user)
     }
 
+    async function cancelReceipt(receipt: IReceipt) {
+      const confirmed = window.confirm(`Cancelar o recibo de ${receipt.user.name}? Ele não reservará mais produtos no estoque.`)
+      if (!confirmed) return
+
+      await receipts.cancel(receipt.id)
+    }
+
     function startCreate() {
       return router.push('/receipts/new')
     }
@@ -47,6 +54,7 @@ export default defineComponent({
     }
 
     return {
+      cancelReceipt,
       currentPage,
       nextPage,
       pages,
@@ -74,6 +82,7 @@ export default defineComponent({
 
     <ReceiptsTable
       :receipts="receipts.receipts"
+      @cancel="cancelReceipt"
       @copy-instagram="receipts.copyInstagramText"
       @mark-paid="(receipt) => receipts.markPaid(receipt.id)"
       @print-invoice-data="printInvoiceData"

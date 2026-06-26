@@ -55,3 +55,19 @@ func (handler *ReceiptHandler) MarkPaid(c echo.Context) error {
 	}
 	return c.JSON(nethttp.StatusOK, receipt)
 }
+
+func (handler *ReceiptHandler) Cancel(c echo.Context) error {
+	receipt, err := handler.receipts.Cancel(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, receipt)
+}
+
+func (handler *ReceiptHandler) Reopen(c echo.Context) error {
+	receipt, err := handler.receipts.Reopen(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, receipt)
+}

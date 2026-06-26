@@ -1,5 +1,5 @@
 <script lang="ts">
-import { CheckCircle2, Copy, FileText, MessageCircle, Printer } from '@lucide/vue'
+import { Ban, CheckCircle2, Copy, FileText, MessageCircle, Printer } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
@@ -9,6 +9,7 @@ import { formatCurrency, formatDateTime } from '../../../utils/format'
 export default defineComponent({
   name: 'ReceiptsTable',
   components: {
+    Ban,
     CheckCircle2,
     Copy,
     EmptyState,
@@ -23,8 +24,12 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['copy-instagram', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
+  emits: ['cancel', 'copy-instagram', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
   setup(_, { emit }) {
+    function cancel(receipt: IReceipt) {
+      emit('cancel', receipt)
+    }
+
     function copyInstagram(receipt: IReceipt) {
       emit('copy-instagram', receipt)
     }
@@ -52,7 +57,20 @@ export default defineComponent({
       return 'Dinheiro'
     }
 
+    function statusBadgeClass(status: IReceipt['status']) {
+      if (status === 'paid') return 'badge--paid'
+      if (status === 'cancelled') return 'badge--cancelled'
+      return 'badge--pending'
+    }
+
+    function statusLabel(status: IReceipt['status']) {
+      if (status === 'paid') return 'Pago'
+      if (status === 'cancelled') return 'Cancelado'
+      return 'Pendente'
+    }
+
     return {
+      cancel,
       copyInstagram,
       formatCurrency,
       formatDateTime,
@@ -60,7 +78,9 @@ export default defineComponent({
       paymentMethodLabel,
       print,
       printInvoiceData,
-      shareWhatsApp
+      shareWhatsApp,
+      statusBadgeClass,
+      statusLabel
     }
   }
 })
@@ -102,8 +122,8 @@ export default defineComponent({
       </div>
       <div class="receipts-list__cell receipts-list__cell--status">
         <span class="receipts-list__label">Status</span>
-        <span class="badge" :class="receipt.status === 'paid' ? 'badge--paid' : 'badge--pending'">
-          {{ receipt.status === 'paid' ? 'Pago' : 'Pendente' }}
+        <span class="badge" :class="statusBadgeClass(receipt.status)">
+          {{ statusLabel(receipt.status) }}
         </span>
       </div>
       <div class="receipts-list__actions">
@@ -119,7 +139,10 @@ export default defineComponent({
         <IconActionButton title="Preparar emissão NFS-e" @click="printInvoiceData(receipt)">
           <FileText :size="16" />
         </IconActionButton>
-        <IconActionButton v-if="receipt.status !== 'paid'" title="Marcar como pago" variant="primary" @click="markPaid(receipt)">
+        <IconActionButton v-if="receipt.status === 'pending'" title="Cancelar recibo" variant="danger" @click="cancel(receipt)">
+          <Ban :size="16" />
+        </IconActionButton>
+        <IconActionButton v-if="receipt.status === 'pending'" title="Marcar como pago" variant="primary" @click="markPaid(receipt)">
           <CheckCircle2 :size="16" />
         </IconActionButton>
       </div>

@@ -217,6 +217,10 @@ th {
   color: var(--status-warning);
 }
 
+.badge--cancelled {
+  color: var(--status-danger);
+}
+
 .empty {
   padding: 32px;
   color: var(--braip-theme-text-muted);

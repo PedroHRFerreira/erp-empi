@@ -1,0 +1,114 @@
+.recovery-detail__overview,
+.recovery-detail__money,
+.recovery-detail__vehicle {
+  display: grid;
+  gap: 14px;
+}
+
+.recovery-detail__overview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 18px;
+}
+
+.recovery-detail__overview div,
+.recovery-detail__money div,
+.recovery-detail__vehicle div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.recovery-detail__overview span,
+.recovery-detail__money span,
+.recovery-detail__vehicle span,
+.recovery-detail__muted {
+  color: var(--braip-theme-text-muted);
+}
+
+.recovery-detail__overview strong,
+.recovery-detail__money strong,
+.recovery-detail__vehicle strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recovery-detail__overview .badge {
+  justify-self: start;
+}
+
+.recovery-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+}
+
+.recovery-detail__section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.recovery-detail__section h2 {
+  margin: 0;
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.recovery-detail__section p {
+  margin: 0;
+}
+
+.recovery-detail__vehicle {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.recovery-detail__items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recovery-detail__items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+}
+
+.recovery-detail__items em {
+  color: var(--braip-theme-text-muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.recovery-detail__money {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  padding: 18px;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--status-danger);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .recovery-detail__overview,
+  .recovery-detail__vehicle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .recovery-detail__overview,
+  .recovery-detail__items li,
+  .recovery-detail__vehicle {
+    grid-template-columns: 1fr;
+  }
+}

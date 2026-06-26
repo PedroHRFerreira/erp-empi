@@ -90,7 +90,7 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
     customer: receiptCustomer(receipt.user),
     vehicle: receiptVehicle(receipt),
     lines,
-    summaryRows: buildSummaryRows(receipt, subtotalCents, cardFeeCents, totalCents),
+    summaryRows: buildSummaryRows(totalCents),
     payment: {
       dateLabel: formatDate(receipt.paidAt || receipt.createdAt),
       methodLabel: paymentMethodLabel(receipt),
@@ -165,24 +165,8 @@ function buildReceiptLines(receipt: IReceipt): IReceiptDocumentLine[] {
   return lines
 }
 
-function buildSummaryRows(receipt: IReceipt, subtotalCents: number, cardFeeCents: number, totalCents: number): IReceiptDocumentMoneyRow[] {
-  const rows: IReceiptDocumentMoneyRow[] = [moneyRow('Subtotal', subtotalCents)]
-
-  if (cardFeeCents > 0) {
-    rows.push(moneyRow('Taxa do cartão', cardFeeCents))
-  }
-
-  rows.push(moneyRow('Total', totalCents, true))
-
-  if (receipt.status === 'paid') {
-    rows.push(moneyRow('Total pago', totalCents))
-  } else if (receipt.status === 'cancelled') {
-    rows.push(moneyRow('Total cancelado', totalCents))
-  } else {
-    rows.push(moneyRow('Total pendente', totalCents))
-  }
-
-  return rows
+function buildSummaryRows(totalCents: number): IReceiptDocumentMoneyRow[] {
+  return [moneyRow('Total', totalCents, true)]
 }
 
 function moneyLine(description: string, quantity: string, priceCents: number, totalCents: number): IReceiptDocumentLine {

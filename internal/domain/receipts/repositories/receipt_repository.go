@@ -58,6 +58,14 @@ func (repo *ReceiptRepository) ListByUserID(ctx context.Context, userID string) 
 }
 
 func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDs(ctx context.Context, stockItemIDs []string) (map[string]int, error) {
+	return reservedQuantitiesByStockItemIDs(ctx, repo.db, stockItemIDs)
+}
+
+func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDsWithTx(tx *gorm.DB, stockItemIDs []string) (map[string]int, error) {
+	return reservedQuantitiesByStockItemIDs(tx.Statement.Context, tx, stockItemIDs)
+}
+
+func reservedQuantitiesByStockItemIDs(ctx context.Context, db *gorm.DB, stockItemIDs []string) (map[string]int, error) {
 	type row struct {
 		StockItemID string
 		Quantity    int
@@ -69,7 +77,7 @@ func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDs(ctx context.Cont
 	}
 
 	var rows []row
-	err := repo.db.WithContext(ctx).
+	err := db.WithContext(ctx).
 		Table("receipt_items").
 		Select("receipt_items.stock_item_id, COALESCE(SUM(receipt_items.quantity), 0) AS quantity").
 		Joins("JOIN receipts ON receipts.id = receipt_items.receipt_id").

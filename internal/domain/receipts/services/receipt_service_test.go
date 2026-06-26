@@ -294,6 +294,205 @@ func TestCreateRejectsReservedPendingStock(t *testing.T) {
 	}
 }
 
+func TestCancelPendingReceiptDoesNotDecreaseStockAndReleasesReservation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto unico",
+		CostCents:     3500,
+		MarkupPercent: 10,
+		Quantity:      1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Cancelado",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	}
+	receipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := receiptService.Cancel(ctx, receipt.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != entities.ReceiptStatusCancelled {
+		t.Fatalf("expected cancelled receipt, got %s", cancelled.Status)
+	}
+
+	updatedStock, err := stockService.FindByID(ctx, stockItem.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedStock.Quantity != 1 || updatedStock.UsedQuantity != 0 {
+		t.Fatalf("expected stock untouched, got quantity %d and used %d", updatedStock.Quantity, updatedStock.UsedQuantity)
+	}
+
+	input.Client.Name = "Novo Cliente"
+	input.Client.Phone = "33888880000"
+	if _, err := receiptService.Create(ctx, admin.ID, input); err != nil {
+		t.Fatalf("expected cancelled receipt to release reservation, got %v", err)
+	}
+}
+
+func TestReopenCancelledReceiptValidatesReservedStock(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto reservado",
+		CostCents:     3500,
+		MarkupPercent: 10,
+		Quantity:      1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Cancelado",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	}
+	cancelledReceipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Cancel(ctx, cancelledReceipt.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	input.Client.Name = "Cliente Pendente"
+	input.Client.Phone = "33888880000"
+	if _, err := receiptService.Create(ctx, admin.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = receiptService.Reopen(ctx, cancelledReceipt.ID)
+	if !errors.Is(err, apperrors.ErrReservedStock) {
+		t.Fatalf("expected reserved stock when reopening, got %v", err)
+	}
+}
+
+func TestReopenCancelledReceiptReturnsToPendingAndMarkPaidRejectsCancelled(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto retorno",
+		CostCents:     3500,
+		MarkupPercent: 10,
+		Quantity:      2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Retorno",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	}
+	receipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Cancel(ctx, receipt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.MarkPaid(ctx, receipt.ID); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected conflict when marking cancelled receipt as paid, got %v", err)
+	}
+
+	reopened, err := receiptService.Reopen(ctx, receipt.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.Status != entities.ReceiptStatusPending {
+		t.Fatalf("expected pending receipt, got %s", reopened.Status)
+	}
+}
+
 func TestCreateCalculatesReceiptTotalsWithInstallmentFee(t *testing.T) {
 	t.Parallel()
 

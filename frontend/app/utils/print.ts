@@ -342,7 +342,6 @@ export function printReceiptDocument(receipt: IReceipt, company: IUser | null = 
                 <th>Itens</th>
                 <th class="right">Quantidade</th>
                 <th class="right">Preço</th>
-                <th class="right">Taxa</th>
                 <th class="right">Total da linha</th>
               </tr>
             </thead>
@@ -431,7 +430,6 @@ export function printReceiptInvoiceData(receipt: IReceipt, company: IUser | null
                 <th>Descrição</th>
                 <th class="right">Quantidade</th>
                 <th class="right">Valor unitário</th>
-                <th class="right">Taxa</th>
                 <th class="right">Total</th>
               </tr>
             </thead>
@@ -576,7 +574,6 @@ function renderReceiptLineRows(lines: IReceiptDocumentLine[]) {
           <td>${escapeHtml(line.description)}</td>
           <td class="right">${escapeHtml(line.quantity)}</td>
           <td class="right">${escapeHtml(line.priceLabel)}</td>
-          <td class="right">${escapeHtml(line.taxLabel)}</td>
           <td class="right"><strong>${escapeHtml(line.totalLabel)}</strong></td>
         </tr>
       `;

@@ -85,11 +85,13 @@ export const useReceiptsStore = defineStore('receipts', {
     return {
       receipts: [] as IReceipt[],
       receiptOptions: [] as IReceipt[],
+      receiptDetail: null as IReceipt | null,
       receiptDraft: makeReceiptForm(),
       receiptWizardStep: 0,
       total: 0,
       limit: 10,
       offset: 0,
+      currentStatusFilter: '',
       isLoading: false,
       loading: false,
       optionsLoading: false,
@@ -228,6 +230,7 @@ export const useReceiptsStore = defineStore('receipts', {
     async load(offset = 0, receiptStatus = ''): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
       this.setLoading(true)
       this.offset = offset
+      this.currentStatusFilter = receiptStatus
       const { data, status } = await useApiFetch<IPaginated<IReceipt>>('/receipts', {
         query: { limit: this.limit, offset, status: receiptStatus }
       })
@@ -253,6 +256,21 @@ export const useReceiptsStore = defineStore('receipts', {
         }
       }
     },
+    async loadDetail(id: string): Promise<IStoreActionResult<IReceipt>> {
+      this.setLoading(true)
+      this.receiptDetail = null
+      const { data, status } = await useApiFetch<IReceipt>(`/receipts/${id}`)
+      this.setLoading(false)
+
+      if (status.value === 'error' || !data.value) {
+        this.error = 'Não foi possível carregar o recibo.'
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      this.receiptDetail = data.value
+      this.error = ''
+      return { status: 'success', data: data.value }
+    },
     async loadOptions(): Promise<IStoreActionResult<IReceipt[]>> {
       this.optionsLoading = true
       const { data, status } = await useApiFetch<IPaginated<IReceipt>>('/receipts', {
@@ -265,7 +283,9 @@ export const useReceiptsStore = defineStore('receipts', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
-      this.receiptOptions = Array.isArray(data.value.data) ? data.value.data : []
+      this.receiptOptions = (Array.isArray(data.value.data) ? data.value.data : []).filter((receipt) => {
+        return receipt.status !== 'cancelled'
+      })
       return { status: 'success', data: this.receiptOptions }
     },
     async create(form: ReceiptForm): Promise<IStoreActionResult> {
@@ -317,7 +337,39 @@ export const useReceiptsStore = defineStore('receipts', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
-      const loadResult = await this.load(this.offset)
+      const loadResult = await this.load(this.offset, this.currentStatusFilter)
+
+      if (loadResult.status === 'error') {
+        return loadResult
+      }
+
+      return { status: 'success' }
+    },
+    async cancel(id: string): Promise<IStoreActionResult> {
+      const { error, status } = await useApiFetch(`/receipts/${id}/cancel`, { method: 'POST' })
+
+      if (status.value === 'error') {
+        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível cancelar o recibo.')
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      const loadResult = await this.load(this.offset, this.currentStatusFilter)
+
+      if (loadResult.status === 'error') {
+        return loadResult
+      }
+
+      return { status: 'success' }
+    },
+    async reopen(id: string): Promise<IStoreActionResult> {
+      const { error, status } = await useApiFetch(`/receipts/${id}/reopen`, { method: 'POST' })
+
+      if (status.value === 'error') {
+        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível retornar o recibo para pendente.')
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
         return loadResult
@@ -341,6 +393,20 @@ export const useReceiptsStore = defineStore('receipts', {
       } catch {
         this.error = 'Não foi possível gerar o PDF do recibo.'
       }
+    },
+    async shareRecoveryWhatsApp(receipt: IReceipt) {
+      const text = recoveryWhatsAppMessage(receipt)
+      const whatsappUrl = buildReceiptWhatsAppUrl(receipt, text)
+      const whatsappWindow = window.open(whatsappUrl, '_blank')
+
+      if (whatsappWindow) {
+        whatsappWindow.opener = null
+      } else {
+        window.location.href = whatsappUrl
+      }
+    },
+    async copyRecoveryMessage(receipt: IReceipt) {
+      await navigator.clipboard.writeText(recoveryWhatsAppMessage(receipt))
     },
     async copyInstagramText(receipt: IReceipt) {
       const text = `Recibo EMPI: ${receipt.services} - ${formatCurrency(receipt.priceCents)}`
@@ -377,6 +443,18 @@ function whatsappPhoneNumber(phone: string) {
     return `55${digits}`
   }
   return ''
+}
+
+function recoveryWhatsAppMessage(receipt: IReceipt) {
+  const clientName = receipt.user?.name || 'tudo bem'
+  const vehicle = [receipt.vehicleModel, receipt.vehiclePlate].filter(Boolean).join(' - ')
+
+  return [
+    `Olá, ${clientName}!`,
+    `Vi aqui que o orçamento do serviço ${vehicle ? `para ${vehicle} ` : ''}ficou em aberto e queria entender se ainda posso te ajudar.`,
+    `Conseguimos revisar o atendimento e buscar a melhor condição para você seguir com o serviço.`,
+    `Valor total: ${formatCurrency(receipt.priceCents)}`
+  ].join('\n')
 }
 
 function getReceiptErrorMessage(message: string | undefined, fallback: string) {

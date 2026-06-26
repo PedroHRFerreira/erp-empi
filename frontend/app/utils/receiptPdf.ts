@@ -98,9 +98,8 @@ function buildReceiptPdfBytes(receipt: IReceipt, company: IUser | null = null) {
   addLine(elements, 'Itens', 48, y, 12, 'F2')
   y -= 20
   addLine(elements, 'Item', 48, y, 10, 'F2')
-  addLine(elements, 'Qtd.', 245, y, 10, 'F2')
-  addLine(elements, 'Preco', 315, y, 10, 'F2')
-  addLine(elements, 'Taxa', 405, y, 10, 'F2')
+  addLine(elements, 'Qtd.', 270, y, 10, 'F2')
+  addLine(elements, 'Preco', 350, y, 10, 'F2')
   addLine(elements, 'Total', 485, y, 10, 'F2')
   y -= 8
   addRule(elements, y)
@@ -108,9 +107,8 @@ function buildReceiptPdfBytes(receipt: IReceipt, company: IUser | null = null) {
 
   for (const line of document.lines) {
     addLine(elements, truncate(line.description, 30), 48, y)
-    addLine(elements, line.quantity, 250, y)
-    addLine(elements, line.priceLabel, 315, y)
-    addLine(elements, line.taxLabel, 410, y)
+    addLine(elements, line.quantity, 275, y)
+    addLine(elements, line.priceLabel, 350, y)
     addLine(elements, line.totalLabel, 470, y, 10, 'F2')
     y -= 16
   }

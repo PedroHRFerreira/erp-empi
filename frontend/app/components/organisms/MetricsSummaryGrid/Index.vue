@@ -63,6 +63,10 @@ function receiptStatusLabel(status: string | undefined) {
           <dt>Pendentes</dt>
           <dd>{{ summary.receiptsPending }}</dd>
         </div>
+        <div class="metrics-summary-item">
+          <dt>Cancelados</dt>
+          <dd>{{ summary.receiptsCancelled }}</dd>
+        </div>
       </dl>
     </section>
 

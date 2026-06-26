@@ -224,6 +224,83 @@ func (service *ReceiptService) MarkPaid(ctx context.Context, id string) (*entiti
 	return service.repo.FindByID(ctx, updated.ID)
 }
 
+func (service *ReceiptService) Cancel(ctx context.Context, id string) (*entities.Receipt, error) {
+	var updated *entities.Receipt
+	err := service.repo.Transaction(func(tx *gorm.DB) error {
+		receipt, err := service.repo.FindByIDForUpdate(tx.WithContext(ctx), id)
+		if err != nil {
+			return err
+		}
+		if receipt.Status != entities.ReceiptStatusPending {
+			return apperrors.ErrConflict
+		}
+		receipt.Status = entities.ReceiptStatusCancelled
+		receipt.PaidAt = nil
+		updated = receipt
+		return service.repo.UpdateWithTx(tx.WithContext(ctx), receipt)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, updated.ID)
+}
+
+func (service *ReceiptService) Reopen(ctx context.Context, id string) (*entities.Receipt, error) {
+	var updated *entities.Receipt
+	err := service.repo.Transaction(func(tx *gorm.DB) error {
+		receipt, err := service.repo.FindByIDForUpdate(tx.WithContext(ctx), id)
+		if err != nil {
+			return err
+		}
+		if receipt.Status != entities.ReceiptStatusCancelled {
+			return apperrors.ErrConflict
+		}
+		if err := service.ensureReceiptItemsCanBeReserved(tx.WithContext(ctx), receipt.Items); err != nil {
+			return err
+		}
+		receipt.Status = entities.ReceiptStatusPending
+		receipt.PaidAt = nil
+		updated = receipt
+		return service.repo.UpdateWithTx(tx.WithContext(ctx), receipt)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, updated.ID)
+}
+
+func (service *ReceiptService) ensureReceiptItemsCanBeReserved(tx *gorm.DB, items []entities.ReceiptItem) error {
+	requestedQuantities := make(map[string]int)
+	stockItemIDs := make([]string, 0, len(items))
+
+	for _, item := range items {
+		if _, exists := requestedQuantities[item.StockItemID]; !exists {
+			stockItemIDs = append(stockItemIDs, item.StockItemID)
+		}
+		requestedQuantities[item.StockItemID] += item.Quantity
+	}
+
+	reservedQuantities, err := service.repo.ReservedQuantitiesByStockItemIDsWithTx(tx, stockItemIDs)
+	if err != nil {
+		return err
+	}
+
+	for stockItemID, quantity := range requestedQuantities {
+		stockItem, err := service.stockRepo.FindByIDForUpdate(tx, stockItemID)
+		if err != nil {
+			return err
+		}
+		if stockItem.Quantity < quantity {
+			return apperrors.ErrInsufficientStock
+		}
+		if stockItem.Quantity-reservedQuantities[stockItemID] < quantity {
+			return apperrors.ErrReservedStock
+		}
+	}
+
+	return nil
+}
+
 func validateReceiptInput(input ReceiptInput) error {
 	if strings.TrimSpace(input.VehicleModel) == "" ||
 		input.VehicleYear < 1950 ||

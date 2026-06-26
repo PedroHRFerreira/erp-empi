@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"time"
 
@@ -63,6 +64,61 @@ type ReceiptMetric struct {
 	CreatedAt  string `json:"createdAt"`
 }
 
+type metricTime struct {
+	Time  time.Time
+	Valid bool
+}
+
+func (value *metricTime) Scan(source any) error {
+	switch typed := source.(type) {
+	case nil:
+		value.Valid = false
+		return nil
+	case time.Time:
+		value.Time = typed
+		value.Valid = true
+		return nil
+	case string:
+		return value.scanString(typed)
+	case []byte:
+		return value.scanString(string(typed))
+	default:
+		value.Valid = false
+		return nil
+	}
+}
+
+func (value metricTime) Value() (driver.Value, error) {
+	if !value.Valid {
+		return nil, nil
+	}
+	return value.Time, nil
+}
+
+func (value *metricTime) scanString(source string) error {
+	if source == "" {
+		value.Valid = false
+		return nil
+	}
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05.999999999-07:00",
+		"2006-01-02 15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05-07:00",
+		"2006-01-02 15:04:05",
+	} {
+		parsed, err := time.Parse(layout, source)
+		if err == nil {
+			value.Time = parsed
+			value.Valid = true
+			return nil
+		}
+	}
+	value.Valid = false
+	return nil
+}
+
 func NewMetricsService(db *gorm.DB) *MetricsService {
 	return &MetricsService{db: db}
 }
@@ -78,7 +134,10 @@ func (service *MetricsService) Summary(ctx context.Context) (*Summary, error) {
 	if err := service.db.WithContext(ctx).Model(&entities.User{}).Where("type = ?", entities.UserTypeClient).Count(&summary.ClientsTotal).Error; err != nil {
 		return nil, err
 	}
-	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Count(&summary.ReceiptsTotal).Error; err != nil {
+	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status IN ?", []entities.ReceiptStatus{
+		entities.ReceiptStatusPaid,
+		entities.ReceiptStatusPending,
+	}).Count(&summary.ReceiptsTotal).Error; err != nil {
 		return nil, err
 	}
 	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status = ?", entities.ReceiptStatusPaid).Count(&summary.ReceiptsPaid).Error; err != nil {
@@ -148,7 +207,12 @@ func (service *MetricsService) loadStockTotals(ctx context.Context, summary *Sum
 
 func (service *MetricsService) loadLatestReceipt(ctx context.Context, summary *Summary) error {
 	var receipt entities.Receipt
-	err := service.db.WithContext(ctx).Preload("User").Order("created_at desc").First(&receipt).Error
+	err := service.db.WithContext(ctx).
+		Preload("User").
+		Where("status <> ?", entities.ReceiptStatusCancelled).
+		Order("created_at desc").
+		First(&receipt).
+		Error
 	if err == nil {
 		summary.LastReceipt = &ReceiptMetric{
 			ID:         receipt.ID,
@@ -217,15 +281,16 @@ func (service *MetricsService) loadClientMetrics(ctx context.Context, summary *S
 		ID            string
 		Name          string
 		ReceiptsCount int64
-		LastReceiptAt *time.Time
+		LastReceiptAt metricTime
 	}
 	var rows []row
 	err := service.db.WithContext(ctx).
 		Table("users").
 		Select("users.id, users.name, COUNT(receipts.id) as receipts_count, MAX(receipts.created_at) as last_receipt_at").
-		Joins("LEFT JOIN receipts ON receipts.user_id = users.id").
+		Joins("LEFT JOIN receipts ON receipts.user_id = users.id AND receipts.status <> ?", entities.ReceiptStatusCancelled).
 		Where("users.type = ?", entities.UserTypeClient).
 		Group("users.id, users.name").
+		Having("COUNT(receipts.id) > 0").
 		Order("last_receipt_at desc").
 		Limit(5).
 		Scan(&rows).Error
@@ -234,8 +299,8 @@ func (service *MetricsService) loadClientMetrics(ctx context.Context, summary *S
 	}
 	for _, row := range rows {
 		lastReceiptAt := ""
-		if row.LastReceiptAt != nil {
-			lastReceiptAt = row.LastReceiptAt.Format(time.RFC3339)
+		if row.LastReceiptAt.Valid {
+			lastReceiptAt = row.LastReceiptAt.Time.Format(time.RFC3339)
 		}
 		summary.RecentClients = append(summary.RecentClients, ClientMetric{
 			ID:            row.ID,
