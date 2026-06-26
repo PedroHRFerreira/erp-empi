@@ -1,7 +1,8 @@
-import type { IReceipt } from '../../server/contracts/types'
-import { formatCurrency, formatDateTime } from './format'
+import type { IReceipt, IUser } from '../../server/contracts/types'
+import { buildReceiptDocument } from './receiptDocument'
 
-type PdfLine = {
+type PdfText = {
+  kind: 'text'
   text: string
   x: number
   y: number
@@ -9,33 +10,40 @@ type PdfLine = {
   font?: 'F1' | 'F2'
 }
 
-export function receiptWhatsAppMessage(receipt: IReceipt) {
-  const productLines = receipt.items.length
-    ? ['Produtos utilizados:', ...receipt.items.map((item) => `- ${item.quantity}x ${item.stockItem?.name || item.stockItemId}`)]
-    : ['Produtos utilizados: nenhum produto vinculado.']
-  const serviceExpenseLines = receipt.expenses?.length
-    ? ['Gastos do serviço:', ...receipt.expenses.map((expense) => `- ${expense.description}: ${formatCurrency(expense.amountCents)}`)]
-    : []
+type PdfRule = {
+  kind: 'rule'
+  x1: number
+  x2: number
+  y: number
+}
+
+type PdfElement = PdfText | PdfRule
+
+export function receiptWhatsAppMessage(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptDocument(receipt, company)
+  const itemLines = document.lines.map((line) => `- ${line.quantity}x ${line.description}: ${line.totalLabel}`)
 
   return [
-    'Recibo EMPI Autocenter',
-    `Cliente: ${receipt.user.name}`,
-    `Veículo: ${receipt.vehicleModel} ${receipt.vehicleYear}`,
-    `Placa: ${receipt.vehiclePlate}`,
-    `Serviços: ${receipt.services}`,
-    ...productLines,
-    ...serviceExpenseLines,
-    `Pagamento: ${paymentMethodLabel(receipt)}`,
-    `Valor total: ${formatCurrency(receipt.priceCents)}`,
-    'Este recibo não é uma nota fiscal.'
+    document.receiptNumber,
+    document.company.name,
+    ...document.company.lines,
+    `Cliente: ${document.customer.name}`,
+    `Veículo: ${document.vehicle.name}`,
+    ...document.vehicle.lines,
+    'Itens:',
+    ...itemLines,
+    `Pagamento: ${document.payment.methodLabel}`,
+    ...document.summaryRows.map((row) => `${row.label}: ${row.valueLabel}`),
+    document.legalNotice
   ].join('\n')
 }
 
-export async function shareReceiptPdf(receipt: IReceipt) {
-  const file = buildReceiptPdfFile(receipt)
-  const text = receiptWhatsAppMessage(receipt)
+export async function shareReceiptPdf(receipt: IReceipt, company: IUser | null = null) {
+  const file = buildReceiptPdfFile(receipt, company)
+  const text = receiptWhatsAppMessage(receipt, company)
+  const document = buildReceiptDocument(receipt, company)
   const shareData = {
-    title: `Recibo EMPI Autocenter - ${receipt.user.name}`,
+    title: `${document.receiptNumber} - ${receipt.user.name}`,
     text,
     files: [file]
   }
@@ -54,105 +62,101 @@ export async function shareReceiptPdf(receipt: IReceipt) {
   return false
 }
 
-export function buildReceiptPdfFile(receipt: IReceipt) {
-  const bytes = buildReceiptPdfBytes(receipt)
-  const filename = `recibo-empi-${receipt.id.slice(0, 8)}.pdf`
+export function buildReceiptPdfFile(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptDocument(receipt, company)
+  const bytes = buildReceiptPdfBytes(receipt, company)
+  const filename = `${document.receiptNumber.toLowerCase().replace(/\s+/g, '-')}.pdf`
   return new File([bytes], filename, { type: 'application/pdf' })
 }
 
-function buildReceiptPdfBytes(receipt: IReceipt) {
-  const lines: PdfLine[] = []
+function buildReceiptPdfBytes(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptDocument(receipt, company)
+  const elements: PdfElement[] = []
   let y = 790
 
-  addLine(lines, 'EMPI Autocenter', 48, y, 18, 'F2')
-  addLine(lines, 'Recibo de serviço', 395, y, 18, 'F2')
-  y -= 20
-  addLine(lines, `Emissão: ${formatDateTime(receipt.createdAt)}`, 395, y, 9)
+  addLine(elements, document.company.name, 48, y, 16, 'F2')
+  addLine(elements, document.receiptNumber, 330, y, 24, 'F2')
+  y -= 18
+  for (const line of document.company.lines.slice(0, 3)) {
+    addLine(elements, truncate(line, 42), 48, y, 9)
+    y -= 12
+  }
+  addLine(elements, document.issuedAtLabel, 430, 772, 10)
+  y -= 10
+  addRule(elements, y)
   y -= 30
 
-  addLine(lines, 'Cliente', 48, y, 12, 'F2')
-  addLine(lines, 'Veículo', 320, y, 12, 'F2')
+  addLine(elements, 'Dados do cliente', 48, y, 12, 'F2')
   y -= 18
-  addLine(lines, receipt.user.name, 48, y, 11, 'F2')
-  addLine(lines, `${receipt.vehicleModel} ${receipt.vehicleYear}`, 320, y, 11, 'F2')
-  y -= 15
-  addLine(lines, `Telefone: ${receipt.user.phone || '-'}`, 48, y)
-  addLine(lines, `Placa: ${receipt.vehiclePlate}`, 320, y)
-  y -= 15
-  addLine(lines, `Status: ${statusLabel(receipt.status)}`, 320, y)
-  y -= 32
+  addLine(elements, document.customer.name, 48, y, 10, 'F2')
+  addLine(elements, document.vehicle.name, 330, y, 10, 'F2')
+  y -= 14
+  addLine(elements, truncate(document.customer.lines.join(' | ') || '-', 46), 48, y, 9)
+  addLine(elements, truncate(document.vehicle.lines.join(' | '), 32), 330, y, 9)
+  y -= 34
 
-  addLine(lines, 'Serviços', 48, y, 12, 'F2')
+  addLine(elements, 'Itens', 48, y, 12, 'F2')
+  y -= 20
+  addLine(elements, 'Item', 48, y, 10, 'F2')
+  addLine(elements, 'Qtd.', 245, y, 10, 'F2')
+  addLine(elements, 'Preco', 315, y, 10, 'F2')
+  addLine(elements, 'Taxa', 405, y, 10, 'F2')
+  addLine(elements, 'Total', 485, y, 10, 'F2')
+  y -= 8
+  addRule(elements, y)
   y -= 16
-  for (const line of wrapText(receipt.services, 88)) {
-    addLine(lines, line, 48, y)
-    y -= 14
-  }
-  if (receipt.notes) {
-    y -= 4
-    for (const line of wrapText(`Observações: ${receipt.notes}`, 88)) {
-      addLine(lines, line, 48, y, 9)
-      y -= 12
-    }
-  }
-  y -= 14
 
-  addLine(lines, 'Produtos utilizados', 48, y, 12, 'F2')
+  for (const line of document.lines) {
+    addLine(elements, truncate(line.description, 30), 48, y)
+    addLine(elements, line.quantity, 250, y)
+    addLine(elements, line.priceLabel, 315, y)
+    addLine(elements, line.taxLabel, 410, y)
+    addLine(elements, line.totalLabel, 470, y, 10, 'F2')
+    y -= 16
+  }
+
+  y -= 4
+  addRule(elements, y)
+  y -= 26
+
+  for (const row of document.summaryRows) {
+    addLine(elements, row.label, 335, y, row.strong ? 13 : 10, row.strong ? 'F2' : 'F1')
+    addLine(elements, row.valueLabel, 470, y, row.strong ? 13 : 10, row.strong ? 'F2' : 'F1')
+    y -= row.strong ? 20 : 16
+  }
+
   y -= 18
-  addLine(lines, 'Produto', 48, y, 9, 'F2')
-  addLine(lines, 'Qtd.', 450, y, 9, 'F2')
-  y -= 14
-
-  if (receipt.items.length) {
-    for (const item of receipt.items) {
-      addLine(lines, truncate(item.stockItem?.name || item.stockItemId, 58), 48, y)
-      addLine(lines, String(item.quantity), 450, y)
-      y -= 14
-    }
-  } else {
-    addLine(lines, 'Nenhum produto vinculado.', 48, y)
-    y -= 14
-  }
-  y -= 22
-
-  if (receipt.expenses?.length) {
-    addLine(lines, 'Gastos do serviço', 48, y, 12, 'F2')
-    y -= 18
-    addLine(lines, 'Descrição', 48, y, 9, 'F2')
-    addLine(lines, 'Valor', 450, y, 9, 'F2')
-    y -= 14
-
-    for (const expense of receipt.expenses) {
-      addLine(lines, truncate(expense.description, 58), 48, y)
-      addLine(lines, formatCurrency(expense.amountCents), 450, y)
-      y -= 14
-    }
-    y -= 22
-  }
-
-  addLine(lines, 'Resumo financeiro', 48, y, 12, 'F2')
+  addRule(elements, y)
+  y -= 28
+  addLine(elements, 'Detalhes do pagamento', 48, y, 12, 'F2')
   y -= 18
-  addLine(lines, 'Pagamento', 48, y)
-  addLine(lines, paymentMethodLabel(receipt), 360, y, 10, 'F2')
-  y -= 18
-  addMoneyLine(lines, 'Valor total', receipt.priceCents, y, 13)
-  y -= 50
-  addLine(lines, 'Este recibo não é uma nota fiscal.', 48, Math.max(y, 54), 10, 'F2')
+  addLine(elements, document.payment.dateLabel, 48, y)
+  addLine(elements, document.payment.methodLabel, 180, y)
+  addLine(elements, document.payment.amountLabel, 330, y, 10, 'F2')
+  y -= 44
+  addLine(elements, document.thankYouTitle, 48, y, 12, 'F2')
+  y -= 16
+  addLine(elements, document.thankYouMessage, 48, y)
+  addLine(elements, document.legalNotice, 48, Math.max(y - 46, 54), 10, 'F2')
 
-  const stream = lines.map((line) => drawText(line)).join('\n')
+  const stream = elements.map((element) => drawElement(element)).join('\n')
   return createPdf(stream)
 }
 
-function addLine(lines: PdfLine[], text: string, x: number, y: number, size = 10, font: 'F1' | 'F2' = 'F1') {
-  lines.push({ text, x, y, size, font })
+function addLine(elements: PdfElement[], text: string, x: number, y: number, size = 10, font: 'F1' | 'F2' = 'F1') {
+  elements.push({ kind: 'text', text, x, y, size, font })
 }
 
-function addMoneyLine(lines: PdfLine[], label: string, value: number, y: number, size = 10) {
-  addLine(lines, label, 48, y, size)
-  addLine(lines, formatCurrency(value), 360, y, size, 'F2')
+function addRule(elements: PdfElement[], y: number, x1 = 48, x2 = 547) {
+  elements.push({ kind: 'rule', x1, x2, y })
 }
 
-function drawText(line: PdfLine) {
+function drawElement(element: PdfElement) {
+  if (element.kind === 'rule') return `0.6 w ${element.x1} ${element.y} m ${element.x2} ${element.y} l S`
+  return drawText(element)
+}
+
+function drawText(line: PdfText) {
   return `BT /${line.font || 'F1'} ${line.size || 10} Tf 1 0 0 1 ${line.x} ${line.y} Tm (${escapePdfString(line.text)}) Tj ET`
 }
 
@@ -199,38 +203,8 @@ function downloadReceiptPdf(file: File) {
   URL.revokeObjectURL(href)
 }
 
-function paymentMethodLabel(receipt: IReceipt) {
-  if (receipt.paymentMethod === 'credit_card') return `Cartão de crédito (${receipt.installments || 1}x)`
-  if (receipt.paymentMethod === 'debit_card') return 'Cartão de débito'
-  if (receipt.paymentMethod === 'pix') return 'Pix'
-  return 'Dinheiro'
-}
-
-function statusLabel(status: IReceipt['status']) {
-  if (status === 'paid') return 'Pago'
-  if (status === 'cancelled') return 'Cancelado'
-  return 'Pendente'
-}
-
-function wrapText(value: string, maxLength: number) {
-  const words = value.split(/\s+/)
-  const lines: string[] = []
-  let current = ''
-
-  for (const word of words) {
-    if (`${current} ${word}`.trim().length > maxLength) {
-      if (current) lines.push(current)
-      current = word
-    } else {
-      current = `${current} ${word}`.trim()
-    }
-  }
-  if (current) lines.push(current)
-  return lines.length ? lines : ['-']
-}
-
 function truncate(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value
 }
 
 function escapePdfString(value: string) {

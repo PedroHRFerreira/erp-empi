@@ -1,5 +1,15 @@
-import type { IReceipt, IStockItem } from "../../server/contracts/types";
+import type { IReceipt, IStockItem, IUser } from "../../server/contracts/types";
 import { formatCurrency, formatDateTime } from "./format";
+import {
+  buildReceiptDocument,
+  buildReceiptInvoiceData,
+  type IReceiptDocumentLine,
+  type IReceiptDocumentMoneyRow,
+  type IReceiptDocumentParty,
+  type IReceiptInvoicePortalRow,
+} from "./receiptDocument";
+
+export const NFSE_PORTAL_URL = "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional";
 
 const PRINT_STYLES = `
   @page {
@@ -13,7 +23,8 @@ const PRINT_STYLES = `
 
   body {
     margin: 0;
-    color: #172033;
+    color: #171717;
+    background: #f1f4f8;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 12px;
     line-height: 1.45;
@@ -22,6 +33,15 @@ const PRINT_STYLES = `
   .document {
     display: grid;
     gap: 18px;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 36px;
+    background: #ffffff;
+    box-shadow: 0 18px 42px rgba(14, 23, 38, 0.18);
+  }
+
+  .document--receipt {
+    gap: 24px;
   }
 
   .header {
@@ -40,6 +60,53 @@ const PRINT_STYLES = `
   .brand strong {
     font-size: 20px;
     letter-spacing: 0;
+  }
+
+  .receipt-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .company {
+    display: grid;
+    gap: 18px;
+    justify-items: start;
+  }
+
+  .company__badge {
+    display: grid;
+    width: 72px;
+    height: 72px;
+    place-items: center;
+    color: #9b5a63;
+    background: #fbf1f2;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .company__details {
+    display: grid;
+    gap: 3px;
+  }
+
+  .company__details strong {
+    margin-bottom: 4px;
+    font-size: 15px;
+  }
+
+  .document-title {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+    text-align: right;
+  }
+
+  .document-title h1 {
+    font-size: 30px;
+    line-height: 1;
   }
 
   .muted {
@@ -61,6 +128,12 @@ const PRINT_STYLES = `
     font-size: 13px;
     margin-bottom: 8px;
     text-transform: uppercase;
+  }
+
+  .section-title {
+    margin-bottom: 10px;
+    font-size: 16px;
+    text-transform: none;
   }
 
   .grid {
@@ -85,6 +158,11 @@ const PRINT_STYLES = `
     font-weight: 700;
   }
 
+  .divider {
+    height: 1px;
+    background: #e7eaf0;
+  }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -104,8 +182,106 @@ const PRINT_STYLES = `
     text-transform: uppercase;
   }
 
+  .receipt-items th {
+    color: #171717;
+    background: transparent;
+    border-bottom: 2px solid #7b7b7b;
+    font-size: 15px;
+    text-transform: none;
+  }
+
+  .receipt-items td {
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-bottom-color: #edf0f4;
+  }
+
+  .receipt-items tbody tr:last-child td {
+    border-bottom: 2px solid #7b7b7b;
+  }
+
   .right {
     text-align: right;
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    gap: 24px;
+  }
+
+  .summary__box {
+    display: grid;
+    gap: 8px;
+  }
+
+  .money-row,
+  .payment-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    border-bottom: 1px solid #edf0f4;
+    padding: 5px 0;
+  }
+
+  .money-row--strong {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .payment-details {
+    display: grid;
+    gap: 10px;
+  }
+
+  .payment-details__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .payment-details__list span {
+    padding: 0 22px;
+    border-left: 1px solid #e2e7ef;
+  }
+
+  .payment-details__list span:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .thank-you {
+    display: grid;
+    gap: 4px;
+  }
+
+  .invoice-data {
+    display: grid;
+    gap: 18px;
+  }
+
+  .invoice-data__notice {
+    padding: 12px;
+    border: 1px solid #d8dee8;
+    border-radius: 6px;
+    color: #172033;
+    background: #f8fafc;
+    font-weight: 700;
+  }
+
+  .invoice-data__section {
+    display: grid;
+    gap: 8px;
+  }
+
+  .invoice-data__party {
+    padding: 10px 0;
+    border-bottom: 1px solid #edf0f4;
+  }
+
+  .invoice-data__party strong,
+  .invoice-data__party span {
+    display: block;
   }
 
   .footer {
@@ -115,134 +291,198 @@ const PRINT_STYLES = `
     color: #5f6b7a;
     font-size: 11px;
   }
+
+  @media print {
+    body {
+      background: #ffffff;
+    }
+
+    .document {
+      max-width: none;
+      padding: 0;
+      box-shadow: none;
+    }
+  }
 `;
 
-export function printReceiptDocument(receipt: IReceipt) {
-  const items = Array.isArray(receipt.items) ? receipt.items : [];
-  const serviceExpenses = Array.isArray(receipt.expenses)
-    ? receipt.expenses
-    : [];
-  const installments =
-    receipt.paymentMethod === "credit_card" ? receipt.installments || 1 : 1;
-  const installmentValueCents = Math.ceil(receipt.priceCents / installments);
-  const rows = items.length
-    ? items
-        .map((item) => {
-          const name = escapeHtml(item.stockItem?.name || item.stockItemId);
-          return `
-            <tr>
-              <td>${name}</td>
-              <td class="right">${item.quantity}</td>
-            </tr>
-          `;
-        })
-        .join("")
-    : '<tr><td colspan="2">Nenhum produto vinculado.</td></tr>';
-  const serviceExpenseRows = serviceExpenses
-    .map((expense) => {
-      return `
-        <tr>
-          <td>${escapeHtml(expense.description)}</td>
-          <td>${escapeHtml(expense.category)}</td>
-          <td class="right">${formatCurrency(expense.amountCents)}</td>
-        </tr>
-      `;
-    })
-    .join("");
+export function printReceiptDocument(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptDocument(receipt, company);
 
   openPrintDocument(
-    `Recibo EMPI Autocenter`,
+    document.receiptNumber,
     `
-      <main class="document">
-        <header class="header">
-          <div class="brand">
-            <strong>EMPI Autocenter</strong>
-            <span class="muted">Recibo de serviço</span>
+      <main class="document document--receipt">
+        <header class="receipt-header">
+          <div class="company">
+            <span class="company__badge">${escapeHtml(document.company.initials)}</span>
+            <div class="company__details">
+              <strong>${escapeHtml(document.company.name)}</strong>
+              ${renderTextLines(document.company.lines)}
+            </div>
           </div>
-          <div>
-            <h1>Recibo</h1>
-            <p class="muted">Emissão: ${formatDate(receipt.createdAt)}</p>
-            <p class="muted">Status: ${statusLabel(receipt.status)}</p>
-            <p class="muted">Pagamento: ${paymentMethodLabel(receipt)}</p>
+          <div class="document-title">
+            <h1>${escapeHtml(document.receiptNumber)}</h1>
+            <p class="muted">${escapeHtml(document.issuedAtLabel)}</p>
           </div>
         </header>
 
-        <section class="grid">
-          <article class="box">
-            <h2>Cliente</h2>
-            <p><strong>${escapeHtml(receipt.user.name)}</strong></p>
-            <p>Telefone: ${escapeHtml(receipt.user.phone || "-")}</p>
-          </article>
+        <div class="divider"></div>
 
-          <article class="box">
-            <h2>Veículo</h2>
-            <p><strong>${escapeHtml(receipt.vehicleModel)} ${receipt.vehicleYear}</strong></p>
-            <p>Placa: ${escapeHtml(receipt.vehiclePlate)}</p>
-          </article>
-        </section>
-
-        <section class="box">
-          <h2>Serviços</h2>
-          <p>${escapeHtml(receipt.services)}</p>
-          ${receipt.notes ? `<p class="muted">Observações: ${escapeHtml(receipt.notes)}</p>` : ""}
+        <section>
+          <h2 class="section-title">Dados do cliente</h2>
+          <p><strong>${escapeHtml(document.customer.name)}</strong></p>
+          ${renderTextLines(document.customer.lines)}
+          <p class="muted">${escapeHtml(document.vehicle.name)} - ${escapeHtml(document.vehicle.lines.join(" "))}</p>
         </section>
 
         <section>
-          <h2>Produtos utilizados</h2>
-          <table>
+          <table class="receipt-items">
             <thead>
               <tr>
-                <th>Produto</th>
-                <th class="right">Qtd.</th>
+                <th>Itens</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Preço</th>
+                <th class="right">Taxa</th>
+                <th class="right">Total da linha</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${renderReceiptLineRows(document.lines)}</tbody>
           </table>
         </section>
 
-        ${
-          serviceExpenses.length
-            ? `
-              <section>
-                <h2>Gastos do serviço</h2>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Descrição</th>
-                      <th>Categoria</th>
-                      <th class="right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>${serviceExpenseRows}</tbody>
-                </table>
-              </section>
-            `
-            : ""
-        }
+        <section class="summary">
+          <span aria-hidden="true"></span>
+          <div class="summary__box">
+            ${renderSummaryRows(document.summaryRows)}
+          </div>
+        </section>
 
-        ${
-          receipt.paymentMethod === "credit_card"
-            ? `
-              <section class="box">
-                <h2>Parcelamento</h2>
-                <p>${installments}x de ${formatCurrency(installmentValueCents)}</p>
-              </section>
-            `
-            : ""
-        }
+        <div class="divider"></div>
 
-        <section class="total">
-          <span>Valor total</span>
-          <span>${formatCurrency(receipt.priceCents)}</span>
+        <section class="payment-details">
+          <h2 class="section-title">Detalhes do pagamento</h2>
+          <div class="payment-details__list">
+            <span>${escapeHtml(document.payment.dateLabel)}</span>
+            <span>${escapeHtml(document.payment.methodLabel)}</span>
+            <span>${escapeHtml(document.payment.amountLabel)}</span>
+          </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <section class="thank-you">
+          <h2 class="section-title">${escapeHtml(document.thankYouTitle)}</h2>
+          <p>${escapeHtml(document.thankYouMessage)}</p>
         </section>
 
         <footer class="footer">
-          <p>Documento gerado pela EMPI Autocenter.</p>
-          <p><strong>Este recibo não é uma nota fiscal.</strong></p>
+          <p><strong>${escapeHtml(document.legalNotice)}</strong></p>
         </footer>
       </main>
     `,
   );
+}
+
+export function printReceiptInvoiceData(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptInvoiceData(receipt, company);
+
+  openPrintDocument(
+    document.title,
+    `
+      <main class="document invoice-data">
+        <header class="receipt-header">
+          <div class="company">
+            <span class="company__badge">${escapeHtml(document.receipt.company.initials)}</span>
+            <div class="company__details">
+              <strong>${escapeHtml(document.receipt.company.name)}</strong>
+              ${renderTextLines(document.receipt.company.lines)}
+            </div>
+          </div>
+          <div class="document-title">
+            <h1>Dados para nota fiscal</h1>
+            <p class="muted">${escapeHtml(document.receipt.receiptNumber)}</p>
+          </div>
+        </header>
+
+        <p class="invoice-data__notice">${escapeHtml(document.notice)}</p>
+
+        <section class="invoice-data__section">
+          <h2 class="section-title">Preenchimento sugerido no portal NFS-e</h2>
+          <table>
+            <tbody>${renderPortalRows(document.portalRows)}</tbody>
+          </table>
+        </section>
+
+        <section class="invoice-data__section">
+          <h2 class="section-title">Prestador</h2>
+          ${renderParties(document.providerRows)}
+        </section>
+
+        <section class="invoice-data__section">
+          <h2 class="section-title">Tomador e veículo</h2>
+          ${renderParties(document.customerRows)}
+        </section>
+
+        <section>
+          <h2 class="section-title">Serviços, produtos e valores</h2>
+          <table class="receipt-items">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Valor unitário</th>
+                <th class="right">Taxa</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>${renderReceiptLineRows(document.serviceRows)}</tbody>
+          </table>
+        </section>
+
+        <section class="summary">
+          <span aria-hidden="true"></span>
+          <div class="summary__box">
+            ${renderSummaryRows(document.summaryRows)}
+          </div>
+        </section>
+
+        <footer class="footer">
+          <p><strong>${escapeHtml(document.notice)}</strong></p>
+        </footer>
+      </main>
+    `,
+  );
+}
+
+export function prepareReceiptInvoiceIssue(receipt: IReceipt, company: IUser | null = null) {
+  const portal = window.open(NFSE_PORTAL_URL, "_blank");
+  if (portal) {
+    portal.opener = null;
+  }
+
+  printReceiptInvoiceData(receipt, company);
+
+  const text = buildReceiptInvoiceClipboardText(receipt, company);
+  if (!navigator.clipboard) return Promise.resolve(false);
+
+  return navigator.clipboard
+    .writeText(text)
+    .then(() => true)
+    .catch(() => false);
+}
+
+export function buildReceiptInvoiceClipboardText(receipt: IReceipt, company: IUser | null = null) {
+  const document = buildReceiptInvoiceData(receipt, company);
+
+  return [
+    document.title,
+    "",
+    "Dados para preencher no portal:",
+    ...document.portalRows.map((row) => `${row.label}: ${row.value}`),
+    "",
+    "Atenção:",
+    document.notice,
+  ].join("\n");
 }
 
 export function printStockReport(items: IStockItem[]) {
@@ -328,6 +568,65 @@ function openPrintDocument(title: string, body: string) {
   popup.document.close();
 }
 
+function renderReceiptLineRows(lines: IReceiptDocumentLine[]) {
+  return lines
+    .map((line) => {
+      return `
+        <tr>
+          <td>${escapeHtml(line.description)}</td>
+          <td class="right">${escapeHtml(line.quantity)}</td>
+          <td class="right">${escapeHtml(line.priceLabel)}</td>
+          <td class="right">${escapeHtml(line.taxLabel)}</td>
+          <td class="right"><strong>${escapeHtml(line.totalLabel)}</strong></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderSummaryRows(rows: IReceiptDocumentMoneyRow[]) {
+  return rows
+    .map((row) => {
+      return `
+        <div class="money-row ${row.strong ? "money-row--strong" : ""}">
+          <span>${escapeHtml(row.label)}</span>
+          <span>${escapeHtml(row.valueLabel)}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderPortalRows(rows: IReceiptInvoicePortalRow[]) {
+  return rows
+    .map((row) => {
+      return `
+        <tr>
+          <td><strong>${escapeHtml(row.label)}</strong></td>
+          <td>${escapeHtml(row.value)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderParties(parties: IReceiptDocumentParty[]) {
+  return parties
+    .map((party) => {
+      return `
+        <div class="invoice-data__party">
+          <strong>${escapeHtml(party.name)}</strong>
+          ${renderTextLines(party.lines)}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderTextLines(lines: string[]) {
+  return lines.map((line) => `<p class="muted">${escapeHtml(line)}</p>`).join("");
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -335,20 +634,6 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function statusLabel(status: IReceipt["status"]) {
-  if (status === "paid") return "Pago";
-  if (status === "cancelled") return "Cancelado";
-  return "Pendente";
-}
-
-function paymentMethodLabel(receipt: IReceipt) {
-  if (receipt.paymentMethod === "credit_card")
-    return `Cartão de crédito (${receipt.installments || 1}x)`;
-  if (receipt.paymentMethod === "debit_card") return "Cartão de débito";
-  if (receipt.paymentMethod === "pix") return "Pix";
-  return "Dinheiro";
 }
 
 function formatDate(value: string) {

@@ -5,7 +5,7 @@ import type { IReceipt } from '../../../../server/contracts/types'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
 import PaginationControls from '../../molecules/PaginationControls/Index.vue'
 import ReceiptsTable from '../../organisms/ReceiptsTable/Index.vue'
-import { printReceiptDocument } from '../../../utils/print'
+import { prepareReceiptInvoiceIssue, printReceiptDocument } from '../../../utils/print'
 
 export default defineComponent({
   name: 'ReceiptsTemplate',
@@ -18,11 +18,20 @@ export default defineComponent({
   setup() {
     const router = useRouter()
     const receipts = useReceiptsStore()
+    const auth = useAuthStore()
     const pages = computed(() => Math.ceil(receipts.total / receipts.limit))
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
 
     function printReceipt(receipt: IReceipt) {
-      printReceiptDocument(receipt)
+      printReceiptDocument(receipt, auth.user)
+    }
+
+    function printInvoiceData(receipt: IReceipt) {
+      return prepareReceiptInvoiceIssue(receipt, auth.user)
+    }
+
+    function shareWhatsApp(receipt: IReceipt) {
+      return receipts.shareWhatsApp(receipt, auth.user)
     }
 
     function startCreate() {
@@ -41,9 +50,11 @@ export default defineComponent({
       currentPage,
       nextPage,
       pages,
+      printInvoiceData,
       previousPage,
       printReceipt,
       receipts,
+      shareWhatsApp,
       startCreate
     }
   }
@@ -65,8 +76,9 @@ export default defineComponent({
       :receipts="receipts.receipts"
       @copy-instagram="receipts.copyInstagramText"
       @mark-paid="(receipt) => receipts.markPaid(receipt.id)"
+      @print-invoice-data="printInvoiceData"
       @print="printReceipt"
-      @share-whatsapp="receipts.shareWhatsApp"
+      @share-whatsapp="shareWhatsApp"
     />
 
     <PaginationControls :current-page="currentPage" :pages="pages" @next="nextPage" @previous="previousPage" />

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { CheckCircle2, Copy, MessageCircle, Printer } from '@lucide/vue'
+import { CheckCircle2, Copy, FileText, MessageCircle, Printer } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
@@ -12,6 +12,7 @@ export default defineComponent({
     CheckCircle2,
     Copy,
     EmptyState,
+    FileText,
     IconActionButton,
     MessageCircle,
     Printer
@@ -22,7 +23,7 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['copy-instagram', 'mark-paid', 'print', 'share-whatsapp'],
+  emits: ['copy-instagram', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
   setup(_, { emit }) {
     function copyInstagram(receipt: IReceipt) {
       emit('copy-instagram', receipt)
@@ -34,6 +35,10 @@ export default defineComponent({
 
     function print(receipt: IReceipt) {
       emit('print', receipt)
+    }
+
+    function printInvoiceData(receipt: IReceipt) {
+      emit('print-invoice-data', receipt)
     }
 
     function shareWhatsApp(receipt: IReceipt) {
@@ -54,6 +59,7 @@ export default defineComponent({
       markPaid,
       paymentMethodLabel,
       print,
+      printInvoiceData,
       shareWhatsApp
     }
   }
@@ -109,6 +115,9 @@ export default defineComponent({
         </IconActionButton>
         <IconActionButton title="PDF / imprimir" @click="print(receipt)">
           <Printer :size="16" />
+        </IconActionButton>
+        <IconActionButton title="Preparar emissão NFS-e" @click="printInvoiceData(receipt)">
+          <FileText :size="16" />
         </IconActionButton>
         <IconActionButton v-if="receipt.status !== 'paid'" title="Marcar como pago" variant="primary" @click="markPaid(receipt)">
           <CheckCircle2 :size="16" />

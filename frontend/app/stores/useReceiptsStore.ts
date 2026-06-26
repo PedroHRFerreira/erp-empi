@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { IPaginated, IReceipt } from '../../server/contracts/types'
+import type { IPaginated, IReceipt, IUser } from '../../server/contracts/types'
 import { formatCurrency } from '../utils/format'
 import { receiptWhatsAppMessage, shareReceiptPdf } from '../utils/receiptPdf'
 import { isPlate, onlyDigits } from '../utils/validation'
@@ -325,8 +325,8 @@ export const useReceiptsStore = defineStore('receipts', {
 
       return { status: 'success' }
     },
-    async shareWhatsApp(receipt: IReceipt) {
-      const text = receiptWhatsAppMessage(receipt)
+    async shareWhatsApp(receipt: IReceipt, company: IUser | null = null) {
+      const text = receiptWhatsAppMessage(receipt, company)
       const whatsappUrl = buildReceiptWhatsAppUrl(receipt, text)
       const whatsappWindow = window.open(whatsappUrl, '_blank')
 
@@ -337,7 +337,7 @@ export const useReceiptsStore = defineStore('receipts', {
       }
 
       try {
-        await shareReceiptPdf(receipt)
+        await shareReceiptPdf(receipt, company)
       } catch {
         this.error = 'Não foi possível gerar o PDF do recibo.'
       }

@@ -1,5 +1,87 @@
+.icon-action-button__wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .icon-action-button {
   width: 38px;
   min-height: 38px;
   padding: 0;
+}
+
+.icon-action-button__popper {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  max-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 6px;
+  color: var(--braip-theme-text);
+  background: var(--braip-theme-surface-strong);
+  box-shadow: var(--shadow-panel);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  opacity: 0;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  text-align: center;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  white-space: normal;
+  width: max-content;
+}
+
+.icon-action-button__popper::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid var(--braip-theme-border);
+  border-bottom: 1px solid var(--braip-theme-border);
+  background: var(--braip-theme-surface-strong);
+  content: '';
+  transform: translate(-50%, -4px) rotate(45deg);
+}
+
+.icon-action-button__wrap:hover .icon-action-button__popper,
+.icon-action-button__wrap:focus-within .icon-action-button__popper {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.icon-action-button__wrap:first-child .icon-action-button__popper {
+  left: 0;
+  transform: translate(0, 4px);
+}
+
+.icon-action-button__wrap:first-child .icon-action-button__popper::after {
+  left: 19px;
+}
+
+.icon-action-button__wrap:first-child:hover .icon-action-button__popper,
+.icon-action-button__wrap:first-child:focus-within .icon-action-button__popper {
+  transform: translate(0, 0);
+}
+
+.icon-action-button__wrap:last-child .icon-action-button__popper {
+  right: 0;
+  left: auto;
+  transform: translate(0, 4px);
+}
+
+.icon-action-button__wrap:last-child .icon-action-button__popper::after {
+  right: 19px;
+  left: auto;
+  transform: translate(50%, -4px) rotate(45deg);
+}
+
+.icon-action-button__wrap:last-child:hover .icon-action-button__popper,
+.icon-action-button__wrap:last-child:focus-within .icon-action-button__popper {
+  transform: translate(0, 0);
 }

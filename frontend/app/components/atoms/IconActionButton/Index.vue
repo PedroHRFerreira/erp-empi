@@ -27,9 +27,12 @@ export default defineComponent({
 </script>
 
 <template>
-  <button class="button icon-action-button" :class="`button--${variant}`" :title="title" type="button" @click="handleClick">
-    <slot />
-  </button>
+  <span class="icon-action-button__wrap">
+    <button class="button icon-action-button" :aria-label="title" :class="`button--${variant}`" type="button" @click="handleClick">
+      <slot />
+    </button>
+    <span class="icon-action-button__popper" role="tooltip">{{ title }}</span>
+  </span>
 </template>
 
 <style scoped lang="scss">
