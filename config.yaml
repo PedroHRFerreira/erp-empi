@@ -13,3 +13,5 @@ admin:
   email: ${ADMIN_EMAIL}
   phone: ${ADMIN_PHONE}
   markupPercent: ${ADMIN_MARKUP_PERCENT}
+  machineFeePercent: ${ADMIN_MACHINE_FEE_PERCENT}
+  installmentFeePercent: ${ADMIN_INSTALLMENT_FEE_PERCENT}

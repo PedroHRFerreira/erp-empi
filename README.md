@@ -62,4 +62,5 @@ pnpm --dir frontend test
 
 - `docs/architecture.md`
 - `docs/security.md`
+- `docs/deploy.md`
 - READMEs nas pastas principais

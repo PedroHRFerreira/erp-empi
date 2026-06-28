@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -75,7 +76,13 @@ func Load() (*Config, error) {
 
 func normalizeConfig(cfg *Config) {
 	if cfg.APIPort == "" {
+		cfg.APIPort = os.Getenv("PORT")
+	}
+	if cfg.APIPort == "" {
 		cfg.APIPort = "8080"
+	}
+	if cfg.FrontendURL != "" && !strings.HasPrefix(cfg.FrontendURL, "http://") && !strings.HasPrefix(cfg.FrontendURL, "https://") {
+		cfg.FrontendURL = "https://" + cfg.FrontendURL
 	}
 	if cfg.JWT.AccessTTLMinutes == 0 {
 		cfg.JWT.AccessTTLMinutes = int(parseDurationEnv("JWT_ACCESS_TTL_MINUTES", 15*time.Minute).Minutes())

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nuxt dev --host 0.0.0.0",
     "build": "nuxt build",
+    "generate": "nuxt generate",
     "start": "node .output/server/index.mjs",
     "lint": "nuxt typecheck",
     "test": "nuxt prepare && vitest run",
