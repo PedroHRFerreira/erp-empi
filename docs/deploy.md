@@ -2,58 +2,79 @@
 
 ## Recomendacao atual
 
-Use Render para a API e o frontend, mas use um Postgres externo no plano gratuito.
+Use tudo no Render, com API no plano gratuito, frontend estatico gratuito, cron de keepalive e Postgres pago pequeno.
 
-Motivo: o Render tem Web Services e Static Sites gratuitos, mas o Postgres gratuito do Render expira apos 30 dias. Para um banco que nao some, prefira Neon ou Supabase no gratuito. Se a prioridade for muito espaco gratuito e voce aceitar administrar servidor, Oracle Cloud Always Free costuma ser a melhor opcao porque permite VM e volume persistente maiores, mas exige SSH, firewall, backup e manutencao.
+Motivo: o Render e o caminho mais simples para operar. O banco gratuito do Render nao atende producao de um ano porque expira apos 30 dias. O plano escolhido evita copiar connection string manualmente, mantem deploy automatico pelo GitHub e deixa tudo em um unico painel.
+
+Plano inicial:
+
+- `erp-empi-web`: Static Site, gratuito.
+- `erp-empi-api`: Web Service Free.
+- `erp-empi-keepalive`: Cron Job Starter, executa `/health` a cada 10 minutos.
+- `erp-empi-db`: Render Postgres `basic-256mb`, 5 GB de storage.
+
+Custo estimado inicial: cerca de USD 8.50/mes, considerando USD 1 do cron, USD 6 do Postgres `basic-256mb` e USD 1.50 de 5 GB de storage. Conferir o valor final no checkout do Render antes de criar.
 
 Links uteis:
 
 - Render Free: https://render.com/docs/free
 - Render Blueprint: https://render.com/docs/blueprint-spec
-- Neon pricing: https://neon.com/pricing
-- Supabase pricing: https://supabase.com/pricing
-- Oracle Always Free: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
+- Render Pricing: https://render.com/pricing
+- Render Cron Jobs: https://render.com/docs/cronjobs
+- Render Postgres Flexible Plans: https://render.com/docs/postgresql-refresh
 
 ## Arquitetura de deploy
 
 - `erp-empi-web`: Static Site no Render, gerado com Nuxt.
 - `erp-empi-api`: Web Service Docker no Render.
-- Postgres: banco externo, informado em `DB_WRITE_DSN`.
+- `erp-empi-keepalive`: Cron Job no Render, chama `https://<api>/health`.
+- `erp-empi-db`: Postgres gerenciado no Render.
 
-O frontend estatico chama a API diretamente usando `NUXT_PUBLIC_API_HOST`. A API usa `FRONTEND_URL` para liberar CORS somente para o dominio do frontend.
+O frontend estatico chama a API diretamente usando `NUXT_PUBLIC_API_HOST`. A API usa `FRONTEND_URL` para liberar CORS somente para o dominio do frontend. A API recebe `DB_WRITE_DSN` automaticamente do banco criado pelo Blueprint.
 
 ## Variaveis obrigatorias no Render
 
 O `render.yaml` ja cria ou solicita as principais variaveis:
 
-- `DB_WRITE_DSN`: string de conexao Postgres com SSL.
 - `ADMIN_CPF`: CPF do usuario admin inicial, somente numeros.
 - `ADMIN_PASSWORD`: senha inicial do admin.
+- `ADMIN_EMAIL`: email do usuario admin inicial.
+- `ADMIN_PHONE`: telefone do usuario admin inicial, somente numeros.
 - `JWT_ACCESS_SECRET`: gerado automaticamente pelo Render.
-
-Exemplo de `DB_WRITE_DSN` em formato URL:
-
-```text
-postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
-```
-
-Exemplo em formato chave/valor:
-
-```text
-host=HOST user=USER password=PASSWORD dbname=DATABASE port=5432 sslmode=require TimeZone=America/Sao_Paulo
-```
 
 ## Passos no Render
 
-1. Crie o banco no Neon ou Supabase e copie a connection string com SSL.
-2. No Render, crie um novo Blueprint apontando para este repositorio.
+1. Entre no Render e conecte o GitHub.
+2. Crie um novo Blueprint apontando para este repositorio.
 3. Confirme o arquivo `render.yaml`.
-4. Preencha `DB_WRITE_DSN`, `ADMIN_CPF`, `ADMIN_PASSWORD`, `ADMIN_EMAIL` e `ADMIN_PHONE` quando o Render solicitar.
-5. Aguarde o deploy do `erp-empi-api` e do `erp-empi-web`.
-6. Abra o Static Site e faca login com o admin inicial.
+4. Confira no checkout se o Postgres e o cron estao com o custo esperado.
+5. Preencha `ADMIN_CPF`, `ADMIN_PASSWORD`, `ADMIN_EMAIL` e `ADMIN_PHONE` quando o Render solicitar.
+6. Crie o Blueprint.
+7. Aguarde `erp-empi-api`, `erp-empi-web`, `erp-empi-keepalive` e `erp-empi-db` ficarem ativos.
+8. Abra o Static Site e faca login com o admin inicial.
+
+## Deploy automatico
+
+O Blueprint usa `autoDeployTrigger: commit`. Cada push na branch conectada no Render dispara novo deploy automaticamente para API e frontend.
+
+Fluxo normal:
+
+1. Fazer alteracao no codigo.
+2. Commitar e enviar para o GitHub.
+3. Acompanhar o deploy no painel do Render.
+4. Validar o site quando os servicos ficarem verdes.
+
+## Acompanhamento mensal
+
+- Conferir se os ultimos deploys estao verdes.
+- Verificar se o cron `erp-empi-keepalive` executou sem falhas recentes.
+- Conferir uso e cobranca no billing.
+- Conferir tamanho usado pelo banco.
+- Conferir logs recentes da API.
 
 ## Observacoes
 
 - O banco e migrado pelo `GORM AutoMigrate` quando a API sobe.
-- No plano gratuito do Render, a API pode dormir por inatividade e a primeira chamada pode demorar.
-- Para producao com uso diario, configure backup no provedor do banco.
+- A API continua no plano gratuito. O cron reduz o efeito de sleep por inatividade, mas nao transforma o servico free em servico com garantia paga.
+- Se o uso crescer ou houver instabilidade, o primeiro upgrade recomendado e trocar apenas `erp-empi-api` de `free` para `starter`.
+- O Postgres foi configurado com 5 GB porque o sistema salva dados estruturados e deve consumir pouco no primeiro ano. Aumente o storage no Render se o uso crescer.

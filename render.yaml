@@ -18,7 +18,9 @@ services:
           name: erp-empi-web
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: DB_WRITE_DSN
-        sync: false
+        fromDatabase:
+          name: erp-empi-db
+          property: connectionString
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_ACCESS_TTL_MINUTES
@@ -39,6 +41,20 @@ services:
         value: 0
       - key: ADMIN_INSTALLMENT_FEE_PERCENT
         value: 0
+
+  - type: cron
+    name: erp-empi-keepalive
+    runtime: node
+    plan: starter
+    schedule: "*/10 * * * *"
+    buildCommand: "true"
+    startCommand: "node -e \"fetch('https://' + process.env.API_HOST + '/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))\""
+    envVars:
+      - key: API_HOST
+        fromService:
+          type: web
+          name: erp-empi-api
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
 
   - type: web
     name: erp-empi-web
@@ -71,3 +87,12 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+databases:
+  - name: erp-empi-db
+    databaseName: empi
+    user: empi
+    plan: basic-256mb
+    diskSizeGB: 5
+    postgresMajorVersion: "16"
+    ipAllowList: []
