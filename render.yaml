@@ -58,65 +58,27 @@ services:
 
   - type: web
     name: erp-empi-web
-    runtime: static
-    buildCommand: cd frontend && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile=false && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm generate
-    staticPublishPath: frontend/.output/public
+    runtime: docker
+    plan: free
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    healthCheckPath: /login
     autoDeployTrigger: commit
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: NUXT_PUBLIC_APP_NAME
         value: EMPI ERP
+      - key: NUXT_API_HOST
+        fromService:
+          type: web
+          name: erp-empi-api
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: NUXT_PUBLIC_API_HOST
         fromService:
           type: web
           name: erp-empi-api
           envVarKey: RENDER_EXTERNAL_HOSTNAME
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
-      - path: /*
-        name: Permissions-Policy
-        value: camera=(), microphone=(), geolocation=()
-    routes:
-      - type: redirect
-        source: /login
-        destination: /login/index.html
-      - type: rewrite
-        source: /stock
-        destination: /stock/index.html
-      - type: rewrite
-        source: /stock/new
-        destination: /stock/new/index.html
-      - type: rewrite
-        source: /receipts
-        destination: /receipts/index.html
-      - type: rewrite
-        source: /receipts/new
-        destination: /receipts/new/index.html
-      - type: rewrite
-        source: /expenses
-        destination: /expenses/index.html
-      - type: rewrite
-        source: /clients
-        destination: /clients/index.html
-      - type: rewrite
-        source: /recovery
-        destination: /recovery/index.html
-      - type: rewrite
-        source: /profile
-        destination: /profile/index.html
-      - type: rewrite
-        source: /clients/*
-        destination: /200.html
-      - type: rewrite
-        source: /recovery/*
-        destination: /200.html
 
 databases:
   - name: erp-empi-db
