@@ -84,7 +84,7 @@ services:
         name: Permissions-Policy
         value: camera=(), microphone=(), geolocation=()
     routes:
-      - type: rewrite
+      - type: redirect
         source: /login
         destination: /login/index.html
       - type: rewrite
