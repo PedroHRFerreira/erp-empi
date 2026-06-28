@@ -69,16 +69,10 @@ services:
         value: production
       - key: NUXT_PUBLIC_APP_NAME
         value: EMPI ERP
-      - key: NUXT_API_HOST
-        fromService:
-          type: web
-          name: erp-empi-api
-          envVarKey: RENDER_EXTERNAL_HOSTNAME
-      - key: NUXT_PUBLIC_API_HOST
-        fromService:
-          type: web
-          name: erp-empi-api
-          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: NUXT_API_BASE
+        value: https://erp-empi-api.onrender.com
+      - key: NUXT_PUBLIC_API_BASE_URL
+        value: https://erp-empi-api.onrender.com/api
 
 databases:
   - name: erp-empi-db
