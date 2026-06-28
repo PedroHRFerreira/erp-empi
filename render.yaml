@@ -85,8 +85,11 @@ services:
         value: camera=(), microphone=(), geolocation=()
     routes:
       - type: rewrite
-        source: /*
-        destination: /index.html
+        source: /clients/*
+        destination: /200.html
+      - type: rewrite
+        source: /recovery/*
+        destination: /200.html
 
 databases:
   - name: erp-empi-db
