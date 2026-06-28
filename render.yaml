@@ -59,7 +59,7 @@ services:
   - type: web
     name: erp-empi-web
     runtime: static
-    buildCommand: corepack enable && corepack prepare pnpm@10.30.1 --activate && pnpm --dir frontend install --frozen-lockfile=false && pnpm --dir frontend generate
+    buildCommand: cd frontend && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile=false && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm generate
     staticPublishPath: frontend/.output/public
     autoDeployTrigger: commit
     envVars:
