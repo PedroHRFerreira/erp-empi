@@ -85,6 +85,33 @@ services:
         value: camera=(), microphone=(), geolocation=()
     routes:
       - type: rewrite
+        source: /login
+        destination: /login/index.html
+      - type: rewrite
+        source: /stock
+        destination: /stock/index.html
+      - type: rewrite
+        source: /stock/new
+        destination: /stock/new/index.html
+      - type: rewrite
+        source: /receipts
+        destination: /receipts/index.html
+      - type: rewrite
+        source: /receipts/new
+        destination: /receipts/new/index.html
+      - type: rewrite
+        source: /expenses
+        destination: /expenses/index.html
+      - type: rewrite
+        source: /clients
+        destination: /clients/index.html
+      - type: rewrite
+        source: /recovery
+        destination: /recovery/index.html
+      - type: rewrite
+        source: /profile
+        destination: /profile/index.html
+      - type: rewrite
         source: /clients/*
         destination: /200.html
       - type: rewrite
