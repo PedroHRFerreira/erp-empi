@@ -1,11 +1,12 @@
 <script lang="ts">
-import { Plus } from '@lucide/vue'
+import { Plus, Zap } from '@lucide/vue'
 import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
 import PaginationControls from '../../molecules/PaginationControls/Index.vue'
 import ReceiptsTable from '../../organisms/ReceiptsTable/Index.vue'
 import { prepareReceiptInvoiceIssue, printReceiptDocument } from '../../../utils/print'
+import { receiptClientName } from '../../../utils/receiptDisplay'
 
 export default defineComponent({
   name: 'ReceiptsTemplate',
@@ -13,6 +14,7 @@ export default defineComponent({
     PageHeader,
     PaginationControls,
     Plus,
+    Zap,
     ReceiptsTable
   },
   setup() {
@@ -35,7 +37,7 @@ export default defineComponent({
     }
 
     async function cancelReceipt(receipt: IReceipt) {
-      const confirmed = window.confirm(`Cancelar o recibo de ${receipt.user.name}? Ele não reservará mais produtos no estoque.`)
+      const confirmed = window.confirm(`Cancelar o recibo de ${receiptClientName(receipt)}? Ele não reservará mais produtos no estoque.`)
       if (!confirmed) return
 
       await receipts.cancel(receipt.id)
@@ -43,6 +45,10 @@ export default defineComponent({
 
     function startCreate() {
       return router.push('/receipts/new')
+    }
+
+    function startQuickCreate() {
+      return router.push('/receipts/new?quick=1')
     }
 
     function previousPage() {
@@ -63,7 +69,8 @@ export default defineComponent({
       printReceipt,
       receipts,
       shareWhatsApp,
-      startCreate
+      startCreate,
+      startQuickCreate
     }
   }
 })
@@ -73,10 +80,16 @@ export default defineComponent({
   <section class="page">
     <PageHeader title="Recibos" subtitle="Crie orçamentos, acompanhe pagamentos e baixe produtos do estoque.">
       <template #actions>
-        <button class="button button--primary" type="button" @click="startCreate">
-          <Plus :size="18" />
-          Adicionar
-        </button>
+        <div class="receipts-template__actions">
+          <button class="button button--secondary" type="button" @click="startQuickCreate">
+            <Zap :size="18" />
+            Recibo rápido
+          </button>
+          <button class="button button--primary" type="button" @click="startCreate">
+            <Plus :size="18" />
+            Adicionar
+          </button>
+        </div>
       </template>
     </PageHeader>
 

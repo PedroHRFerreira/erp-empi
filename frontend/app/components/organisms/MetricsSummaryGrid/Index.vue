@@ -89,6 +89,14 @@ function receiptStatusLabel(status: string | undefined) {
           <dd>{{ formatCurrency(summary.revenuePendingCents) }}</dd>
         </div>
         <div class="metrics-summary-item metrics-summary-item--stack">
+          <dt>Total ativo</dt>
+          <dd>{{ formatCurrency(summary.receiptsActiveTotalCents) }}</dd>
+        </div>
+        <div class="metrics-summary-item metrics-summary-item--stack">
+          <dt>Descontos concedidos</dt>
+          <dd>{{ formatCurrency(summary.discountsGrantedCents) }}</dd>
+        </div>
+        <div class="metrics-summary-item metrics-summary-item--stack">
           <dt>Ticket médio</dt>
           <dd>{{ formatCurrency(summary.averageTicketPaidCents) }}</dd>
         </div>

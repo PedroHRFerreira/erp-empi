@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IExpense } from '../../../../server/contracts/types'
 import { formatCurrency } from '../../../utils/format'
+import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
 import EmptyState from '../../molecules/EmptyState/Index.vue'
 
@@ -32,7 +33,7 @@ export default defineComponent({
 
     function receiptLabel(expense: IExpense) {
       if (!expense.receipt) return 'Sem vínculo'
-      return `${expense.receipt.user?.name || 'Cliente'} - ${expense.receipt.vehiclePlate}`
+      return `${receiptClientName(expense.receipt)} - ${receiptVehiclePlate(expense.receipt)}`
     }
 
     return {
@@ -40,6 +41,7 @@ export default defineComponent({
       formatCurrency,
       formatExpenseDate,
       receiptLabel,
+      receiptVehicleName,
       remove
     }
   }
@@ -76,7 +78,7 @@ function formatExpenseDate(value: string) {
       <div class="expenses-table__cell">
         <span class="expenses-table__label">Recibo</span>
         <strong>{{ receiptLabel(expense) }}</strong>
-        <small v-if="expense.receipt">{{ expense.receipt.vehicleModel }}</small>
+        <small v-if="expense.receipt">{{ receiptVehicleName(expense.receipt) }}</small>
       </div>
       <div class="expenses-table__cell expenses-table__cell--money">
         <span class="expenses-table__label">Valor</span>

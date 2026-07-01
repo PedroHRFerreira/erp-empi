@@ -47,6 +47,10 @@ export default defineComponent({
       type: Object as PropType<IStockItem | null>,
       default: null
     },
+    stepLabel: {
+      type: String,
+      default: 'Etapa 4'
+    },
     stockItems: {
       type: Array as PropType<IStockItem[]>,
       required: true
@@ -90,7 +94,7 @@ export default defineComponent({
 <template>
   <section class="receipt-step">
     <header class="receipt-step__header">
-      <span>Etapa 4</span>
+      <span>{{ stepLabel }}</span>
       <h2>Produtos usados</h2>
     </header>
 

@@ -258,9 +258,9 @@ func (service *FinancialService) loadReceiptCosts(ctx context.Context, start tim
 		if cost == nil {
 			continue
 		}
-		cost.ClientName = receipt.User.Name
-		cost.VehicleModel = receipt.VehicleModel
-		cost.VehiclePlate = receipt.VehiclePlate
+		cost.ClientName = receiptClientName(receipt)
+		cost.VehicleModel = receiptVehicleModel(receipt)
+		cost.VehiclePlate = receiptVehiclePlate(receipt)
 		cost.TotalCostCents = cost.ServiceExpensesCents + cost.ProductCostCents
 	}
 
@@ -290,4 +290,25 @@ func healthStatus(netProfitCents int64, netMarginPercent float64) HealthStatus {
 		return HealthStatusYellow
 	}
 	return HealthStatusGreen
+}
+
+func receiptClientName(receipt entities.Receipt) string {
+	if receipt.User != nil && receipt.User.Name != "" {
+		return receipt.User.Name
+	}
+	return "Recibo rápido"
+}
+
+func receiptVehicleModel(receipt entities.Receipt) string {
+	if receipt.VehicleModel != "" {
+		return receipt.VehicleModel
+	}
+	return "Sem veículo"
+}
+
+func receiptVehiclePlate(receipt entities.Receipt) string {
+	if receipt.VehiclePlate != "" {
+		return receipt.VehiclePlate
+	}
+	return "-"
 }

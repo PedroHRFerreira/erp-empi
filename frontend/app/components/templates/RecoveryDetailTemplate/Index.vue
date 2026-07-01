@@ -5,6 +5,7 @@ import type { IReceipt } from '../../../../server/contracts/types'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
 import { maskPhone } from '../../../utils/masks'
 import { printReceiptDocument } from '../../../utils/print'
+import { receiptClientName, receiptClientPhone, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
 
 export default defineComponent({
@@ -42,7 +43,7 @@ export default defineComponent({
     }
 
     async function reopen(value: IReceipt) {
-      const confirmed = window.confirm(`Retornar o recibo de ${value.user.name} para pendente?`)
+      const confirmed = window.confirm(`Retornar o recibo de ${receiptClientName(value)} para pendente?`)
       if (!confirmed) return
 
       const result = await receipts.reopen(value.id)
@@ -60,6 +61,10 @@ export default defineComponent({
       phone,
       printReceiptDocument,
       receipt,
+      receiptClientName,
+      receiptClientPhone,
+      receiptVehicleName,
+      receiptVehiclePlate,
       receipts,
       reopen,
       serviceExpensesTotal
@@ -71,7 +76,7 @@ export default defineComponent({
 <template>
   <section class="page recovery-detail">
     <PageHeader
-      :title="receipt?.user.name || 'Recuperação'"
+      :title="receipt ? receiptClientName(receipt) : 'Recuperação'"
       subtitle="Detalhes do recibo cancelado e ações para retomada."
     >
       <template #actions>
@@ -93,11 +98,11 @@ export default defineComponent({
         </div>
         <div>
           <span>Cliente</span>
-          <strong>{{ receipt.user.name }}</strong>
+          <strong>{{ receiptClientName(receipt) }}</strong>
         </div>
         <div>
           <span>Telefone</span>
-          <strong>{{ phone(receipt.user.phone) }}</strong>
+          <strong>{{ phone(receiptClientPhone(receipt)) }}</strong>
         </div>
         <div>
           <span>Total</span>
@@ -137,11 +142,11 @@ export default defineComponent({
         <div class="recovery-detail__vehicle">
           <div>
             <span>Veículo</span>
-            <strong>{{ receipt.vehicleModel }} {{ receipt.vehicleYear }}</strong>
+            <strong>{{ receiptVehicleName(receipt) }}</strong>
           </div>
           <div>
             <span>Placa</span>
-            <strong>{{ receipt.vehiclePlate }}</strong>
+            <strong>{{ receiptVehiclePlate(receipt) }}</strong>
           </div>
           <div>
             <span>Pagamento</span>

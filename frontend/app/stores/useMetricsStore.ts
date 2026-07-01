@@ -30,6 +30,8 @@ export const useMetricsStore = defineStore('metrics', {
         ...data.value,
         receiptsCancelled: data.value.receiptsCancelled || 0,
         revenuePendingCents: data.value.revenuePendingCents || 0,
+        discountsGrantedCents: data.value.discountsGrantedCents || 0,
+        receiptsActiveTotalCents: data.value.receiptsActiveTotalCents || 0,
         averageTicketPaidCents: data.value.averageTicketPaidCents || 0,
         stockItemsTotal: data.value.stockItemsTotal || 0,
         stockUnitsAvailableTotal: data.value.stockUnitsAvailableTotal || 0,

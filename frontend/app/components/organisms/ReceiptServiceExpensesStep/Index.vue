@@ -34,6 +34,10 @@ export default defineComponent({
     serviceExpensesTotalCents: {
       type: Number,
       required: true
+    },
+    stepLabel: {
+      type: String,
+      default: 'Etapa 5'
     }
   },
   emits: [
@@ -52,9 +56,10 @@ export default defineComponent({
       emit('clear-service-expenses-error')
     }
 
-    function maskServiceExpenseAmount() {
+    function maskServiceExpenseAmount(event: Event) {
       clearServiceExpensesError()
-      amountInput.value = maskCurrency(amountInput.value)
+      const input = event.target as HTMLInputElement
+      amountInput.value = maskCurrency(input.value)
     }
 
     return {
@@ -70,7 +75,7 @@ export default defineComponent({
 <template>
   <section class="receipt-step">
     <header class="receipt-step__header">
-      <span>Etapa 5</span>
+      <span>{{ stepLabel }}</span>
       <h2>Gastos do serviço</h2>
     </header>
 

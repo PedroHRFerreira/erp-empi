@@ -1,4 +1,5 @@
 import type { IReceipt, IUser } from '../../server/contracts/types'
+import { receiptClientName } from './receiptDisplay'
 import { buildReceiptDocument } from './receiptDocument'
 
 type PdfText = {
@@ -43,7 +44,7 @@ export async function shareReceiptPdf(receipt: IReceipt, company: IUser | null =
   const text = receiptWhatsAppMessage(receipt, company)
   const document = buildReceiptDocument(receipt, company)
   const shareData = {
-    title: `${document.receiptNumber} - ${receipt.user.name}`,
+    title: `${document.receiptNumber} - ${receiptClientName(receipt)}`,
     text,
     files: [file]
   }

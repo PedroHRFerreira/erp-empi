@@ -13,6 +13,10 @@ export default defineComponent({
     form: {
       type: Object as PropType<ReceiptForm>,
       required: true
+    },
+    stepLabel: {
+      type: String,
+      default: 'Etapa 2'
     }
   },
   emits: ['clear-field-error'],
@@ -37,7 +41,7 @@ export default defineComponent({
 <template>
   <section class="receipt-step">
     <header class="receipt-step__header">
-      <span>Etapa 2</span>
+      <span>{{ stepLabel }}</span>
       <h2>Informações do veículo</h2>
     </header>
 

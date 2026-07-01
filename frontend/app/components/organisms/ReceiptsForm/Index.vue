@@ -4,7 +4,7 @@ import type { IStockItem } from '../../../../server/contracts/types'
 import { expenseCategories } from '../../../stores/useExpensesStore'
 import {
   makeReceiptServiceExpense,
-  receiptWizardSteps,
+  receiptWizardStepsFor,
   type ReceiptForm,
   type ReceiptServiceExpenseForm
 } from '../../../stores/useReceiptsStore'
@@ -42,6 +42,10 @@ export default defineComponent({
       type: String,
       default: ''
     },
+    quick: {
+      type: Boolean,
+      default: false
+    },
     onCreate: {
       type: Function as PropType<(form: ReceiptForm) => Promise<IStoreActionResult>>,
       required: true
@@ -52,7 +56,7 @@ export default defineComponent({
     const auth = useAuthStore()
     const receipts = useReceiptsStore()
 
-    receipts.resetReceiptWizard(defaultFees())
+    receipts.resetReceiptWizard(defaultFees(), props.quick)
 
     const form = computed(() => receipts.receiptDraft)
     const serviceExpense = reactive<ReceiptServiceExpenseForm>(makeReceiptServiceExpense())
@@ -66,7 +70,10 @@ export default defineComponent({
     const hasAppliedProfileFees = ref(Boolean(auth.user))
     const installmentOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
-    const isFinalStep = computed(() => receipts.receiptWizardStep === receiptWizardSteps.length - 1)
+    const activeSteps = computed(() => receiptWizardStepsFor(form.value.quick))
+    const activeStepKey = computed(() => activeSteps.value[receipts.receiptWizardStep]?.key || 'finish')
+    const currentStepLabel = computed(() => `Etapa ${receipts.receiptWizardStep + 1}`)
+    const isFinalStep = computed(() => receipts.receiptWizardStep === activeSteps.value.length - 1)
     const selectedStockItem = computed(() => {
       return props.stockItems.find((item) => item.id === selectedStockId.value) || null
     })
@@ -77,14 +84,14 @@ export default defineComponent({
     })
     const laborPriceCents = computed(() => currencyMaskToCents(laborPriceInput.value))
     const discountCents = computed(() => currencyMaskToCents(discountInput.value))
-    const discountedLaborCents = computed(() => Math.max(laborPriceCents.value - discountCents.value, 0))
     const productsTotalCents = computed(() => {
       return form.value.items.reduce((total, item) => total + itemTotalCents(item), 0)
     })
     const serviceExpensesTotalCents = computed(() => {
       return form.value.serviceExpenses.reduce((total, expense) => total + expense.amountCents, 0)
     })
-    const subtotalCents = computed(() => discountedLaborCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
+    const grossSubtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
+    const subtotalCents = computed(() => Math.max(grossSubtotalCents.value - discountCents.value, 0))
     const isCardPayment = computed(() => {
       return form.value.paymentMethod === 'credit_card' || form.value.paymentMethod === 'debit_card'
     })
@@ -180,6 +187,8 @@ export default defineComponent({
       syncCardFeePercent()
       form.value.laborPriceCents = laborPriceCents.value
       form.value.discountCents = discountCents.value
+      form.value.productsTotalCents = productsTotalCents.value
+      form.value.serviceExpensesTotalCents = serviceExpensesTotalCents.value
       form.value.priceCents = totalCents.value
       if (form.value.paymentMethod !== 'credit_card') {
         form.value.installments = 1
@@ -280,7 +289,7 @@ export default defineComponent({
     }
 
     function resetForm() {
-      receipts.resetReceiptWizard(defaultFees())
+      receipts.resetReceiptWizard(defaultFees(), props.quick)
       selectedStockId.value = ''
       selectedQuantity.value = 1
       laborPriceInput.value = ''
@@ -332,6 +341,8 @@ export default defineComponent({
 
     return {
       activeCardFeeLabel,
+      activeStepKey,
+      activeSteps,
       addItem,
       addServiceExpense,
       availableQuantity,
@@ -341,6 +352,7 @@ export default defineComponent({
       clearItemsError,
       clearServiceExpensesError,
       createReceipt,
+      currentStepLabel,
       discountCents,
       discountInput,
       form,
@@ -356,7 +368,6 @@ export default defineComponent({
       nextStep,
       previousStep,
       productsTotalCents,
-      receiptWizardSteps,
       receipts,
       removeItem,
       removeServiceExpense,
@@ -380,24 +391,26 @@ export default defineComponent({
 
 <template>
   <form class="receipts-form panel" novalidate @submit.prevent="submitStep">
-    <ReceiptWizardProgress :active-index="receipts.receiptWizardStep" :steps="receiptWizardSteps" />
+    <ReceiptWizardProgress :active-index="receipts.receiptWizardStep" :steps="activeSteps" />
 
     <ReceiptClientStep
-      v-if="receipts.receiptWizardStep === 0"
+      v-if="activeStepKey === 'client'"
       :field-errors="fieldErrors"
       :form="form"
+      :step-label="currentStepLabel"
       @clear-field-error="clearFieldError"
     />
 
     <ReceiptVehicleStep
-      v-else-if="receipts.receiptWizardStep === 1"
+      v-else-if="activeStepKey === 'vehicle'"
       :field-errors="fieldErrors"
       :form="form"
+      :step-label="currentStepLabel"
       @clear-field-error="clearFieldError"
     />
 
     <ReceiptServicesStep
-      v-else-if="receipts.receiptWizardStep === 2"
+      v-else-if="activeStepKey === 'services'"
       v-model:discount-input="discountInput"
       v-model:labor-price-input="laborPriceInput"
       :active-card-fee-label="activeCardFeeLabel"
@@ -407,6 +420,7 @@ export default defineComponent({
       :form="form"
       :installment-options="installmentOptions"
       :installment-value-for="installmentValueFor"
+      :step-label="currentStepLabel"
       :subtotal-cents="subtotalCents"
       :total-cents="totalCents"
       @clear-field-error="clearFieldError"
@@ -415,7 +429,7 @@ export default defineComponent({
     />
 
     <ReceiptProductsStep
-      v-else-if="receipts.receiptWizardStep === 3"
+      v-else-if="activeStepKey === 'products'"
       v-model:selected-quantity="selectedQuantity"
       v-model:selected-stock-id="selectedStockId"
       :available-quantity="availableQuantity"
@@ -426,6 +440,7 @@ export default defineComponent({
       :item-unit-cents="itemUnitCents"
       :products-total-cents="productsTotalCents"
       :selected-stock-item="selectedStockItem"
+      :step-label="currentStepLabel"
       :stock-items="stockItems"
       :stock-name="stockName"
       @add-item="addItem"
@@ -434,7 +449,7 @@ export default defineComponent({
     />
 
     <ReceiptServiceExpensesStep
-      v-else-if="receipts.receiptWizardStep === 4"
+      v-else-if="activeStepKey === 'serviceExpenses'"
       v-model:service-expense-amount-input="serviceExpenseAmountInput"
       :categories="categories"
       :field-errors="fieldErrors"
@@ -442,6 +457,7 @@ export default defineComponent({
       :service-expense="serviceExpense"
       :service-expense-error="serviceExpenseError"
       :service-expenses-total-cents="serviceExpensesTotalCents"
+      :step-label="currentStepLabel"
       @add-service-expense="addServiceExpense"
       @clear-service-expenses-error="clearServiceExpensesError"
       @remove-service-expense="removeServiceExpense"
@@ -459,6 +475,7 @@ export default defineComponent({
       :products-total-cents="productsTotalCents"
       :service-expenses-total-cents="serviceExpensesTotalCents"
       :subtotal-cents="subtotalCents"
+      :step-label="currentStepLabel"
       :total-cents="totalCents"
       @clear-field-error="clearFieldError"
     />

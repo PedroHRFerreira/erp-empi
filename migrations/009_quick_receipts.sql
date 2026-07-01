@@ -1,0 +1,5 @@
+ALTER TABLE IF EXISTS receipts
+  ALTER COLUMN user_id DROP NOT NULL,
+  ALTER COLUMN vehicle_model DROP NOT NULL,
+  ALTER COLUMN vehicle_year DROP NOT NULL,
+  ALTER COLUMN vehicle_plate DROP NOT NULL;

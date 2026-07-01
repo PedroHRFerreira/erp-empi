@@ -1,5 +1,6 @@
 import type { IReceipt, IUser } from '../../server/contracts/types'
 import { formatCurrency } from './format'
+import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from './receiptDisplay'
 
 const FALLBACK_COMPANY_NAME = 'EMPI Autocenter'
 export const COMPANY_CNPJ = '46377137000160'
@@ -88,7 +89,7 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
     receiptNumber: receiptNumber(receipt),
     issuedAtLabel: formatDate(receipt.createdAt),
     company: receiptCompany(company),
-    customer: receiptCustomer(receipt.user),
+    customer: receiptCustomer(receipt),
     vehicle: receiptVehicle(receipt),
     lines,
     summaryRows: buildSummaryRows(discountCents, totalCents),
@@ -217,8 +218,9 @@ function receiptCompany(company: IUser | null): IReceiptDocumentCompany {
   }
 }
 
-function receiptCustomer(user: IUser): IReceiptDocumentParty {
-  const name = normalizeText(user?.name) || 'Cliente'
+function receiptCustomer(receipt: IReceipt): IReceiptDocumentParty {
+  const user = receipt.user || null
+  const name = receiptClientName(receipt)
   return {
     name,
     lines: [normalizeText(user?.address), normalizeText(user?.email), normalizeText(user?.phone)].filter(Boolean)
@@ -227,8 +229,8 @@ function receiptCustomer(user: IUser): IReceiptDocumentParty {
 
 function receiptVehicle(receipt: IReceipt): IReceiptDocumentParty {
   return {
-    name: `${receipt.vehicleModel || EMPTY_VALUE} ${receipt.vehicleYear || ''}`.trim(),
-    lines: [`Placa: ${receipt.vehiclePlate || EMPTY_VALUE}`]
+    name: receiptVehicleName(receipt),
+    lines: [`Placa: ${receiptVehiclePlate(receipt)}`]
   }
 }
 

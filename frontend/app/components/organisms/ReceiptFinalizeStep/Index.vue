@@ -46,6 +46,10 @@ export default defineComponent({
       type: Number,
       required: true
     },
+    stepLabel: {
+      type: String,
+      default: 'Etapa 6'
+    },
     totalCents: {
       type: Number,
       required: true
@@ -73,7 +77,7 @@ export default defineComponent({
 <template>
   <section class="receipt-step">
     <header class="receipt-step__header">
-      <span>Etapa 6</span>
+      <span>{{ stepLabel }}</span>
       <h2>Finalizar recibo</h2>
     </header>
 

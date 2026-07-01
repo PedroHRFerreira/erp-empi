@@ -43,6 +43,10 @@ export default defineComponent({
       type: String,
       required: true
     },
+    stepLabel: {
+      type: String,
+      default: 'Etapa 3'
+    },
     subtotalCents: {
       type: Number,
       required: true
@@ -89,14 +93,16 @@ export default defineComponent({
       emit('clear-field-error', field)
     }
 
-    function maskLaborPrice() {
+    function maskLaborPrice(event: Event) {
       clearFieldError('laborPriceCents')
-      laborPrice.value = maskCurrency(laborPrice.value)
+      const input = event.target as HTMLInputElement
+      laborPrice.value = maskCurrency(input.value)
     }
 
-    function maskDiscount() {
+    function maskDiscount(event: Event) {
       clearFieldError('discountCents')
-      discount.value = maskCurrency(discount.value)
+      const input = event.target as HTMLInputElement
+      discount.value = maskCurrency(input.value)
     }
 
     function updatePaymentMethod() {
@@ -128,7 +134,7 @@ export default defineComponent({
 <template>
   <section class="receipt-step">
     <header class="receipt-step__header">
-      <span>Etapa 3</span>
+      <span>{{ stepLabel }}</span>
       <h2>Serviços</h2>
     </header>
 
@@ -140,7 +146,7 @@ export default defineComponent({
       </label>
 
       <label class="field" :class="{ 'field--error': fieldErrors.discountCents }">
-        <span>Desconto na mão de obra</span>
+        <span>Desconto</span>
         <input v-model="discount" inputmode="decimal" placeholder="R$ 50,00" @input="maskDiscount" />
         <small v-if="fieldErrors.discountCents" class="field__error">{{ fieldErrors.discountCents }}</small>
       </label>

@@ -127,6 +127,54 @@ func TestCreateAllowsReceiptWithoutProducts(t *testing.T) {
 	}
 }
 
+func TestCreateQuickReceiptDoesNotCreateClientOrRequireVehicle(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Quick: true,
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Ignorado",
+			Phone: "telefone-invalido",
+		},
+		Services:        "Venda rapida",
+		LaborPriceCents: 12000,
+		PaymentMethod:   entities.PaymentMethodCash,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.UserID != nil {
+		t.Fatalf("expected quick receipt without user, got %v", *receipt.UserID)
+	}
+	if receipt.VehicleModel != "" || receipt.VehicleYear != 0 || receipt.VehiclePlate != "" {
+		t.Fatalf("expected quick receipt without vehicle, got %+v", receipt)
+	}
+
+	var clientsCount int64
+	if err := db.Model(&entities.User{}).Where("type = ?", entities.UserTypeClient).Count(&clientsCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if clientsCount != 0 {
+		t.Fatalf("expected no client created, got %d", clientsCount)
+	}
+}
+
 func TestCreatePersistsServiceExpensesAndChargesReceiptTotal(t *testing.T) {
 	t.Parallel()
 
@@ -188,7 +236,7 @@ func TestCreatePersistsServiceExpensesAndChargesReceiptTotal(t *testing.T) {
 	}
 }
 
-func TestCreateAppliesLaborDiscountBeforeCardFee(t *testing.T) {
+func TestCreateAppliesDiscountBeforeCardFee(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -267,7 +315,64 @@ func TestCreateAppliesLaborDiscountBeforeCardFee(t *testing.T) {
 	}
 }
 
-func TestCreateRejectsLaborDiscountAboveLaborPrice(t *testing.T) {
+func TestCreateAllowsDiscountAboveLaborWhenSubtotalCoversIt(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto desconto",
+		CostCents:     5000,
+		MarkupPercent: 0,
+		Quantity:      5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Desconto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		DiscountCents:   12000,
+		PaymentMethod:   entities.PaymentMethodCash,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.SubtotalCents != 3000 {
+		t.Fatalf("expected subtotal 3000, got %d", receipt.SubtotalCents)
+	}
+	if receipt.PriceCents != 3000 {
+		t.Fatalf("expected total 3000, got %d", receipt.PriceCents)
+	}
+}
+
+func TestCreateRejectsDiscountAboveSubtotal(t *testing.T) {
 	t.Parallel()
 
 	receiptService := receiptservices.NewReceiptService(nil, nil, nil)

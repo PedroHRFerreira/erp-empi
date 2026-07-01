@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { IPaginated, IReceipt, IUser } from '../../server/contracts/types'
 import { formatCurrency } from '../utils/format'
+import { receiptClientName, receiptClientPhone, receiptVehicleLine } from '../utils/receiptDisplay'
 import { receiptWhatsAppMessage, shareReceiptPdf } from '../utils/receiptPdf'
 import { isPlate, onlyDigits } from '../utils/validation'
 import type { IStoreActionResult } from './types'
@@ -26,7 +27,16 @@ export const receiptWizardSteps = [
 
 export type ReceiptWizardStepKey = (typeof receiptWizardSteps)[number]['key']
 
+export function receiptWizardStepsFor(quick = false) {
+  if (!quick) return receiptWizardSteps
+
+  return receiptWizardSteps.filter((step) => {
+    return step.key !== 'client' && step.key !== 'vehicle'
+  })
+}
+
 export type ReceiptForm = {
+  quick: boolean
   client: {
     name: string
     phone: string
@@ -37,6 +47,8 @@ export type ReceiptForm = {
   services: string
   laborPriceCents: number
   discountCents: number
+  productsTotalCents: number
+  serviceExpensesTotalCents: number
   priceCents: number
   cardFeePercent: number
   machineFeePercent: number
@@ -48,11 +60,12 @@ export type ReceiptForm = {
   serviceExpenses: ReceiptServiceExpenseForm[]
 }
 
-export function makeReceiptForm(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}): ReceiptForm {
+export function makeReceiptForm(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}, quick = false): ReceiptForm {
   const machineFeePercent = Number(defaultFees.machineFeePercent || 0)
   const installmentFeePercent = Number(defaultFees.installmentFeePercent || 0)
 
   return {
+    quick,
     client: { name: '', phone: '' },
     vehicleModel: '',
     vehicleYear: new Date().getFullYear(),
@@ -60,6 +73,8 @@ export function makeReceiptForm(defaultFees: { machineFeePercent?: number; insta
     services: '',
     laborPriceCents: 0,
     discountCents: 0,
+    productsTotalCents: 0,
+    serviceExpensesTotalCents: 0,
     priceCents: 0,
     cardFeePercent: 0,
     machineFeePercent,
@@ -102,8 +117,8 @@ export const useReceiptsStore = defineStore('receipts', {
     }
   },
   actions: {
-    resetReceiptWizard(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}) {
-      this.receiptDraft = makeReceiptForm(defaultFees)
+    resetReceiptWizard(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number } = {}, quick = false) {
+      this.receiptDraft = makeReceiptForm(defaultFees, quick)
       this.receiptWizardStep = 0
       this.error = ''
       this.fieldErrors = {}
@@ -116,11 +131,11 @@ export const useReceiptsStore = defineStore('receipts', {
       this.receiptWizardStep = Math.max(this.receiptWizardStep - 1, 0)
     },
     nextReceiptStep() {
-      this.receiptWizardStep = Math.min(this.receiptWizardStep + 1, receiptWizardSteps.length - 1)
+      this.receiptWizardStep = Math.min(this.receiptWizardStep + 1, receiptWizardStepsFor(this.receiptDraft.quick).length - 1)
     },
     validateReceiptStep(stepIndex?: number): boolean {
-      const step = receiptWizardSteps[stepIndex ?? this.receiptWizardStep]?.key
       const form = this.receiptDraft
+      const step = receiptWizardStepsFor(form.quick)[stepIndex ?? this.receiptWizardStep]?.key
 
       this.clearReceiptStepErrors(step)
 
@@ -131,7 +146,7 @@ export const useReceiptsStore = defineStore('receipts', {
         this.validateVehicleFields(form)
       }
       if (step === 'services') {
-        this.validateServiceFields(form)
+        this.validateServiceFields(form, false)
       }
       if (step === 'products') {
         this.validateProductFields(form)
@@ -149,9 +164,11 @@ export const useReceiptsStore = defineStore('receipts', {
     validate(form: ReceiptForm): boolean {
       this.fieldErrors = {}
 
-      this.validateClientFields(form)
-      this.validateVehicleFields(form)
-      this.validateServiceFields(form)
+      if (!form.quick) {
+        this.validateClientFields(form)
+        this.validateVehicleFields(form)
+      }
+      this.validateServiceFields(form, true)
       this.validateProductFields(form)
       this.validateServiceExpenseFields(form)
 
@@ -174,12 +191,12 @@ export const useReceiptsStore = defineStore('receipts', {
       if (form.vehicleYear < 1950) this.fieldErrors.vehicleYear = 'Informe um ano válido.'
       if (!isPlate(form.vehiclePlate)) this.fieldErrors.vehiclePlate = 'Informe uma placa válida.'
     },
-    validateServiceFields(form: ReceiptForm) {
+    validateServiceFields(form: ReceiptForm, enforceDiscountLimit = true) {
       if (!form.services.trim()) this.fieldErrors.services = 'Informe os serviços.'
       if (form.laborPriceCents < 0) this.fieldErrors.laborPriceCents = 'Informe um valor válido para a mão de obra.'
       if (form.discountCents < 0) this.fieldErrors.discountCents = 'Informe um desconto válido.'
-      if (form.discountCents > form.laborPriceCents) {
-        this.fieldErrors.discountCents = 'O desconto não pode ser maior que a mão de obra.'
+      if (enforceDiscountLimit && form.discountCents > receiptGrossSubtotalCents(form)) {
+        this.fieldErrors.discountCents = 'O desconto não pode ser maior que o subtotal.'
       }
       if (!['credit_card', 'debit_card', 'pix', 'cash'].includes(form.paymentMethod)) {
         this.fieldErrors.paymentMethod = 'Informe a forma de pagamento.'
@@ -302,12 +319,13 @@ export const useReceiptsStore = defineStore('receipts', {
         method: 'POST',
         body: {
           client: {
-            name: form.client.name.trim(),
-            phone: onlyDigits(form.client.phone)
+            name: form.quick ? '' : form.client.name.trim(),
+            phone: form.quick ? '' : onlyDigits(form.client.phone)
           },
-          vehicleModel: form.vehicleModel.trim(),
-          vehicleYear: form.vehicleYear,
-          vehiclePlate: form.vehiclePlate.toUpperCase(),
+          quick: form.quick,
+          vehicleModel: form.quick ? '' : form.vehicleModel.trim(),
+          vehicleYear: form.quick ? 0 : form.vehicleYear,
+          vehiclePlate: form.quick ? '' : form.vehiclePlate.toUpperCase(),
           services: form.services.trim(),
           laborPriceCents: form.laborPriceCents,
           discountCents: form.discountCents,
@@ -430,7 +448,7 @@ function toDateInputValue(date: Date) {
 }
 
 function buildReceiptWhatsAppUrl(receipt: IReceipt, text: string) {
-  const phone = whatsappPhoneNumber(receipt.user?.phone || '')
+  const phone = whatsappPhoneNumber(receiptClientPhone(receipt))
   const encodedText = encodeURIComponent(text)
 
   if (!phone) {
@@ -453,8 +471,8 @@ function whatsappPhoneNumber(phone: string) {
 }
 
 function recoveryWhatsAppMessage(receipt: IReceipt) {
-  const clientName = receipt.user?.name || 'tudo bem'
-  const vehicle = [receipt.vehicleModel, receipt.vehiclePlate].filter(Boolean).join(' - ')
+  const clientName = receipt.user ? receiptClientName(receipt) : 'tudo bem'
+  const vehicle = receiptVehicleLine(receipt)
 
   return [
     `Olá, ${clientName}!`,
@@ -475,4 +493,8 @@ function getReceiptErrorMessage(message: string | undefined, fallback: string) {
     return 'Revise os dados do recibo antes de salvar.'
   }
   return message || fallback
+}
+
+function receiptGrossSubtotalCents(form: ReceiptForm) {
+  return form.laborPriceCents + form.productsTotalCents + form.serviceExpensesTotalCents
 }

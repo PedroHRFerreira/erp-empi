@@ -24,11 +24,11 @@ const (
 
 type Receipt struct {
 	ID                 string        `json:"id" gorm:"type:char(36);primaryKey"`
-	UserID             string        `json:"userId" gorm:"type:char(36);not null;index"`
-	User               User          `json:"user" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
-	VehicleModel       string        `json:"vehicleModel" gorm:"size:140;not null"`
-	VehicleYear        int           `json:"vehicleYear" gorm:"not null"`
-	VehiclePlate       string        `json:"vehiclePlate" gorm:"size:12;not null;index"`
+	UserID             *string       `json:"userId,omitempty" gorm:"type:char(36);index"`
+	User               *User         `json:"user,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	VehicleModel       string        `json:"vehicleModel" gorm:"size:140"`
+	VehicleYear        int           `json:"vehicleYear"`
+	VehiclePlate       string        `json:"vehiclePlate" gorm:"size:12;index"`
 	Services           string        `json:"services" gorm:"size:700;not null"`
 	LaborPriceCents    int64         `json:"laborPriceCents" gorm:"not null;default:0"`
 	DiscountCents      int64         `json:"discountCents" gorm:"not null;default:0"`

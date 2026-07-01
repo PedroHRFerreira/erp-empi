@@ -4,6 +4,7 @@ import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
 import { maskPhone } from '../../../utils/masks'
+import { receiptClientName, receiptClientPhone, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
 import EmptyState from '../../molecules/EmptyState/Index.vue'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
@@ -27,7 +28,8 @@ export default defineComponent({
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
 
     function clientPhone(receipt: IReceipt) {
-      return receipt.user?.phone ? maskPhone(receipt.user.phone) : '-'
+      const phone = receiptClientPhone(receipt)
+      return phone ? maskPhone(phone) : '-'
     }
 
     function openDetail(receipt: IReceipt) {
@@ -35,7 +37,7 @@ export default defineComponent({
     }
 
     async function reopen(receipt: IReceipt) {
-      const confirmed = window.confirm(`Retornar o recibo de ${receipt.user.name} para pendente?`)
+      const confirmed = window.confirm(`Retornar o recibo de ${receiptClientName(receipt)} para pendente?`)
       if (!confirmed) return
 
       await receipts.reopen(receipt.id)
@@ -58,6 +60,9 @@ export default defineComponent({
       openDetail,
       pages,
       previousPage,
+      receiptClientName,
+      receiptVehicleName,
+      receiptVehiclePlate,
       receipts,
       reopen
     }
@@ -87,12 +92,12 @@ export default defineComponent({
         <tbody>
           <tr v-for="receipt in receipts.receipts" :key="receipt.id">
             <td>
-              <strong>{{ receipt.user.name }}</strong>
+              <strong>{{ receiptClientName(receipt) }}</strong>
             </td>
             <td>{{ clientPhone(receipt) }}</td>
             <td>
-              <strong>{{ receipt.vehicleModel }}</strong>
-              <small>{{ receipt.vehiclePlate }}</small>
+              <strong>{{ receiptVehicleName(receipt) }}</strong>
+              <small>{{ receiptVehiclePlate(receipt) }}</small>
             </td>
             <td>{{ formatCurrency(receipt.priceCents) }}</td>
             <td>{{ formatDateTime(receipt.updatedAt) }}</td>

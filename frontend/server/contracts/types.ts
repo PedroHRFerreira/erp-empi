@@ -58,8 +58,8 @@ export interface IReceiptItem {
 
 export interface IReceipt {
   id: string
-  userId: string
-  user: IUser
+  userId?: string | null
+  user?: IUser | null
   vehicleModel: string
   vehicleYear: number
   vehiclePlate: string
@@ -155,6 +155,8 @@ export interface IMetricsSummary {
   receiptsCancelled: number
   revenuePaidCents: number
   revenuePendingCents: number
+  discountsGrantedCents: number
+  receiptsActiveTotalCents: number
   averageTicketPaidCents: number
   stockItemsTotal: number
   stockUnitsAvailableTotal: number

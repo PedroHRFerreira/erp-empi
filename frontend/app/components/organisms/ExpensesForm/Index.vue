@@ -3,6 +3,7 @@ import { defineComponent, type PropType } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import type { ExpenseForm as IExpenseForm } from '../../../stores/useExpensesStore'
 import { maskCurrency } from '../../../utils/masks'
+import { receiptClientName, receiptVehicleLine } from '../../../utils/receiptDisplay'
 
 export default defineComponent({
   name: 'ExpensesForm',
@@ -57,7 +58,7 @@ export default defineComponent({
     }
 
     function receiptLabel(receipt: IReceipt) {
-      return `${receipt.user?.name || 'Cliente'} - ${receipt.vehicleModel} ${receipt.vehiclePlate}`
+      return `${receiptClientName(receipt)} - ${receiptVehicleLine(receipt)}`
     }
 
     return {

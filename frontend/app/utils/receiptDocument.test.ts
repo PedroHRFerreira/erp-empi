@@ -144,6 +144,26 @@ describe('receipt document helpers', () => {
     expect(document.summaryRows.at(1)?.valueCents).toBe(18900)
   })
 
+  it('builds a quick receipt without customer or vehicle data', () => {
+    const quickReceipt = makeReceipt({
+      userId: null,
+      user: null,
+      vehicleModel: '',
+      vehicleYear: 0,
+      vehiclePlate: ''
+    })
+    const document = buildReceiptDocument(quickReceipt, companyUser)
+    const invoice = buildReceiptInvoiceData(quickReceipt, companyUser)
+
+    expect(document.customer.name).toBe('Recibo rápido')
+    expect(document.vehicle.name).toBe('Sem veículo')
+    expect(document.vehicle.lines).toEqual(['Placa: -'])
+    expect(invoice.portalRows).toContainEqual({
+      label: 'CPF/CNPJ do tomador',
+      value: 'Preencher no portal com o documento do cliente'
+    })
+  })
+
   it('builds the invoice helper notice without replacing a fiscal document', () => {
     const document = buildReceiptInvoiceData(makeReceipt({ status: 'paid' }), companyUser)
 

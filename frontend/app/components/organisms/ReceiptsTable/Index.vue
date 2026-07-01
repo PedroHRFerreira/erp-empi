@@ -5,6 +5,7 @@ import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
 import EmptyState from '../../molecules/EmptyState/Index.vue'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
+import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
 
 export default defineComponent({
   name: 'ReceiptsTable',
@@ -76,6 +77,9 @@ export default defineComponent({
       formatDateTime,
       markPaid,
       paymentMethodLabel,
+      receiptClientName,
+      receiptVehicleName,
+      receiptVehiclePlate,
       print,
       printInvoiceData,
       shareWhatsApp,
@@ -101,12 +105,12 @@ export default defineComponent({
     <article v-for="receipt in receipts" :key="receipt.id" class="receipts-list__row">
       <div class="receipts-list__cell receipts-list__cell--client">
         <span class="receipts-list__label">Cliente</span>
-        <strong>{{ receipt.user.name }}</strong>
+        <strong>{{ receiptClientName(receipt) }}</strong>
       </div>
       <div class="receipts-list__cell">
         <span class="receipts-list__label">Veículo</span>
-        <strong>{{ receipt.vehicleModel }}</strong>
-        <small>{{ receipt.vehiclePlate }}</small>
+        <strong>{{ receiptVehicleName(receipt) }}</strong>
+        <small>{{ receiptVehiclePlate(receipt) }}</small>
       </div>
       <div class="receipts-list__cell receipts-list__cell--money">
         <span class="receipts-list__label">Total</span>

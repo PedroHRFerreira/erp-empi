@@ -33,6 +33,7 @@ type ReceiptExpenseInput struct {
 }
 
 type ReceiptInput struct {
+	Quick           bool                           `json:"quick"`
 	Client          userservices.UpsertClientInput `json:"client"`
 	VehicleModel    string                         `json:"vehicleModel"`
 	VehicleYear     int                            `json:"vehicleYear"`
@@ -69,17 +70,26 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	if err := validateReceiptInput(input); err != nil {
 		return nil, err
 	}
+	serviceExpenses, err := buildReceiptExpenses(input.ServiceExpenses)
+	if err != nil {
+		return nil, err
+	}
+	serviceExpensesTotalCents := serviceExpensesTotal(serviceExpenses)
+	if len(input.Items) == 0 && input.DiscountCents > input.LaborPriceCents+serviceExpensesTotalCents {
+		return nil, apperrors.ErrInvalidInput
+	}
 	admin, err := service.users.FindByID(ctx, adminID)
 	if err != nil {
 		return nil, err
 	}
-	client, err := service.users.UpsertClient(ctx, input.Client)
-	if err != nil {
-		return nil, err
-	}
-	serviceExpenses, err := buildReceiptExpenses(input.ServiceExpenses)
-	if err != nil {
-		return nil, err
+	var userID *string
+	if !input.Quick {
+		client, err := service.users.UpsertClient(ctx, input.Client)
+		if err != nil {
+			return nil, err
+		}
+		clientID := client.ID
+		userID = &clientID
 	}
 
 	requestedQuantities := make(map[string]int)
@@ -120,10 +130,6 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		stockItem := stockItems[itemInput.StockItemID]
 		productsTotalCents += stockItem.ResalePriceCents * int64(itemInput.Quantity)
 	}
-	serviceExpensesTotalCents := int64(0)
-	for _, expense := range serviceExpenses {
-		serviceExpensesTotalCents += expense.AmountCents
-	}
 	laborPriceCents := input.LaborPriceCents
 	if input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
 		laborPriceCents = input.PriceCents - productsTotalCents - serviceExpensesTotalCents
@@ -132,7 +138,11 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		}
 	}
 	discountCents := input.DiscountCents
-	subtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents - discountCents
+	grossSubtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents
+	if discountCents > grossSubtotalCents {
+		return nil, apperrors.ErrInvalidInput
+	}
+	subtotalCents := grossSubtotalCents - discountCents
 	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
 	installments := normalizeInstallments(paymentMethod, input.Installments)
 	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin, input.CardFeePercent)
@@ -140,7 +150,7 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	totalCents := subtotalCents + cardFeeCents
 
 	receipt := &entities.Receipt{
-		UserID:             client.ID,
+		UserID:             userID,
 		VehicleModel:       strings.TrimSpace(input.VehicleModel),
 		VehicleYear:        input.VehicleYear,
 		VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
@@ -305,20 +315,29 @@ func (service *ReceiptService) ensureReceiptItemsCanBeReserved(tx *gorm.DB, item
 }
 
 func validateReceiptInput(input ReceiptInput) error {
-	if strings.TrimSpace(input.VehicleModel) == "" ||
-		input.VehicleYear < 1950 ||
-		strings.TrimSpace(input.VehiclePlate) == "" ||
-		strings.TrimSpace(input.Services) == "" ||
+	if strings.TrimSpace(input.Services) == "" ||
 		input.LaborPriceCents < 0 ||
 		input.DiscountCents < 0 ||
-		input.DiscountCents > input.LaborPriceCents ||
 		input.PriceCents < 0 ||
 		(input.CardFeePercent != nil && *input.CardFeePercent < 0) ||
 		!isValidPaymentMethod(input.PaymentMethod) ||
 		(input.PaymentMethod == entities.PaymentMethodCreditCard && (input.Installments < 0 || input.Installments > 12)) {
 		return apperrors.ErrInvalidInput
 	}
+	if !input.Quick && (strings.TrimSpace(input.VehicleModel) == "" ||
+		input.VehicleYear < 1950 ||
+		strings.TrimSpace(input.VehiclePlate) == "") {
+		return apperrors.ErrInvalidInput
+	}
 	return nil
+}
+
+func serviceExpensesTotal(expenses []entities.Expense) int64 {
+	total := int64(0)
+	for _, expense := range expenses {
+		total += expense.AmountCents
+	}
+	return total
 }
 
 func buildReceiptExpenses(inputs []ReceiptExpenseInput) ([]entities.Expense, error) {

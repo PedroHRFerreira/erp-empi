@@ -22,6 +22,8 @@ type Summary struct {
 	ReceiptsCancelled        int64           `json:"receiptsCancelled"`
 	RevenuePaidCents         int64           `json:"revenuePaidCents"`
 	RevenuePendingCents      int64           `json:"revenuePendingCents"`
+	DiscountsGrantedCents    int64           `json:"discountsGrantedCents"`
+	ReceiptsActiveTotalCents int64           `json:"receiptsActiveTotalCents"`
 	AverageTicketPaidCents   int64           `json:"averageTicketPaidCents"`
 	StockItemsTotal          int64           `json:"stockItemsTotal"`
 	StockUnitsAvailableTotal int64           `json:"stockUnitsAvailableTotal"`
@@ -124,6 +126,10 @@ func NewMetricsService(db *gorm.DB) *MetricsService {
 }
 
 func (service *MetricsService) Summary(ctx context.Context) (*Summary, error) {
+	activeStatuses := []entities.ReceiptStatus{
+		entities.ReceiptStatusPaid,
+		entities.ReceiptStatusPending,
+	}
 	summary := &Summary{
 		TopProducts:      []TopProduct{},
 		LowStockProducts: []StockMetric{},
@@ -134,10 +140,7 @@ func (service *MetricsService) Summary(ctx context.Context) (*Summary, error) {
 	if err := service.db.WithContext(ctx).Model(&entities.User{}).Where("type = ?", entities.UserTypeClient).Count(&summary.ClientsTotal).Error; err != nil {
 		return nil, err
 	}
-	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status IN ?", []entities.ReceiptStatus{
-		entities.ReceiptStatusPaid,
-		entities.ReceiptStatusPending,
-	}).Count(&summary.ReceiptsTotal).Error; err != nil {
+	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status IN ?", activeStatuses).Count(&summary.ReceiptsTotal).Error; err != nil {
 		return nil, err
 	}
 	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status = ?", entities.ReceiptStatusPaid).Count(&summary.ReceiptsPaid).Error; err != nil {
@@ -153,6 +156,12 @@ func (service *MetricsService) Summary(ctx context.Context) (*Summary, error) {
 		return nil, err
 	}
 	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status = ?", entities.ReceiptStatusPending).Select("COALESCE(SUM(price_cents), 0)").Scan(&summary.RevenuePendingCents).Error; err != nil {
+		return nil, err
+	}
+	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status IN ?", activeStatuses).Select("COALESCE(SUM(discount_cents), 0)").Scan(&summary.DiscountsGrantedCents).Error; err != nil {
+		return nil, err
+	}
+	if err := service.db.WithContext(ctx).Model(&entities.Receipt{}).Where("status IN ?", activeStatuses).Select("COALESCE(SUM(price_cents), 0)").Scan(&summary.ReceiptsActiveTotalCents).Error; err != nil {
 		return nil, err
 	}
 	if summary.ReceiptsPaid > 0 {
@@ -216,7 +225,7 @@ func (service *MetricsService) loadLatestReceipt(ctx context.Context, summary *S
 	if err == nil {
 		summary.LastReceipt = &ReceiptMetric{
 			ID:         receipt.ID,
-			ClientName: receipt.User.Name,
+			ClientName: receiptClientName(receipt),
 			PriceCents: receipt.PriceCents,
 			Status:     string(receipt.Status),
 			CreatedAt:  receipt.CreatedAt.Format(time.RFC3339),
@@ -320,11 +329,18 @@ func (service *MetricsService) loadReceiptMetrics(ctx context.Context, _ *Summar
 	for _, receipt := range receipts {
 		*target = append(*target, ReceiptMetric{
 			ID:         receipt.ID,
-			ClientName: receipt.User.Name,
+			ClientName: receiptClientName(receipt),
 			PriceCents: receipt.PriceCents,
 			Status:     string(receipt.Status),
 			CreatedAt:  receipt.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 	return nil
+}
+
+func receiptClientName(receipt entities.Receipt) string {
+	if receipt.User != nil && receipt.User.Name != "" {
+		return receipt.User.Name
+	}
+	return "Recibo rápido"
 }

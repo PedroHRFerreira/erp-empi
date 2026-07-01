@@ -40,12 +40,13 @@ func TestMetricsSummarySeparatesCancelledReceiptsFromActiveMovement(t *testing.T
 	}
 
 	activeReceipt := &entities.Receipt{
-		UserID:             activeClient.ID,
+		UserID:             stringPointer(activeClient.ID),
 		VehicleModel:       "Gol",
 		VehicleYear:        2020,
 		VehiclePlate:       "ABC1D23",
 		Services:           "Servico ativo",
 		LaborPriceCents:    10000,
+		DiscountCents:      1500,
 		ProductsTotalCents: 0,
 		SubtotalCents:      10000,
 		PriceCents:         10000,
@@ -55,12 +56,13 @@ func TestMetricsSummarySeparatesCancelledReceiptsFromActiveMovement(t *testing.T
 		},
 	}
 	cancelledReceipt := &entities.Receipt{
-		UserID:             cancelledClient.ID,
+		UserID:             stringPointer(cancelledClient.ID),
 		VehicleModel:       "Uno",
 		VehicleYear:        2021,
 		VehiclePlate:       "DEF1D23",
 		Services:           "Servico cancelado",
 		LaborPriceCents:    20000,
+		DiscountCents:      5000,
 		ProductsTotalCents: 0,
 		SubtotalCents:      20000,
 		PriceCents:         20000,
@@ -90,7 +92,17 @@ func TestMetricsSummarySeparatesCancelledReceiptsFromActiveMovement(t *testing.T
 	if summary.LastReceipt == nil || summary.LastReceipt.ID != activeReceipt.ID {
 		t.Fatalf("expected last active receipt, got %+v", summary.LastReceipt)
 	}
+	if summary.DiscountsGrantedCents != 1500 {
+		t.Fatalf("expected active discounts 1500, got %d", summary.DiscountsGrantedCents)
+	}
+	if summary.ReceiptsActiveTotalCents != 10000 {
+		t.Fatalf("expected active receipt total 10000, got %d", summary.ReceiptsActiveTotalCents)
+	}
 	if len(summary.RecentClients) != 1 || summary.RecentClients[0].ID != activeClient.ID {
 		t.Fatalf("expected only active client in recent clients, got %+v", summary.RecentClients)
 	}
+}
+
+func stringPointer(value string) *string {
+	return &value
 }

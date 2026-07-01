@@ -14,7 +14,7 @@ export const NFSE_PORTAL_URL = "https://www.nfse.gov.br/EmissorNacional/Login?Re
 const PRINT_STYLES = `
   @page {
     size: A4;
-    margin: 14mm;
+    margin: 0;
   }
 
   * {
@@ -294,6 +294,7 @@ const PRINT_STYLES = `
 
   @media print {
     body {
+      padding: 14mm;
       background: #ffffff;
     }
 
