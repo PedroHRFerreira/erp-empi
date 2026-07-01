@@ -31,6 +31,7 @@ type Receipt struct {
 	VehiclePlate       string        `json:"vehiclePlate" gorm:"size:12;not null;index"`
 	Services           string        `json:"services" gorm:"size:700;not null"`
 	LaborPriceCents    int64         `json:"laborPriceCents" gorm:"not null;default:0"`
+	DiscountCents      int64         `json:"discountCents" gorm:"not null;default:0"`
 	ProductsTotalCents int64         `json:"productsTotalCents" gorm:"not null;default:0"`
 	SubtotalCents      int64         `json:"subtotalCents" gorm:"not null;default:0"`
 	CardFeePercent     float64       `json:"cardFeePercent" gorm:"not null;default:0"`

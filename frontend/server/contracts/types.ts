@@ -65,6 +65,7 @@ export interface IReceipt {
   vehiclePlate: string
   services: string
   laborPriceCents: number
+  discountCents: number
   productsTotalCents: number
   subtotalCents: number
   cardFeePercent: number

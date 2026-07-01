@@ -59,6 +59,7 @@ export default defineComponent({
     const selectedStockId = ref('')
     const selectedQuantity = ref(1)
     const laborPriceInput = ref('')
+    const discountInput = ref('')
     const serviceExpenseAmountInput = ref('')
     const serviceExpenseError = ref('')
     const itemError = ref('')
@@ -75,13 +76,15 @@ export default defineComponent({
       return Math.max(selectedStockItem.value.quantity - usedQuantityInForm(selectedStockItem.value.id), 0)
     })
     const laborPriceCents = computed(() => currencyMaskToCents(laborPriceInput.value))
+    const discountCents = computed(() => currencyMaskToCents(discountInput.value))
+    const discountedLaborCents = computed(() => Math.max(laborPriceCents.value - discountCents.value, 0))
     const productsTotalCents = computed(() => {
       return form.value.items.reduce((total, item) => total + itemTotalCents(item), 0)
     })
     const serviceExpensesTotalCents = computed(() => {
       return form.value.serviceExpenses.reduce((total, expense) => total + expense.amountCents, 0)
     })
-    const subtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
+    const subtotalCents = computed(() => discountedLaborCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
     const isCardPayment = computed(() => {
       return form.value.paymentMethod === 'credit_card' || form.value.paymentMethod === 'debit_card'
     })
@@ -176,6 +179,7 @@ export default defineComponent({
     function syncCalculatedFields() {
       syncCardFeePercent()
       form.value.laborPriceCents = laborPriceCents.value
+      form.value.discountCents = discountCents.value
       form.value.priceCents = totalCents.value
       if (form.value.paymentMethod !== 'credit_card') {
         form.value.installments = 1
@@ -280,6 +284,7 @@ export default defineComponent({
       selectedStockId.value = ''
       selectedQuantity.value = 1
       laborPriceInput.value = ''
+      discountInput.value = ''
       itemError.value = ''
       resetServiceExpenseForm()
     }
@@ -336,6 +341,8 @@ export default defineComponent({
       clearItemsError,
       clearServiceExpensesError,
       createReceipt,
+      discountCents,
+      discountInput,
       form,
       installmentOptions,
       installmentValueCents,
@@ -391,9 +398,11 @@ export default defineComponent({
 
     <ReceiptServicesStep
       v-else-if="receipts.receiptWizardStep === 2"
+      v-model:discount-input="discountInput"
       v-model:labor-price-input="laborPriceInput"
       :active-card-fee-label="activeCardFeeLabel"
       :card-fee-cents="cardFeeCents"
+      :discount-cents="discountCents"
       :field-errors="fieldErrors"
       :form="form"
       :installment-options="installmentOptions"
@@ -444,6 +453,7 @@ export default defineComponent({
       :card-fee-cents="cardFeeCents"
       :error="error"
       :form="form"
+      :discount-cents="discountCents"
       :installment-value-cents="installmentValueCents"
       :labor-price-cents="laborPriceCents"
       :products-total-cents="productsTotalCents"

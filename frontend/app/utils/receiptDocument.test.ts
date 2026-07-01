@@ -38,6 +38,7 @@ function makeReceipt(overrides: Partial<IReceipt> = {}): IReceipt {
     vehiclePlate: 'ABC1D23',
     services: 'Higienização interna',
     laborPriceCents: 10000,
+    discountCents: 0,
     productsTotalCents: 10000,
     subtotalCents: 23000,
     cardFeePercent: 5,
@@ -124,6 +125,23 @@ describe('receipt document helpers', () => {
     expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Total pago' }))
     expect(document.summaryRows).not.toContainEqual(expect.objectContaining({ label: 'Total cancelado' }))
     expect(document.summaryRows.at(0)?.valueCents).toBe(24150)
+  })
+
+  it('shows labor discount as a negative financial row', () => {
+    const document = buildReceiptDocument(
+      makeReceipt({
+        discountCents: 5000,
+        subtotalCents: 18000,
+        cardFeeCents: 900,
+        priceCents: 18900
+      }),
+      companyUser
+    )
+
+    expect(document.summaryRows.map((row) => row.label)).toEqual(['Desconto', 'Total'])
+    expect(document.summaryRows.at(0)?.valueCents).toBe(-5000)
+    expect(document.summaryRows.at(0)?.valueLabel).toContain('-')
+    expect(document.summaryRows.at(1)?.valueCents).toBe(18900)
   })
 
   it('builds the invoice helper notice without replacing a fiscal document', () => {

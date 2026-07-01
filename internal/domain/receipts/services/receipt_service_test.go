@@ -188,6 +188,131 @@ func TestCreatePersistsServiceExpensesAndChargesReceiptTotal(t *testing.T) {
 	}
 }
 
+func TestCreateAppliesLaborDiscountBeforeCardFee(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 10, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto teste",
+		CostCents:     5000,
+		MarkupPercent: 0,
+		Quantity:      5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Desconto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Civic",
+		VehicleYear:     2022,
+		VehiclePlate:    "GHI1D23",
+		Services:        "Servico com desconto",
+		LaborPriceCents: 10000,
+		DiscountCents:   3000,
+		PaymentMethod:   entities.PaymentMethodCreditCard,
+		Installments:    1,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+		ServiceExpenses: []receiptservices.ReceiptExpenseInput{
+			{
+				Description: "Deslocamento",
+				Category:    "Operacional",
+				AmountCents: 2000,
+				SpentAt:     "2026-06-18",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if receipt.LaborPriceCents != 10000 {
+		t.Fatalf("expected gross labor price 10000, got %d", receipt.LaborPriceCents)
+	}
+	if receipt.DiscountCents != 3000 {
+		t.Fatalf("expected discount 3000, got %d", receipt.DiscountCents)
+	}
+	if receipt.ProductsTotalCents != 5000 {
+		t.Fatalf("expected products total 5000, got %d", receipt.ProductsTotalCents)
+	}
+	if receipt.SubtotalCents != 14000 {
+		t.Fatalf("expected subtotal after discount 14000, got %d", receipt.SubtotalCents)
+	}
+	if receipt.CardFeeCents != 1400 {
+		t.Fatalf("expected card fee over discounted subtotal 1400, got %d", receipt.CardFeeCents)
+	}
+	if receipt.PriceCents != 15400 {
+		t.Fatalf("expected total 15400, got %d", receipt.PriceCents)
+	}
+}
+
+func TestCreateRejectsLaborDiscountAboveLaborPrice(t *testing.T) {
+	t.Parallel()
+
+	receiptService := receiptservices.NewReceiptService(nil, nil, nil)
+
+	_, err := receiptService.Create(context.Background(), "admin-id", receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Desconto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		DiscountCents:   10001,
+		PaymentMethod:   entities.PaymentMethodCash,
+	})
+	if !errors.Is(err, apperrors.ErrInvalidInput) {
+		t.Fatalf("expected invalid input, got %v", err)
+	}
+}
+
+func TestCreateRejectsNegativeLaborDiscount(t *testing.T) {
+	t.Parallel()
+
+	receiptService := receiptservices.NewReceiptService(nil, nil, nil)
+
+	_, err := receiptService.Create(context.Background(), "admin-id", receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Desconto",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		DiscountCents:   -1,
+		PaymentMethod:   entities.PaymentMethodCash,
+	})
+	if !errors.Is(err, apperrors.ErrInvalidInput) {
+		t.Fatalf("expected invalid input, got %v", err)
+	}
+}
+
 func TestCreateRejectsQuantityAboveStock(t *testing.T) {
 	t.Parallel()
 

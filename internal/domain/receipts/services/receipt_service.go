@@ -39,6 +39,7 @@ type ReceiptInput struct {
 	VehiclePlate    string                         `json:"vehiclePlate"`
 	Services        string                         `json:"services"`
 	LaborPriceCents int64                          `json:"laborPriceCents"`
+	DiscountCents   int64                          `json:"discountCents"`
 	PriceCents      int64                          `json:"priceCents"`
 	CardFeePercent  *float64                       `json:"cardFeePercent"`
 	PaymentMethod   entities.PaymentMethod         `json:"paymentMethod"`
@@ -130,7 +131,8 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 			laborPriceCents = 0
 		}
 	}
-	subtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents
+	discountCents := input.DiscountCents
+	subtotalCents := laborPriceCents + productsTotalCents + serviceExpensesTotalCents - discountCents
 	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
 	installments := normalizeInstallments(paymentMethod, input.Installments)
 	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin, input.CardFeePercent)
@@ -144,6 +146,7 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
 		Services:           strings.TrimSpace(input.Services),
 		LaborPriceCents:    laborPriceCents,
+		DiscountCents:      discountCents,
 		ProductsTotalCents: productsTotalCents,
 		SubtotalCents:      subtotalCents,
 		CardFeePercent:     cardFeePercent,
@@ -307,6 +310,8 @@ func validateReceiptInput(input ReceiptInput) error {
 		strings.TrimSpace(input.VehiclePlate) == "" ||
 		strings.TrimSpace(input.Services) == "" ||
 		input.LaborPriceCents < 0 ||
+		input.DiscountCents < 0 ||
+		input.DiscountCents > input.LaborPriceCents ||
 		input.PriceCents < 0 ||
 		(input.CardFeePercent != nil && *input.CardFeePercent < 0) ||
 		!isValidPaymentMethod(input.PaymentMethod) ||

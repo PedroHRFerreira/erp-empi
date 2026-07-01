@@ -15,6 +15,14 @@ export default defineComponent({
       type: Number,
       required: true
     },
+    discountCents: {
+      type: Number,
+      required: true
+    },
+    discountInput: {
+      type: String,
+      required: true
+    },
     fieldErrors: {
       type: Object as PropType<Record<string, string>>,
       required: true
@@ -44,11 +52,15 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['clear-field-error', 'payment-change', 'sync-card-fee', 'update:labor-price-input'],
+  emits: ['clear-field-error', 'payment-change', 'sync-card-fee', 'update:discount-input', 'update:labor-price-input'],
   setup(props, { emit }) {
     const laborPrice = computed({
       get: () => props.laborPriceInput,
       set: (value: string) => emit('update:labor-price-input', value)
+    })
+    const discount = computed({
+      get: () => props.discountInput,
+      set: (value: string) => emit('update:discount-input', value)
     })
 
     const isCardPayment = computed(() => {
@@ -82,6 +94,11 @@ export default defineComponent({
       laborPrice.value = maskCurrency(laborPrice.value)
     }
 
+    function maskDiscount() {
+      clearFieldError('discountCents')
+      discount.value = maskCurrency(discount.value)
+    }
+
     function updatePaymentMethod() {
       emit('payment-change')
       emit('sync-card-fee')
@@ -95,9 +112,11 @@ export default defineComponent({
     return {
       activeFeePercent,
       clearFieldError,
+      discount,
       formatCurrency,
       isCardPayment,
       laborPrice,
+      maskDiscount,
       maskLaborPrice,
       updateInstallments,
       updatePaymentMethod
@@ -118,6 +137,12 @@ export default defineComponent({
         <span>Valor da mão de obra</span>
         <input v-model="laborPrice" required inputmode="decimal" placeholder="R$ 350,00" @input="maskLaborPrice" />
         <small v-if="fieldErrors.laborPriceCents" class="field__error">{{ fieldErrors.laborPriceCents }}</small>
+      </label>
+
+      <label class="field" :class="{ 'field--error': fieldErrors.discountCents }">
+        <span>Desconto na mão de obra</span>
+        <input v-model="discount" inputmode="decimal" placeholder="R$ 50,00" @input="maskDiscount" />
+        <small v-if="fieldErrors.discountCents" class="field__error">{{ fieldErrors.discountCents }}</small>
       </label>
 
       <label class="field" :class="{ 'field--error': fieldErrors.paymentMethod }">
@@ -158,6 +183,10 @@ export default defineComponent({
       <div>
         <span>Subtotal</span>
         <strong>{{ formatCurrency(subtotalCents) }}</strong>
+      </div>
+      <div v-if="discountCents">
+        <span>Desconto</span>
+        <strong>{{ formatCurrency(-discountCents) }}</strong>
       </div>
       <div v-if="isCardPayment">
         <span>{{ activeCardFeeLabel }}</span>

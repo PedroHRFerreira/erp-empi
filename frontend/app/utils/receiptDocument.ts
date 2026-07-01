@@ -79,7 +79,8 @@ export interface IReceiptInvoiceDataDocument {
 
 export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = null): IReceiptDocument {
   const lines = buildReceiptLines(receipt)
-  const subtotalCents = receipt.subtotalCents || sumLineTotals(lines)
+  const discountCents = receipt.discountCents || 0
+  const subtotalCents = receipt.subtotalCents || sumLineTotals(lines) - discountCents
   const cardFeeCents = receipt.cardFeeCents || 0
   const totalCents = receipt.priceCents || subtotalCents + cardFeeCents
 
@@ -90,7 +91,7 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
     customer: receiptCustomer(receipt.user),
     vehicle: receiptVehicle(receipt),
     lines,
-    summaryRows: buildSummaryRows(totalCents),
+    summaryRows: buildSummaryRows(discountCents, totalCents),
     payment: {
       dateLabel: formatDate(receipt.paidAt || receipt.createdAt),
       methodLabel: paymentMethodLabel(receipt),
@@ -165,8 +166,15 @@ function buildReceiptLines(receipt: IReceipt): IReceiptDocumentLine[] {
   return lines
 }
 
-function buildSummaryRows(totalCents: number): IReceiptDocumentMoneyRow[] {
-  return [moneyRow('Total', totalCents, true)]
+function buildSummaryRows(discountCents: number, totalCents: number): IReceiptDocumentMoneyRow[] {
+  const rows: IReceiptDocumentMoneyRow[] = []
+
+  if (discountCents > 0) {
+    rows.push(moneyRow('Desconto', -discountCents))
+  }
+
+  rows.push(moneyRow('Total', totalCents, true))
+  return rows
 }
 
 function moneyLine(description: string, quantity: string, priceCents: number, totalCents: number): IReceiptDocumentLine {

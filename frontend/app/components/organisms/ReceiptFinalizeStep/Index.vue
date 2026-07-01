@@ -14,6 +14,10 @@ export default defineComponent({
       type: Number,
       required: true
     },
+    discountCents: {
+      type: Number,
+      required: true
+    },
     error: {
       type: String,
       default: ''
@@ -90,6 +94,10 @@ export default defineComponent({
       <div v-if="serviceExpensesTotalCents">
         <span>Gastos do serviço</span>
         <strong>{{ formatCurrency(serviceExpensesTotalCents) }}</strong>
+      </div>
+      <div v-if="discountCents">
+        <span>Desconto</span>
+        <strong>{{ formatCurrency(-discountCents) }}</strong>
       </div>
       <div>
         <span>Subtotal</span>

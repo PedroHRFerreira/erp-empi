@@ -41,6 +41,7 @@ CREATE TABLE receipts (
   vehicle_plate VARCHAR(12) NOT NULL,
   services VARCHAR(700) NOT NULL,
   labor_price_cents BIGINT NOT NULL DEFAULT 0,
+  discount_cents BIGINT NOT NULL DEFAULT 0,
   products_total_cents BIGINT NOT NULL DEFAULT 0,
   subtotal_cents BIGINT NOT NULL DEFAULT 0,
   card_fee_percent NUMERIC NOT NULL DEFAULT 0,

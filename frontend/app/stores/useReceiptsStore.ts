@@ -36,6 +36,7 @@ export type ReceiptForm = {
   vehiclePlate: string
   services: string
   laborPriceCents: number
+  discountCents: number
   priceCents: number
   cardFeePercent: number
   machineFeePercent: number
@@ -58,6 +59,7 @@ export function makeReceiptForm(defaultFees: { machineFeePercent?: number; insta
     vehiclePlate: '',
     services: '',
     laborPriceCents: 0,
+    discountCents: 0,
     priceCents: 0,
     cardFeePercent: 0,
     machineFeePercent,
@@ -175,6 +177,10 @@ export const useReceiptsStore = defineStore('receipts', {
     validateServiceFields(form: ReceiptForm) {
       if (!form.services.trim()) this.fieldErrors.services = 'Informe os serviços.'
       if (form.laborPriceCents < 0) this.fieldErrors.laborPriceCents = 'Informe um valor válido para a mão de obra.'
+      if (form.discountCents < 0) this.fieldErrors.discountCents = 'Informe um desconto válido.'
+      if (form.discountCents > form.laborPriceCents) {
+        this.fieldErrors.discountCents = 'O desconto não pode ser maior que a mão de obra.'
+      }
       if (!['credit_card', 'debit_card', 'pix', 'cash'].includes(form.paymentMethod)) {
         this.fieldErrors.paymentMethod = 'Informe a forma de pagamento.'
       }
@@ -208,7 +214,7 @@ export const useReceiptsStore = defineStore('receipts', {
       const fieldsByStep: Record<ReceiptWizardStepKey, string[]> = {
         client: ['client.name', 'client.phone'],
         vehicle: ['vehicleModel', 'vehicleYear', 'vehiclePlate'],
-        services: ['services', 'laborPriceCents', 'paymentMethod', 'installments', 'cardFeePercent'],
+        services: ['services', 'laborPriceCents', 'discountCents', 'paymentMethod', 'installments', 'cardFeePercent'],
         products: ['items'],
         serviceExpenses: ['serviceExpenses'],
         finish: []
@@ -304,6 +310,7 @@ export const useReceiptsStore = defineStore('receipts', {
           vehiclePlate: form.vehiclePlate.toUpperCase(),
           services: form.services.trim(),
           laborPriceCents: form.laborPriceCents,
+          discountCents: form.discountCents,
           priceCents: form.priceCents,
           cardFeePercent: ['credit_card', 'debit_card'].includes(form.paymentMethod) ? form.cardFeePercent : 0,
           paymentMethod: form.paymentMethod,

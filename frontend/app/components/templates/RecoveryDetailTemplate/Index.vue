@@ -177,6 +177,10 @@ export default defineComponent({
           <span>Gastos do serviço</span>
           <strong>{{ formatCurrency(serviceExpensesTotal(receipt)) }}</strong>
         </div>
+        <div v-if="receipt.discountCents">
+          <span>Desconto</span>
+          <strong>{{ formatCurrency(-receipt.discountCents) }}</strong>
+        </div>
         <div>
           <span>Total</span>
           <strong>{{ formatCurrency(receipt.priceCents) }}</strong>
