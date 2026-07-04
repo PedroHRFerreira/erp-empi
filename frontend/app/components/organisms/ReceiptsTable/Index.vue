@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Ban, CheckCircle2, Copy, FileText, MessageCircle, Printer } from '@lucide/vue'
+import { Ban, CheckCircle2, Copy, FileText, MessageCircle, Pencil, Printer } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
@@ -17,6 +17,7 @@ export default defineComponent({
     FileText,
     IconActionButton,
     MessageCircle,
+    Pencil,
     Printer
   },
   props: {
@@ -25,7 +26,7 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['cancel', 'copy-instagram', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
+  emits: ['cancel', 'copy-instagram', 'edit', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
   setup(_, { emit }) {
     function cancel(receipt: IReceipt) {
       emit('cancel', receipt)
@@ -37,6 +38,10 @@ export default defineComponent({
 
     function markPaid(receipt: IReceipt) {
       emit('mark-paid', receipt)
+    }
+
+    function edit(receipt: IReceipt) {
+      emit('edit', receipt)
     }
 
     function print(receipt: IReceipt) {
@@ -73,6 +78,7 @@ export default defineComponent({
     return {
       cancel,
       copyInstagram,
+      edit,
       formatCurrency,
       formatDateTime,
       markPaid,
@@ -142,6 +148,9 @@ export default defineComponent({
         </IconActionButton>
         <IconActionButton title="Preparar emissão NFS-e" @click="printInvoiceData(receipt)">
           <FileText :size="16" />
+        </IconActionButton>
+        <IconActionButton v-if="receipt.status === 'pending'" title="Editar recibo" @click="edit(receipt)">
+          <Pencil :size="16" />
         </IconActionButton>
         <IconActionButton v-if="receipt.status === 'pending'" title="Cancelar recibo" variant="danger" @click="cancel(receipt)">
           <Ban :size="16" />

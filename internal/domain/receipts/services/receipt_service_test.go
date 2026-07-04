@@ -905,6 +905,216 @@ func TestCreateRejectsNegativeCustomCardFeePercent(t *testing.T) {
 	}
 }
 
+func TestUpdatePendingReceiptReplacesItemsExpensesAndTotals(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Filtro",
+		CostCents:     5000,
+		MarkupPercent: 0,
+		Quantity:      3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receipt, err := receiptService.Create(ctx, admin.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Original",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico original",
+		LaborPriceCents: 10000,
+		PaymentMethod:   entities.PaymentMethodCash,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+		ServiceExpenses: []receiptservices.ReceiptExpenseInput{
+			{Description: "Gasto antigo", Category: "Operacional", AmountCents: 1000, SpentAt: "2026-06-18"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := receiptService.Update(ctx, admin.ID, receipt.ID, receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Atualizado",
+			Phone: "33888880000",
+		},
+		VehicleModel:    "Onix",
+		VehicleYear:     2022,
+		VehiclePlate:    "DEF1D23",
+		Services:        "Servico atualizado",
+		LaborPriceCents: 20000,
+		DiscountCents:   3000,
+		PaymentMethod:   entities.PaymentMethodCash,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+		ServiceExpenses: []receiptservices.ReceiptExpenseInput{
+			{Description: "Gasto novo", Category: "Operacional", AmountCents: 2000, SpentAt: "2026-06-19"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if updated.VehicleModel != "Onix" || updated.Services != "Servico atualizado" {
+		t.Fatalf("expected updated receipt fields, got %+v", updated)
+	}
+	if updated.SubtotalCents != 24000 || updated.PriceCents != 24000 {
+		t.Fatalf("expected subtotal and total 24000, got subtotal %d total %d", updated.SubtotalCents, updated.PriceCents)
+	}
+	if len(updated.Items) != 1 || updated.Items[0].Quantity != 1 {
+		t.Fatalf("expected one updated item, got %+v", updated.Items)
+	}
+	if len(updated.Expenses) != 1 || updated.Expenses[0].Description != "Gasto novo" {
+		t.Fatalf("expected replaced receipt expense, got %+v", updated.Expenses)
+	}
+}
+
+func TestUpdatePendingReceiptRejectsStockReservedByAnotherReceipt(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	stockService := stockservices.NewStockService(stockRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	stockItem, err := stockService.Create(ctx, stockservices.StockInput{
+		Name:          "Produto reservado",
+		CostCents:     5000,
+		MarkupPercent: 0,
+		Quantity:      2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Um",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		PaymentMethod:   entities.PaymentMethodCash,
+		Items: []receiptservices.ReceiptItemInput{
+			{StockItemID: stockItem.ID, Quantity: 1},
+		},
+	}
+	receipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Client.Name = "Cliente Dois"
+	input.Client.Phone = "33888880000"
+	if _, err := receiptService.Create(ctx, admin.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	input.Client.Name = "Cliente Um"
+	input.Client.Phone = "33999990000"
+	input.Items = []receiptservices.ReceiptItemInput{{StockItemID: stockItem.ID, Quantity: 2}}
+	_, err = receiptService.Update(ctx, admin.ID, receipt.ID, input)
+	if !errors.Is(err, apperrors.ErrReservedStock) {
+		t.Fatalf("expected reserved stock, got %v", err)
+	}
+}
+
+func TestUpdateRejectsPaidAndCancelledReceipts(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	userRepo := userrepos.NewUserRepository(db)
+	stockRepo := stockrepos.NewStockRepository(db)
+	receiptRepo := repositories.NewReceiptRepository(db)
+	userService := userservices.NewUserService(userRepo)
+	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
+	admin := createAdmin(t, ctx, userRepo, 0, 0)
+
+	input := receiptservices.ReceiptInput{
+		Client: userservices.UpsertClientInput{
+			Name:  "Cliente Status",
+			Phone: "33999990000",
+		},
+		VehicleModel:    "Gol",
+		VehicleYear:     2020,
+		VehiclePlate:    "ABC1D23",
+		Services:        "Servico",
+		LaborPriceCents: 10000,
+		PaymentMethod:   entities.PaymentMethodCash,
+	}
+
+	paidReceipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.MarkPaid(ctx, paidReceipt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Update(ctx, admin.ID, paidReceipt.ID, input); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected paid receipt conflict, got %v", err)
+	}
+
+	input.Client.Name = "Cliente Cancelado"
+	input.Client.Phone = "33888880000"
+	cancelledReceipt, err := receiptService.Create(ctx, admin.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Cancel(ctx, cancelledReceipt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := receiptService.Update(ctx, admin.ID, cancelledReceipt.ID, input); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected cancelled receipt conflict, got %v", err)
+	}
+}
+
 func createReceiptForFeeTest(
 	t *testing.T,
 	paymentMethod entities.PaymentMethod,

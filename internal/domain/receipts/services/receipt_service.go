@@ -50,6 +50,13 @@ type ReceiptInput struct {
 	ServiceExpenses []ReceiptExpenseInput          `json:"serviceExpenses"`
 }
 
+type preparedReceipt struct {
+	UserID          *string
+	Receipt         entities.Receipt
+	Items           []entities.ReceiptItem
+	ServiceExpenses []entities.Expense
+}
+
 func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrepos.StockRepository, users *userservices.UserService) *ReceiptService {
 	return &ReceiptService{repo: repo, stockRepo: stockRepo, users: users}
 }
@@ -67,6 +74,116 @@ func (service *ReceiptService) ListByUserID(ctx context.Context, userID string) 
 }
 
 func (service *ReceiptService) Create(ctx context.Context, adminID string, input ReceiptInput) (*entities.Receipt, error) {
+	prepared, err := service.prepareReceipt(ctx, adminID, input, nil, "")
+	if err != nil {
+		return nil, err
+	}
+
+	receipt := prepared.Receipt
+	receipt.UserID = prepared.UserID
+	receipt.Status = entities.ReceiptStatusPending
+	receipt.Items = prepared.Items
+	err = service.repo.Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).Create(&receipt).Error; err != nil {
+			return err
+		}
+
+		if len(prepared.ServiceExpenses) == 0 {
+			return nil
+		}
+
+		receiptID := receipt.ID
+		for index := range prepared.ServiceExpenses {
+			prepared.ServiceExpenses[index].ReceiptID = &receiptID
+		}
+		return tx.WithContext(ctx).Create(&prepared.ServiceExpenses).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, receipt.ID)
+}
+
+func (service *ReceiptService) Update(ctx context.Context, adminID string, id string, input ReceiptInput) (*entities.Receipt, error) {
+	current, err := service.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if current.Status != entities.ReceiptStatusPending {
+		return nil, apperrors.ErrConflict
+	}
+
+	prepared, err := service.prepareReceipt(ctx, adminID, input, nil, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var updated *entities.Receipt
+	err = service.repo.Transaction(func(tx *gorm.DB) error {
+		receipt, err := service.repo.FindByIDForUpdate(tx.WithContext(ctx), id)
+		if err != nil {
+			return err
+		}
+		if receipt.Status != entities.ReceiptStatusPending {
+			return apperrors.ErrConflict
+		}
+
+		receipt.UserID = prepared.UserID
+		receipt.VehicleModel = prepared.Receipt.VehicleModel
+		receipt.VehicleYear = prepared.Receipt.VehicleYear
+		receipt.VehiclePlate = prepared.Receipt.VehiclePlate
+		receipt.Services = prepared.Receipt.Services
+		receipt.LaborPriceCents = prepared.Receipt.LaborPriceCents
+		receipt.DiscountCents = prepared.Receipt.DiscountCents
+		receipt.ProductsTotalCents = prepared.Receipt.ProductsTotalCents
+		receipt.SubtotalCents = prepared.Receipt.SubtotalCents
+		receipt.CardFeePercent = prepared.Receipt.CardFeePercent
+		receipt.CardFeeCents = prepared.Receipt.CardFeeCents
+		receipt.PaymentMethod = prepared.Receipt.PaymentMethod
+		receipt.Installments = prepared.Receipt.Installments
+		receipt.PriceCents = prepared.Receipt.PriceCents
+		receipt.Notes = prepared.Receipt.Notes
+		receipt.PaidAt = nil
+		receipt.Items = nil
+
+		if err := tx.WithContext(ctx).Where("receipt_id = ?", id).Delete(&entities.ReceiptItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.WithContext(ctx).Where("receipt_id = ?", id).Delete(&entities.Expense{}).Error; err != nil {
+			return err
+		}
+		if err := service.repo.UpdateWithTx(tx.WithContext(ctx), receipt); err != nil {
+			return err
+		}
+
+		for index := range prepared.Items {
+			prepared.Items[index].ReceiptID = id
+		}
+		if len(prepared.Items) > 0 {
+			if err := tx.WithContext(ctx).Create(&prepared.Items).Error; err != nil {
+				return err
+			}
+		}
+
+		for index := range prepared.ServiceExpenses {
+			prepared.ServiceExpenses[index].ReceiptID = &id
+		}
+		if len(prepared.ServiceExpenses) > 0 {
+			if err := tx.WithContext(ctx).Create(&prepared.ServiceExpenses).Error; err != nil {
+				return err
+			}
+		}
+
+		updated = receipt
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, updated.ID)
+}
+
+func (service *ReceiptService) prepareReceipt(ctx context.Context, adminID string, input ReceiptInput, tx *gorm.DB, excludeReceiptID string) (*preparedReceipt, error) {
 	if err := validateReceiptInput(input); err != nil {
 		return nil, err
 	}
@@ -78,10 +195,12 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	if len(input.Items) == 0 && input.DiscountCents > input.LaborPriceCents+serviceExpensesTotalCents {
 		return nil, apperrors.ErrInvalidInput
 	}
+
 	admin, err := service.users.FindByID(ctx, adminID)
 	if err != nil {
 		return nil, err
 	}
+
 	var userID *string
 	if !input.Quick {
 		client, err := service.users.UpsertClient(ctx, input.Client)
@@ -106,13 +225,25 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 		requestedQuantities[itemInput.StockItemID] += itemInput.Quantity
 	}
 
-	reservedQuantities, err := service.repo.ReservedQuantitiesByStockItemIDs(ctx, stockItemIDs)
+	var reservedQuantities map[string]int
+	if tx != nil && excludeReceiptID != "" {
+		reservedQuantities, err = service.repo.ReservedQuantitiesByStockItemIDsExcludingReceiptWithTx(tx, stockItemIDs, excludeReceiptID)
+	} else if excludeReceiptID != "" {
+		reservedQuantities, err = service.repo.ReservedQuantitiesByStockItemIDsExcludingReceipt(ctx, stockItemIDs, excludeReceiptID)
+	} else {
+		reservedQuantities, err = service.repo.ReservedQuantitiesByStockItemIDs(ctx, stockItemIDs)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	for stockItemID, quantity := range requestedQuantities {
-		stockItem, err := service.stockRepo.FindByID(ctx, stockItemID)
+		var stockItem *entities.StockItem
+		if tx != nil {
+			stockItem, err = service.stockRepo.FindByIDForUpdate(tx, stockItemID)
+		} else {
+			stockItem, err = service.stockRepo.FindByID(ctx, stockItemID)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -126,10 +257,19 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	}
 
 	productsTotalCents := int64(0)
+	items := make([]entities.ReceiptItem, 0, len(input.Items))
 	for _, itemInput := range input.Items {
 		stockItem := stockItems[itemInput.StockItemID]
 		productsTotalCents += stockItem.ResalePriceCents * int64(itemInput.Quantity)
+		items = append(items, entities.ReceiptItem{
+			StockItemID:     stockItem.ID,
+			Quantity:        itemInput.Quantity,
+			UnitCostCents:   stockItem.CostCents,
+			UnitResaleCents: stockItem.ResalePriceCents,
+			MarkupPercent:   stockItem.MarkupPercent,
+		})
 	}
+
 	laborPriceCents := input.LaborPriceCents
 	if input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
 		laborPriceCents = input.PriceCents - productsTotalCents - serviceExpensesTotalCents
@@ -149,52 +289,27 @@ func (service *ReceiptService) Create(ctx context.Context, adminID string, input
 	cardFeeCents := calculatePercentCents(subtotalCents, cardFeePercent)
 	totalCents := subtotalCents + cardFeeCents
 
-	receipt := &entities.Receipt{
-		UserID:             userID,
-		VehicleModel:       strings.TrimSpace(input.VehicleModel),
-		VehicleYear:        input.VehicleYear,
-		VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
-		Services:           strings.TrimSpace(input.Services),
-		LaborPriceCents:    laborPriceCents,
-		DiscountCents:      discountCents,
-		ProductsTotalCents: productsTotalCents,
-		SubtotalCents:      subtotalCents,
-		CardFeePercent:     cardFeePercent,
-		CardFeeCents:       cardFeeCents,
-		PaymentMethod:      paymentMethod,
-		Installments:       installments,
-		PriceCents:         totalCents,
-		Status:             entities.ReceiptStatusPending,
-		Notes:              strings.TrimSpace(input.Notes),
-	}
-
-	for _, itemInput := range input.Items {
-		stockItem := stockItems[itemInput.StockItemID]
-		receipt.Items = append(receipt.Items, entities.ReceiptItem{
-			StockItemID:     stockItem.ID,
-			Quantity:        itemInput.Quantity,
-			UnitCostCents:   stockItem.CostCents,
-			UnitResaleCents: stockItem.ResalePriceCents,
-			MarkupPercent:   stockItem.MarkupPercent,
-		})
-	}
-
-	err = service.repo.Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).Create(receipt).Error; err != nil {
-			return err
-		}
-
-		if len(serviceExpenses) == 0 {
-			return nil
-		}
-
-		receiptID := receipt.ID
-		for index := range serviceExpenses {
-			serviceExpenses[index].ReceiptID = &receiptID
-		}
-		return tx.WithContext(ctx).Create(&serviceExpenses).Error
-	})
-	return receipt, err
+	return &preparedReceipt{
+		UserID: userID,
+		Receipt: entities.Receipt{
+			VehicleModel:       strings.TrimSpace(input.VehicleModel),
+			VehicleYear:        input.VehicleYear,
+			VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
+			Services:           strings.TrimSpace(input.Services),
+			LaborPriceCents:    laborPriceCents,
+			DiscountCents:      discountCents,
+			ProductsTotalCents: productsTotalCents,
+			SubtotalCents:      subtotalCents,
+			CardFeePercent:     cardFeePercent,
+			CardFeeCents:       cardFeeCents,
+			PaymentMethod:      paymentMethod,
+			Installments:       installments,
+			PriceCents:         totalCents,
+			Notes:              strings.TrimSpace(input.Notes),
+		},
+		Items:           items,
+		ServiceExpenses: serviceExpenses,
+	}, nil
 }
 
 func (service *ReceiptService) MarkPaid(ctx context.Context, id string) (*entities.Receipt, error) {

@@ -51,6 +51,10 @@ export default defineComponent({
       return router.push('/receipts/new?quick=1')
     }
 
+    function editReceipt(receipt: IReceipt) {
+      return router.push(`/receipts/${receipt.id}/edit`)
+    }
+
     function previousPage() {
       return receipts.load(receipts.offset - receipts.limit)
     }
@@ -62,6 +66,7 @@ export default defineComponent({
     return {
       cancelReceipt,
       currentPage,
+      editReceipt,
       nextPage,
       pages,
       printInvoiceData,
@@ -97,6 +102,7 @@ export default defineComponent({
       :receipts="receipts.receipts"
       @cancel="cancelReceipt"
       @copy-instagram="receipts.copyInstagramText"
+      @edit="editReceipt"
       @mark-paid="(receipt) => receipts.markPaid(receipt.id)"
       @print-invoice-data="printInvoiceData"
       @print="printReceipt"

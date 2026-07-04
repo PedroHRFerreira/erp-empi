@@ -58,14 +58,22 @@ func (repo *ReceiptRepository) ListByUserID(ctx context.Context, userID string) 
 }
 
 func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDs(ctx context.Context, stockItemIDs []string) (map[string]int, error) {
-	return reservedQuantitiesByStockItemIDs(ctx, repo.db, stockItemIDs)
+	return reservedQuantitiesByStockItemIDs(ctx, repo.db, stockItemIDs, "")
+}
+
+func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDsExcludingReceipt(ctx context.Context, stockItemIDs []string, receiptID string) (map[string]int, error) {
+	return reservedQuantitiesByStockItemIDs(ctx, repo.db, stockItemIDs, receiptID)
 }
 
 func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDsWithTx(tx *gorm.DB, stockItemIDs []string) (map[string]int, error) {
-	return reservedQuantitiesByStockItemIDs(tx.Statement.Context, tx, stockItemIDs)
+	return reservedQuantitiesByStockItemIDs(tx.Statement.Context, tx, stockItemIDs, "")
 }
 
-func reservedQuantitiesByStockItemIDs(ctx context.Context, db *gorm.DB, stockItemIDs []string) (map[string]int, error) {
+func (repo *ReceiptRepository) ReservedQuantitiesByStockItemIDsExcludingReceiptWithTx(tx *gorm.DB, stockItemIDs []string, receiptID string) (map[string]int, error) {
+	return reservedQuantitiesByStockItemIDs(tx.Statement.Context, tx, stockItemIDs, receiptID)
+}
+
+func reservedQuantitiesByStockItemIDs(ctx context.Context, db *gorm.DB, stockItemIDs []string, excludeReceiptID string) (map[string]int, error) {
 	type row struct {
 		StockItemID string
 		Quantity    int
@@ -77,14 +85,15 @@ func reservedQuantitiesByStockItemIDs(ctx context.Context, db *gorm.DB, stockIte
 	}
 
 	var rows []row
-	err := db.WithContext(ctx).
+	query := db.WithContext(ctx).
 		Table("receipt_items").
 		Select("receipt_items.stock_item_id, COALESCE(SUM(receipt_items.quantity), 0) AS quantity").
 		Joins("JOIN receipts ON receipts.id = receipt_items.receipt_id").
-		Where("receipts.status = ? AND receipt_items.stock_item_id IN ?", entities.ReceiptStatusPending, stockItemIDs).
-		Group("receipt_items.stock_item_id").
-		Scan(&rows).
-		Error
+		Where("receipts.status = ? AND receipt_items.stock_item_id IN ?", entities.ReceiptStatusPending, stockItemIDs)
+	if excludeReceiptID != "" {
+		query = query.Where("receipts.id <> ?", excludeReceiptID)
+	}
+	err := query.Group("receipt_items.stock_item_id").Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

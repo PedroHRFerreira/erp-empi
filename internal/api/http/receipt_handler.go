@@ -48,6 +48,22 @@ func (handler *ReceiptHandler) Create(c echo.Context) error {
 	return c.JSON(nethttp.StatusCreated, receipt)
 }
 
+func (handler *ReceiptHandler) Update(c echo.Context) error {
+	userID, err := getUserID(c)
+	if err != nil {
+		return writeError(c, err)
+	}
+	input := new(receiptservices.ReceiptInput)
+	if err := c.Bind(input); err != nil {
+		return writeError(c, err)
+	}
+	receipt, err := handler.receipts.Update(c.Request().Context(), userID, c.Param("id"), *input)
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, receipt)
+}
+
 func (handler *ReceiptHandler) MarkPaid(c echo.Context) error {
 	receipt, err := handler.receipts.MarkPaid(c.Request().Context(), c.Param("id"))
 	if err != nil {

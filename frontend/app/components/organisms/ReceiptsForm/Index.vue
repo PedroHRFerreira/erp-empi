@@ -9,7 +9,7 @@ import {
   type ReceiptServiceExpenseForm
 } from '../../../stores/useReceiptsStore'
 import type { IStoreActionResult } from '../../../stores/types'
-import { currencyMaskToCents } from '../../../utils/masks'
+import { currencyMaskToCents, formatCentsAsCurrency } from '../../../utils/masks'
 import ReceiptClientStep from '../ReceiptClientStep/Index.vue'
 import ReceiptFinalizeStep from '../ReceiptFinalizeStep/Index.vue'
 import ReceiptProductsStep from '../ReceiptProductsStep/Index.vue'
@@ -46,6 +46,10 @@ export default defineComponent({
       type: Boolean,
       default: false
     },
+    mode: {
+      type: String as PropType<'create' | 'edit'>,
+      default: 'create'
+    },
     onCreate: {
       type: Function as PropType<(form: ReceiptForm) => Promise<IStoreActionResult>>,
       required: true
@@ -56,7 +60,9 @@ export default defineComponent({
     const auth = useAuthStore()
     const receipts = useReceiptsStore()
 
-    receipts.resetReceiptWizard(defaultFees(), props.quick)
+    if (props.mode === 'create') {
+      receipts.resetReceiptWizard(defaultFees(), props.quick)
+    }
 
     const form = computed(() => receipts.receiptDraft)
     const serviceExpense = reactive<ReceiptServiceExpenseForm>(makeReceiptServiceExpense())
@@ -70,10 +76,16 @@ export default defineComponent({
     const hasAppliedProfileFees = ref(Boolean(auth.user))
     const installmentOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
+    if (props.mode === 'edit') {
+      laborPriceInput.value = formatCentsAsCurrency(form.value.laborPriceCents)
+      discountInput.value = formatCentsAsCurrency(form.value.discountCents)
+    }
+
     const activeSteps = computed(() => receiptWizardStepsFor(form.value.quick))
     const activeStepKey = computed(() => activeSteps.value[receipts.receiptWizardStep]?.key || 'finish')
     const currentStepLabel = computed(() => `Etapa ${receipts.receiptWizardStep + 1}`)
     const isFinalStep = computed(() => receipts.receiptWizardStep === activeSteps.value.length - 1)
+    const submitLabel = computed(() => (props.mode === 'edit' ? 'Salvar alterações' : 'Salvar recibo'))
     const selectedStockItem = computed(() => {
       return props.stockItems.find((item) => item.id === selectedStockId.value) || null
     })
@@ -327,7 +339,7 @@ export default defineComponent({
 
       const result = await props.onCreate(form.value)
 
-      if (result.status === 'success') {
+      if (result.status === 'success' && props.mode === 'create') {
         resetForm()
       }
     }
@@ -379,6 +391,7 @@ export default defineComponent({
       serviceExpenseError,
       serviceExpensesTotalCents,
       stockName,
+      submitLabel,
       submitStep,
       subtotalCents,
       syncCardFeePercent,
@@ -485,7 +498,7 @@ export default defineComponent({
         {{ receipts.receiptWizardStep === 0 ? 'Voltar' : 'Anterior' }}
       </button>
       <button v-if="!isFinalStep" class="button button--primary" type="button" @click="nextStep">Avançar</button>
-      <button v-else class="button button--primary" type="submit">Salvar recibo</button>
+      <button v-else class="button button--primary" type="submit">{{ submitLabel }}</button>
     </footer>
   </form>
 </template>

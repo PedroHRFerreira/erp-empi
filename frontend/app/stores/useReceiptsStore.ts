@@ -97,6 +97,48 @@ export function makeReceiptServiceExpense(): ReceiptServiceExpenseForm {
   }
 }
 
+export function receiptToForm(receipt: IReceipt): ReceiptForm {
+  const quick = !receipt.user
+
+  return {
+    quick,
+    client: {
+      name: receipt.user?.name || '',
+      phone: receipt.user?.phone || ''
+    },
+    vehicleModel: receipt.vehicleModel || '',
+    vehicleYear: receipt.vehicleYear || new Date().getFullYear(),
+    vehiclePlate: receipt.vehiclePlate || '',
+    services: receipt.services || '',
+    laborPriceCents: receipt.laborPriceCents || 0,
+    discountCents: receipt.discountCents || 0,
+    productsTotalCents: receipt.productsTotalCents || 0,
+    serviceExpensesTotalCents: receipt.expenses?.reduce((total, expense) => total + expense.amountCents, 0) || 0,
+    priceCents: receipt.priceCents || 0,
+    cardFeePercent: receipt.cardFeePercent || 0,
+    machineFeePercent: receipt.cardFeePercent || 0,
+    installmentFeePercent: receipt.cardFeePercent || 0,
+    paymentMethod: receipt.paymentMethod || 'cash',
+    installments: receipt.installments || 1,
+    notes: receipt.notes || '',
+    items: receipt.items.map((item) => {
+      return {
+        stockItemId: item.stockItemId,
+        quantity: item.quantity
+      }
+    }),
+    serviceExpenses: (receipt.expenses || []).map((expense) => {
+      return {
+        description: expense.description,
+        category: expense.category,
+        amountCents: expense.amountCents,
+        spentAt: dateToInputValue(expense.spentAt),
+        notes: expense.notes || ''
+      }
+    })
+  }
+}
+
 export const useReceiptsStore = defineStore('receipts', {
   state: () => {
     return {
@@ -126,6 +168,12 @@ export const useReceiptsStore = defineStore('receipts', {
     applyReceiptDefaultFees(defaultFees: { machineFeePercent?: number; installmentFeePercent?: number }) {
       this.receiptDraft.machineFeePercent = Number(defaultFees.machineFeePercent || 0)
       this.receiptDraft.installmentFeePercent = Number(defaultFees.installmentFeePercent || 0)
+    },
+    setReceiptDraft(form: ReceiptForm) {
+      this.receiptDraft = form
+      this.receiptWizardStep = 0
+      this.error = ''
+      this.fieldErrors = {}
     },
     previousReceiptStep() {
       this.receiptWizardStep = Math.max(this.receiptWizardStep - 1, 0)
@@ -317,26 +365,7 @@ export const useReceiptsStore = defineStore('receipts', {
       }
       const { error, status } = await useApiFetch('/receipts', {
         method: 'POST',
-        body: {
-          client: {
-            name: form.quick ? '' : form.client.name.trim(),
-            phone: form.quick ? '' : onlyDigits(form.client.phone)
-          },
-          quick: form.quick,
-          vehicleModel: form.quick ? '' : form.vehicleModel.trim(),
-          vehicleYear: form.quick ? 0 : form.vehicleYear,
-          vehiclePlate: form.quick ? '' : form.vehiclePlate.toUpperCase(),
-          services: form.services.trim(),
-          laborPriceCents: form.laborPriceCents,
-          discountCents: form.discountCents,
-          priceCents: form.priceCents,
-          cardFeePercent: ['credit_card', 'debit_card'].includes(form.paymentMethod) ? form.cardFeePercent : 0,
-          paymentMethod: form.paymentMethod,
-          installments: form.paymentMethod === 'credit_card' ? form.installments : 1,
-          notes: form.notes.trim(),
-          items: form.items,
-          serviceExpenses: form.serviceExpenses
-        }
+        body: buildReceiptPayload(form)
       })
 
       if (status.value === 'error') {
@@ -347,6 +376,30 @@ export const useReceiptsStore = defineStore('receipts', {
       this.error = ''
       this.fieldErrors = {}
       const loadResult = await this.load(0)
+
+      if (loadResult.status === 'error') {
+        return loadResult
+      }
+
+      return { status: 'success' }
+    },
+    async update(id: string, form: ReceiptForm): Promise<IStoreActionResult> {
+      if (!this.validate(form)) {
+        return { status: 'error', errors: this.fieldErrors, message: this.error }
+      }
+      const { error, status } = await useApiFetch(`/receipts/${id}`, {
+        method: 'PUT',
+        body: buildReceiptPayload(form)
+      })
+
+      if (status.value === 'error') {
+        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível atualizar o recibo.')
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      this.error = ''
+      this.fieldErrors = {}
+      const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
         return loadResult
@@ -445,6 +498,37 @@ function toDateInputValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function dateToInputValue(value: string) {
+  if (!value) return toDateInputValue(new Date())
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10)
+  }
+  return toDateInputValue(new Date(value))
+}
+
+function buildReceiptPayload(form: ReceiptForm) {
+  return {
+    client: {
+      name: form.quick ? '' : form.client.name.trim(),
+      phone: form.quick ? '' : onlyDigits(form.client.phone)
+    },
+    quick: form.quick,
+    vehicleModel: form.quick ? '' : form.vehicleModel.trim(),
+    vehicleYear: form.quick ? 0 : form.vehicleYear,
+    vehiclePlate: form.quick ? '' : form.vehiclePlate.toUpperCase(),
+    services: form.services.trim(),
+    laborPriceCents: form.laborPriceCents,
+    discountCents: form.discountCents,
+    priceCents: form.priceCents,
+    cardFeePercent: ['credit_card', 'debit_card'].includes(form.paymentMethod) ? form.cardFeePercent : 0,
+    paymentMethod: form.paymentMethod,
+    installments: form.paymentMethod === 'credit_card' ? form.installments : 1,
+    notes: form.notes.trim(),
+    items: form.items,
+    serviceExpenses: form.serviceExpenses
+  }
 }
 
 function buildReceiptWhatsAppUrl(receipt: IReceipt, text: string) {
