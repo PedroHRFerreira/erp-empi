@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "project": "erp-empi",
+  "source": ".ai",
+  "execution": {
+    "mode": "cli",
+    "apiEnabled": false
+  },
+  "escalation": {
+    "enabled": true,
+    "policyPath": ".ai/policies/complexity.md",
+    "specsDir": "docs/rods/specs",
+    "modelAdviceOnly": true
+  },
+  "defaultTarget": "codex",
+  "targets": {
+    "codex": {
+      "enabled": true,
+      "hooks": true
+    },
+    "claude": {
+      "enabled": false,
+      "hooks": false
+    }
+  },
+  "adapters": {
+    "rtk": {
+      "enabled": true
+    },
+    "claude-mem": {
+      "enabled": false
+    },
+    "caveman": {
+      "enabled": false,
+      "mode": "opt-in"
+    }
+  },
+  "generatedTemplates": {
+    "AGENTS.md": "421d59c1c7ae3300a71c457c54f74d14a599a2d3e581af61806b82b322860175",
+    ".ai/config.json": "d62fec318c39dbafb0ca79b1e0ed37848329442312167f021f9324294402edee",
+    ".ai/constitution.md": "b84b647fd3063bf5ea86214b18d24659b008dd0217bb1f0770cc7b82547bb32b",
+    ".ai/policies/complexity.md": "610ef64f16ae59593decd399fad99fe25da90e16722734474ed56cc2d295aeb8",
+    ".ai/skills/context-search-first/SKILL.md": "f089afacc8469d9739b802173ce388f4af78ab7beb53da6aa8ac39563ac071e6",
+    ".ai/skills/review/SKILL.md": "2505f05f1527f0d85693be72337a199be3e569c44bd0216ecc185fc1b2794529",
+    ".ai/skills/architecture/SKILL.md": "d7a4c2cc8bc70e348a527f47987321bc0b15dbd4a8b05af64b29584d9174785a",
+    ".ai/skills/quality/SKILL.md": "d9fda9755c120da865a36cf267e32a9483c58bcbdbf441afba353a8d8041a585",
+    ".ai/skills/design-brainstorm/SKILL.md": "3ecfa6ac524e4399b4c827572a72bd8c533419d3ac57b902501c16560cf949d8",
+    ".ai/adapters/codex/capabilities.md": "e57a84a4e71be55b32997cd72eba56d558547e10f7588dc40e666c732d5a57d8",
+    ".ai/adapters/rtk.md": "5ceff1dedeb9c7faf3792af92a70011c1748a99ec0f05347e6fa9a0aceaf17c6",
+    ".rods/.gitignore": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  }
+}
