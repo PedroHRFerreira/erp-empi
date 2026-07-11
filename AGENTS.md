@@ -4,7 +4,7 @@
 
 Use rods-sdk defaults before reading large files, running noisy commands, or scanning the repository manually.
 
-Detected stack: Go
+Detected stack: Go + Node/TypeScript (Nuxt)
 
 1. Run `context_engine.search` with task-specific terms.
 2. Read only relevant chunks with `context_engine.read`.
@@ -16,24 +16,25 @@ Detected stack: Go
 
 ## Reading Map
 
-| Case | Skill |
-|---|---|
+| Case                             | Skill                                      |
+| -------------------------------- | ------------------------------------------ |
 | repository context / file lookup | `.ai/skills/context-search-first/SKILL.md` |
-| architecture / boundaries | `.ai/skills/architecture/SKILL.md` |
+| architecture / boundaries        | `.ai/skills/architecture/SKILL.md`         |
 
 | quality / readiness | `.ai/skills/quality/SKILL.md` |
 | review / PR / commit | `.ai/skills/review/SKILL.md` |
 
 ## Running The Framework
 
-Prepare a consumer project:
+Update and synchronize the consumer project:
 
 ```bash
-pnpm exec rods init
-pnpm exec rods adapter sync --target codex
+corepack pnpm run rods:upgrade:dry-run
+corepack pnpm run rods:upgrade
+corepack pnpm run rods:sync
 ```
 
-If `.agents/skills` is read-only, sync skills to a writable destination:
+By default, skills stay in `.ai/skills`. If Codex needs a physical projection in another directory, pass it explicitly:
 
 ```bash
 pnpm exec rods adapter sync --target codex --codex-skills-dir .codex/skills
@@ -42,16 +43,16 @@ pnpm exec rods adapter sync --target codex --codex-skills-dir .codex/skills
 Register and index the project in Context Engine:
 
 ```bash
-pnpm exec rods project add erp-empi .
-pnpm exec rods ingest .
-pnpm exec rods stats
+CONTEXT_ENGINE_HOME=.rods/context-engine corepack pnpm exec context project add erp-empi .
+corepack pnpm run context:ingest
+corepack pnpm run context:stats
 ```
 
 Search indexed context:
 
 ```bash
-pnpm exec rods search "search term"
-pnpm exec rods read <chunkId>
+CONTEXT_ENGINE_HOME=.rods/context-engine corepack pnpm exec context search "search term"
+CONTEXT_ENGINE_HOME=.rods/context-engine corepack pnpm exec context read <chunkId>
 ```
 
 ## Governance
@@ -59,5 +60,5 @@ pnpm exec rods read <chunkId>
 Project governance lives in `.ai/`.
 
 - `.ai/constitution.md` contains stable rules.
-- `.ai/skills/*/SKILL.md` contains skills that can be synced to supported agents.
+- `.ai/skills/*/SKILL.md` contains skills used as the project source of truth.
 - `.ai/adapters/` contains optional adapter notes for external tools.

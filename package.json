@@ -1,0 +1,27 @@
+{
+  "name": "erp-empi",
+  "private": true,
+  "packageManager": "pnpm@10.30.1",
+  "scripts": {
+    "rods:doctor": "rods adapter doctor . --target codex",
+    "rods:ingest": "CONTEXT_ENGINE_HOME=.rods/context-engine context ingest . --project-root .",
+    "rods:stats": "CONTEXT_ENGINE_HOME=.rods/context-engine context stats",
+    "rods:qa:stats": "CONTEXT_ENGINE_HOME=.rods/context-engine rods qa stats --project erp-empi",
+    "rods:upgrade:check": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade . --dry-run",
+    "rods:upgrade": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade .",
+    "rods:upgrade:dry-run": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade . --dry-run",
+    "rods:sync": "rods adapter sync --target codex",
+    "context:ingest": "CONTEXT_ENGINE_HOME=.rods/context-engine context ingest . --project-root .",
+    "context:ingest:review": "CONTEXT_ENGINE_HOME=.rods/context-engine context ingest . --scope review --project-root .",
+    "context:stats": "CONTEXT_ENGINE_HOME=.rods/context-engine context stats"
+  },
+  "devDependencies": {
+    "rods-sdk": "npm:@pedrohrferreira/rods-sdk@0.1.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@pedrohrferreira/rods-sdk",
+      "better-sqlite3"
+    ]
+  }
+}

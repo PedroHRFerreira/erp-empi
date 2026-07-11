@@ -5,7 +5,7 @@ description: Use before finishing implementation work or when validating readine
 
 # Quality
 
-Detected stack: Go
+Detected stack: Go + Node/TypeScript (Nuxt)
 
 ## Validation Order
 

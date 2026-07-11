@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "project": "erp-empi",
   "source": ".ai",
   "execution": {
@@ -10,17 +10,37 @@
     "enabled": true,
     "policyPath": ".ai/policies/complexity.md",
     "specsDir": "docs/rods/specs",
-    "modelAdviceOnly": true
+    "mode": "advisory"
   },
   "defaultTarget": "codex",
   "targets": {
     "codex": {
       "enabled": true,
-      "hooks": true
+      "hooks": true,
+      "execution": {
+        "binary": "codex",
+        "models": {
+          "simple": "",
+          "medium": "",
+          "high": ""
+        },
+        "args": [],
+        "timeoutMs": 900000
+      }
     },
     "claude": {
       "enabled": false,
-      "hooks": false
+      "hooks": false,
+      "execution": {
+        "binary": "claude",
+        "models": {
+          "simple": "",
+          "medium": "",
+          "high": ""
+        },
+        "args": [],
+        "timeoutMs": 900000
+      }
     }
   },
   "adapters": {
@@ -35,18 +55,31 @@
       "mode": "opt-in"
     }
   },
+  "workflow": {
+    "mode": "codex",
+    "maxIterations": 3
+  },
   "generatedTemplates": {
-    "AGENTS.md": "421d59c1c7ae3300a71c457c54f74d14a599a2d3e581af61806b82b322860175",
-    ".ai/config.json": "d62fec318c39dbafb0ca79b1e0ed37848329442312167f021f9324294402edee",
+    "AGENTS.md": "efe4394acfdc3ee56ca04439f0b063d084c1312f0d640f104c860870a26d96fa",
+    ".ai/config.json": "59750efe3c4a78742a580e5b7f63dd09fb9af6747abc49c6b03aa9acc7b6d5bf",
     ".ai/constitution.md": "b84b647fd3063bf5ea86214b18d24659b008dd0217bb1f0770cc7b82547bb32b",
     ".ai/policies/complexity.md": "610ef64f16ae59593decd399fad99fe25da90e16722734474ed56cc2d295aeb8",
     ".ai/skills/context-search-first/SKILL.md": "f089afacc8469d9739b802173ce388f4af78ab7beb53da6aa8ac39563ac071e6",
     ".ai/skills/review/SKILL.md": "2505f05f1527f0d85693be72337a199be3e569c44bd0216ecc185fc1b2794529",
-    ".ai/skills/architecture/SKILL.md": "d7a4c2cc8bc70e348a527f47987321bc0b15dbd4a8b05af64b29584d9174785a",
-    ".ai/skills/quality/SKILL.md": "d9fda9755c120da865a36cf267e32a9483c58bcbdbf441afba353a8d8041a585",
+    ".ai/skills/architecture/SKILL.md": "2a4daea1b97cf381300664f3378dff317336d00beb5b9a00d8559e37e5684020",
+    ".ai/skills/quality/SKILL.md": "c182b63fcfc004c940ce81a527b12dfc5c9cf60a00377c2cdc5053b79948bb4f",
     ".ai/skills/design-brainstorm/SKILL.md": "3ecfa6ac524e4399b4c827572a72bd8c533419d3ac57b902501c16560cf949d8",
     ".ai/adapters/codex/capabilities.md": "e57a84a4e71be55b32997cd72eba56d558547e10f7588dc40e666c732d5a57d8",
+    ".ai/adapters/claude/capabilities.md": "adc12de4949dff3591150866633092d8e47373ae6fa8b947fa9872da663b89d5",
     ".ai/adapters/rtk.md": "5ceff1dedeb9c7faf3792af92a70011c1748a99ec0f05347e6fa9a0aceaf17c6",
     ".rods/.gitignore": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  "generatedScripts": {
+    "rods:upgrade": "f39d20cb47764fc73333e4aa7259fe5d45ff89f962985dd43218cd41c99c82e0",
+    "rods:upgrade:dry-run": "dd70031d704e8dbc51a8728af43bac3b5f1fc4b802981673d6e3cb3f43833279",
+    "rods:sync": "f593895918fb208ca2bbb75fb55a6fabdb6e30653f896468e9f2e23feddb2ea6",
+    "context:ingest": "2773dced87351323e5b3aa290de47f69db49114e2e3fa568581f5231d630ed86",
+    "context:ingest:review": "2b4028ed45151c26a17ecfdc4b689a0437112092e89647de8ca4dc7c22643d0f",
+    "context:stats": "d91f137a42fc2626f0b565aa3ea4be3fddf0b59bfa037f3adde8dbffab20dc2f"
   }
 }

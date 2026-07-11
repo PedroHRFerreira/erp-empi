@@ -5,7 +5,7 @@ description: Use when changes affect structure, ownership boundaries, dependenci
 
 # Architecture
 
-Detected stack: Go
+Detected stack: Go + Node/TypeScript (Nuxt)
 
 ## Rules
 
