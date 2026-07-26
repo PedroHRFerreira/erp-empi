@@ -7,6 +7,7 @@
     "rods:ingest": "CONTEXT_ENGINE_HOME=.rods/context-engine context ingest . --project-root .",
     "rods:stats": "CONTEXT_ENGINE_HOME=.rods/context-engine context stats",
     "rods:qa:stats": "CONTEXT_ENGINE_HOME=.rods/context-engine rods qa stats --project erp-empi",
+    "rods:flow": "CONTEXT_ENGINE_HOME=.rods/context-engine rods flow run",
     "rods:upgrade:check": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade . --dry-run",
     "rods:upgrade": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade .",
     "rods:upgrade:dry-run": "CONTEXT_ENGINE_HOME=.rods/context-engine rods upgrade . --dry-run",

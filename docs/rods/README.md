@@ -54,6 +54,20 @@ modelo sob controle do operador.
 corepack pnpm exec rods escalation classify "descrição da tarefa" --files <arquivos> --root . --json
 ```
 
-Claude, `claude-mem`, `caveman` e workflows Codex/Claude permanecem
-desabilitados. O RTK é o adapter padrão para compactar saídas de shell; confira
-o ganho acumulado com `rtk gain`.
+O RTK é o adapter padrão para compactar saídas de shell. Claude, `claude-mem`
+e `caveman` continuam opt-in: não são necessários para o fluxo Codex-first e
+exigiriam CLIs, credenciais e configurações paralelas.
+
+## Fluxo isolado de agentes
+
+O atalho abaixo expõe o workflow nativo do SDK, que cria uma worktree temporária
+e nunca aplica o patch automaticamente ao workspace atual:
+
+```bash
+corepack pnpm run rods:flow -- "descrição da tarefa"
+```
+
+Antes da primeira execução, configure identificadores de modelo válidos para os
+tiers `simple`, `medium` e `high` em `.ai/config.json` e mude
+`escalation.mode` para `execute`. A configuração padrão permanece `advisory`
+para evitar execuções recursivas de agentes nos hooks do ambiente.
