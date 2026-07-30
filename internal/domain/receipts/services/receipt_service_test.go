@@ -956,6 +956,7 @@ func TestUpdatePendingReceiptReplacesItemsExpensesAndTotals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	originalReceiptID := receipt.ID
 
 	updated, err := receiptService.Update(ctx, admin.ID, receipt.ID, receiptservices.ReceiptInput{
 		Client: userservices.UpsertClientInput{
@@ -978,6 +979,17 @@ func TestUpdatePendingReceiptReplacesItemsExpensesAndTotals(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if updated.ID != originalReceiptID {
+		t.Fatalf("expected update to preserve receipt ID %q, got %q", originalReceiptID, updated.ID)
+	}
+
+	var receiptCount int64
+	if err := db.Model(&entities.Receipt{}).Count(&receiptCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if receiptCount != 1 {
+		t.Fatalf("expected update to keep one receipt, got %d", receiptCount)
 	}
 
 	if updated.VehicleModel != "Onix" || updated.Services != "Servico atualizado" {

@@ -25,6 +25,7 @@ export interface IReceiptDocumentParty {
 }
 
 export interface IReceiptDocumentLine {
+  kind: 'service' | 'product' | 'expense'
   description: string
   quantity: string
   priceCents: number
@@ -62,6 +63,7 @@ export interface IReceiptDocument {
   lines: IReceiptDocumentLine[]
   summaryRows: IReceiptDocumentMoneyRow[]
   payment: IReceiptDocumentPayment
+  notes: string
   thankYouTitle: string
   thankYouMessage: string
   legalNotice: string
@@ -99,6 +101,7 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
       amountLabel: receipt.status === 'paid' ? formatCurrency(totalCents) : statusLabel(receipt.status),
       statusLabel: statusLabel(receipt.status)
     },
+    notes: normalizeText(receipt.notes),
     thankYouTitle: 'Obrigado',
     thankYouMessage: 'Tenha um ótimo dia!',
     legalNotice: 'Este recibo não é uma nota fiscal.'
@@ -149,19 +152,19 @@ export function statusLabel(status: IReceipt['status']) {
 
 function buildReceiptLines(receipt: IReceipt): IReceiptDocumentLine[] {
   const lines: IReceiptDocumentLine[] = [
-    moneyLine(receipt.services || 'Serviços', '1', receipt.laborPriceCents || 0, receipt.laborPriceCents || 0)
+    moneyLine('service', receipt.services || 'Serviços', '1', receipt.laborPriceCents || 0, receipt.laborPriceCents || 0)
   ]
 
   for (const item of Array.isArray(receipt.items) ? receipt.items : []) {
     const quantity = Number(item.quantity || 0)
     const unitPriceCents = Number(item.unitResaleCents || item.stockItem?.resalePriceCents || 0)
     lines.push(
-      moneyLine(item.stockItem?.name || item.stockItemId || 'Produto', String(quantity), unitPriceCents, unitPriceCents * quantity)
+      moneyLine('product', item.stockItem?.name || item.stockItemId || 'Produto', String(quantity), unitPriceCents, unitPriceCents * quantity)
     )
   }
 
   for (const expense of Array.isArray(receipt.expenses) ? receipt.expenses : []) {
-    lines.push(moneyLine(`Gasto do serviço: ${expense.description}`, '1', expense.amountCents || 0, expense.amountCents || 0))
+    lines.push(moneyLine('expense', `Gasto do serviço: ${expense.description}`, '1', expense.amountCents || 0, expense.amountCents || 0))
   }
 
   return lines
@@ -178,8 +181,9 @@ function buildSummaryRows(discountCents: number, totalCents: number): IReceiptDo
   return rows
 }
 
-function moneyLine(description: string, quantity: string, priceCents: number, totalCents: number): IReceiptDocumentLine {
+function moneyLine(kind: IReceiptDocumentLine['kind'], description: string, quantity: string, priceCents: number, totalCents: number): IReceiptDocumentLine {
   return {
+    kind,
     description: normalizeText(description) || EMPTY_VALUE,
     quantity,
     priceCents,

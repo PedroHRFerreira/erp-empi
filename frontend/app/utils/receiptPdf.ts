@@ -20,6 +20,12 @@ type PdfRule = {
 
 type PdfElement = PdfText | PdfRule
 
+const PAGE_WIDTH = 226.77
+const PAGE_HEIGHT = 510.24
+const LEFT = 12
+const RIGHT = PAGE_WIDTH - 12
+const CONTENT_WIDTH = RIGHT - LEFT
+
 export function receiptWhatsAppMessage(receipt: IReceipt, company: IUser | null = null) {
   const document = buildReceiptDocument(receipt, company)
   const itemLines = document.lines.map((line) => `- ${line.quantity}x ${line.description}: ${line.totalLabel}`)
@@ -70,83 +76,120 @@ export function buildReceiptPdfFile(receipt: IReceipt, company: IUser | null = n
   return new File([bytes], filename, { type: 'application/pdf' })
 }
 
-function buildReceiptPdfBytes(receipt: IReceipt, company: IUser | null = null) {
+export function buildReceiptPdfBytes(receipt: IReceipt, company: IUser | null = null) {
   const document = buildReceiptDocument(receipt, company)
-  const elements: PdfElement[] = []
-  let y = 790
+  const pages = [9, 8, 7].map((fontSize) => layoutReceipt(document, fontSize)).find((candidate) => candidate.length === 1)
+  const selectedPages = pages || layoutReceipt(document, 7)
+  return createPdf(selectedPages.map((page) => page.map((element) => drawElement(element)).join('\n')))
+}
 
-  addLine(elements, document.company.name, 48, y, 16, 'F2')
-  addLine(elements, document.receiptNumber, 330, y, 24, 'F2')
-  y -= 18
-  for (const line of document.company.lines.slice(0, 3)) {
-    addLine(elements, truncate(line, 42), 48, y, 9)
-    y -= 12
+function layoutReceipt(document: ReturnType<typeof buildReceiptDocument>, fontSize: number): PdfElement[][] {
+  const pages: PdfElement[][] = []
+  let elements: PdfElement[] = []
+  pages.push(elements)
+  let y = PAGE_HEIGHT - 14
+  const lineHeight = fontSize + 2
+  const sectionTitleSize = fontSize + 2
+  const ensure = (height: number) => {
+    if (y - height >= 14) return
+    elements = []
+    pages.push(elements)
+    y = PAGE_HEIGHT - 14
+    addHeader(elements, document, fontSize, () => y, (value) => { y = value })
   }
-  addLine(elements, document.issuedAtLabel, 430, 772, 10)
-  y -= 10
-  addRule(elements, y)
-  y -= 30
-
-  addLine(elements, 'Dados do cliente', 48, y, 12, 'F2')
-  y -= 18
-  addLine(elements, document.customer.name, 48, y, 10, 'F2')
-  addLine(elements, document.vehicle.name, 330, y, 10, 'F2')
-  y -= 14
-  addLine(elements, truncate(document.customer.lines.join(' | ') || '-', 46), 48, y, 9)
-  addLine(elements, truncate(document.vehicle.lines.join(' | '), 32), 330, y, 9)
-  y -= 34
-
-  addLine(elements, 'Itens', 48, y, 12, 'F2')
-  y -= 20
-  addLine(elements, 'Item', 48, y, 10, 'F2')
-  addLine(elements, 'Qtd.', 270, y, 10, 'F2')
-  addLine(elements, 'Preco', 350, y, 10, 'F2')
-  addLine(elements, 'Total', 485, y, 10, 'F2')
-  y -= 8
-  addRule(elements, y)
-  y -= 16
-
-  for (const line of document.lines) {
-    addLine(elements, truncate(line.description, 30), 48, y)
-    addLine(elements, line.quantity, 275, y)
-    addLine(elements, line.priceLabel, 350, y)
-    addLine(elements, line.totalLabel, 470, y, 10, 'F2')
-    y -= 16
+  const text = (value: string, x = LEFT, width = CONTENT_WIDTH, font: 'F1' | 'F2' = 'F1', size = fontSize) => {
+    const lines = wrapText(value || '-', maxCharacters(width, size))
+    ensure(lines.length * lineHeight)
+    for (const part of lines) {
+      addLine(elements, part, x, y, size, font)
+      y -= lineHeight
+    }
+  }
+  const rule = () => { ensure(4); addRule(elements, y, LEFT, RIGHT); y -= 5 }
+  const heading = (value: string) => { ensure(sectionTitleSize + 8); addLine(elements, value, LEFT, y, sectionTitleSize, 'F2'); y -= sectionTitleSize + 4; rule() }
+  const section = (title: string, lines: typeof document.lines) => {
+    if (!lines.length) return
+    heading(title)
+    for (const line of lines) {
+      ensure(lineHeight * 2 + 3)
+      text(line.description, LEFT, 112)
+      addLine(elements, `Qtd. ${line.quantity}`, 128, y + lineHeight, fontSize)
+      addLine(elements, line.totalLabel, 176, y + lineHeight, fontSize, 'F2')
+      y -= 3
+    }
   }
 
-  y -= 4
-  addRule(elements, y)
-  y -= 26
-
+  addHeader(elements, document, fontSize, () => y, (value) => { y = value })
+  heading('Cliente e veículo')
+  text(document.customer.name, LEFT, CONTENT_WIDTH, 'F2')
+  text(document.customer.lines.join(' | ') || '-', LEFT)
+  text(`Veículo: ${document.vehicle.name}`, LEFT, CONTENT_WIDTH, 'F2')
+  text(document.vehicle.lines.join(' | '), LEFT)
+  section('Serviços', document.lines.filter((line) => line.kind !== 'product'))
+  section('Produtos', document.lines.filter((line) => line.kind === 'product'))
+  rule()
   for (const row of document.summaryRows) {
-    addLine(elements, row.label, 335, y, row.strong ? 13 : 10, row.strong ? 'F2' : 'F1')
-    addLine(elements, row.valueLabel, 470, y, row.strong ? 13 : 10, row.strong ? 'F2' : 'F1')
-    y -= row.strong ? 20 : 16
+    ensure(lineHeight)
+    addLine(elements, row.label, 118, y, row.strong ? fontSize + 2 : fontSize, row.strong ? 'F2' : 'F1')
+    addLine(elements, row.valueLabel, 176, y, row.strong ? fontSize + 2 : fontSize, row.strong ? 'F2' : 'F1')
+    y -= row.strong ? lineHeight + 2 : lineHeight
   }
+  heading('Pagamento')
+  text(`${document.payment.methodLabel} — ${document.payment.amountLabel}`, LEFT, CONTENT_WIDTH, 'F2')
+  text(`Data: ${document.payment.dateLabel}`, LEFT)
+  if (document.notes) { heading('Observações'); text(document.notes) }
+  heading(document.thankYouTitle)
+  text(document.thankYouMessage)
+  ensure(lineHeight * 4)
+  addRule(elements, y - lineHeight, LEFT, 94)
+  addRule(elements, y - lineHeight, 132, RIGHT)
+  addLine(elements, document.company.name, LEFT, y - lineHeight * 2, fontSize - 1, 'F2')
+  addLine(elements, document.customer.name, 132, y - lineHeight * 2, fontSize - 1, 'F2')
+  y -= lineHeight * 3
+  text(document.legalNotice, LEFT, CONTENT_WIDTH, 'F2', Math.max(fontSize - 1, 6))
+  return pages
+}
 
-  y -= 18
-  addRule(elements, y)
-  y -= 28
-  addLine(elements, 'Detalhes do pagamento', 48, y, 12, 'F2')
-  y -= 18
-  addLine(elements, document.payment.dateLabel, 48, y)
-  addLine(elements, document.payment.methodLabel, 180, y)
-  addLine(elements, document.payment.amountLabel, 330, y, 10, 'F2')
-  y -= 44
-  addLine(elements, document.thankYouTitle, 48, y, 12, 'F2')
-  y -= 16
-  addLine(elements, document.thankYouMessage, 48, y)
-  addLine(elements, document.legalNotice, 48, Math.max(y - 46, 54), 10, 'F2')
+function addHeader(elements: PdfElement[], document: ReturnType<typeof buildReceiptDocument>, fontSize: number, getY: () => number, setY: (value: number) => void) {
+  let y = getY()
+  addLine(elements, document.company.name, LEFT, y, fontSize + 3, 'F2')
+  y -= fontSize + 4
+  for (const line of document.company.lines) {
+    for (const part of wrapText(line, maxCharacters(CONTENT_WIDTH, fontSize - 1))) {
+      addLine(elements, part, LEFT, y, Math.max(fontSize - 1, 6))
+      y -= fontSize + 1
+    }
+  }
+  addLine(elements, document.receiptNumber, LEFT, y, fontSize + 1, 'F2')
+  addLine(elements, document.issuedAtLabel, 164, y, fontSize)
+  y -= fontSize + 5
+  addRule(elements, y, LEFT, RIGHT)
+  setY(y - 6)
+}
 
-  const stream = elements.map((element) => drawElement(element)).join('\n')
-  return createPdf(stream)
+function maxCharacters(width: number, size: number) {
+  return Math.max(8, Math.floor(width / Math.max(size * 0.52, 3.2)))
+}
+
+function wrapText(value: string, maxLength: number) {
+  const words = String(value || '-').trim().split(/\s+/)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    if (!line) { line = word; continue }
+    if (`${line} ${word}`.length <= maxLength) { line += ` ${word}`; continue }
+    lines.push(line)
+    line = word
+  }
+  if (line) lines.push(line)
+  return lines
 }
 
 function addLine(elements: PdfElement[], text: string, x: number, y: number, size = 10, font: 'F1' | 'F2' = 'F1') {
   elements.push({ kind: 'text', text, x, y, size, font })
 }
 
-function addRule(elements: PdfElement[], y: number, x1 = 48, x2 = 547) {
+function addRule(elements: PdfElement[], y: number, x1 = LEFT, x2 = RIGHT) {
   elements.push({ kind: 'rule', x1, x2, y })
 }
 
@@ -159,14 +202,20 @@ function drawText(line: PdfText) {
   return `BT /${line.font || 'F1'} ${line.size || 10} Tf 1 0 0 1 ${line.x} ${line.y} Tm (${escapePdfString(line.text)}) Tj ET`
 }
 
-function createPdf(contentStream: string) {
+function createPdf(contentStreams: string[]) {
+  const pageObjectStart = 3
+  const fontRegularObject = pageObjectStart + contentStreams.length * 2
+  const fontBoldObject = fontRegularObject + 1
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    `<< /Type /Pages /Kids [${contentStreams.map((_, index) => `${pageObjectStart + index * 2} 0 R`).join(' ')}] /Count ${contentStreams.length} >>`,
+    ...contentStreams.flatMap((contentStream, index) => {
+      const pageObject = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${fontRegularObject} 0 R /F2 ${fontBoldObject} 0 R >> >> /Contents ${pageObjectStart + index * 2 + 1} 0 R >>`
+      const contentObject = `<< /Length ${latin1Length(contentStream)} >>\nstream\n${contentStream}\nendstream`
+      return [pageObject, contentObject]
+    }),
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    `<< /Length ${latin1Length(contentStream)} >>\nstream\n${contentStream}\nendstream`
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'
   ]
 
   const header = '%PDF-1.4\n'
@@ -200,10 +249,6 @@ function downloadReceiptPdf(file: File) {
   link.download = file.name
   link.click()
   URL.revokeObjectURL(href)
-}
-
-function truncate(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value
 }
 
 function escapePdfString(value: string) {

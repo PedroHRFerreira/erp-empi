@@ -169,3 +169,39 @@ export interface IMetricsSummary {
   pendingReceipts: Array<{ id: string; clientName: string; priceCents: number; status: string; createdAt: string }>
   paidReceipts: Array<{ id: string; clientName: string; priceCents: number; status: string; createdAt: string }>
 }
+
+export interface IGoalMetrics {
+  revenueCents: number
+  laborCents: number
+  productsCents: number
+  clients: number
+  appointments: number
+  netProfitCents: number
+  cardFeesCents: number
+  expensesCents: number
+  productCostCents: number
+}
+
+export interface IMonthlyGoal {
+  month: string
+  revenueTargetCents: number
+  laborTargetCents: number
+  productsTargetCents: number
+  clientsTarget: number
+  netProfitTargetCents: number
+}
+
+export interface IGoalsSummary {
+  month: string
+  periodStart: string
+  periodEnd: string
+  saved: boolean
+  targets: IMonthlyGoal
+  previous: IGoalMetrics
+  actual: IGoalMetrics
+  projection: Pick<IGoalMetrics, 'revenueCents' | 'laborCents' | 'productsCents' | 'clients' | 'netProfitCents'>
+  requirements: { averageTicketCents: number; laborPerAppointmentCents: number; productsPerAppointmentCents: number }
+  pendingOpportunityCents: number
+  pricingRecommendations: Array<{ stockItemId: string; name: string; previousQuantity: number; suggestedQuantity: number; unitCostCents: number; markupPercent: number; currentPriceCents: number; minimumPriceCents: number; belowMinimum: boolean }>
+  tips: Array<{ kind: string; title: string; description: string }>
+}

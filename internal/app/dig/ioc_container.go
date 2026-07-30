@@ -6,6 +6,7 @@ import (
 	expenserepos "github.com/empi-autocenter/erp-empi/internal/domain/expenses/repositories"
 	expenseservices "github.com/empi-autocenter/erp-empi/internal/domain/expenses/services"
 	financialservices "github.com/empi-autocenter/erp-empi/internal/domain/financial/services"
+	goalservices "github.com/empi-autocenter/erp-empi/internal/domain/goals/services"
 	metricservices "github.com/empi-autocenter/erp-empi/internal/domain/metrics/services"
 	receiptrepos "github.com/empi-autocenter/erp-empi/internal/domain/receipts/repositories"
 	receiptservices "github.com/empi-autocenter/erp-empi/internal/domain/receipts/services"
@@ -24,6 +25,7 @@ type Container struct {
 	Metrics   *metricservices.MetricsService
 	Expenses  *expenseservices.ExpenseService
 	Financial *financialservices.FinancialService
+	Goals     *goalservices.GoalService
 }
 
 func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
@@ -39,6 +41,7 @@ func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 	metrics := metricservices.NewMetricsService(db)
 	expenses := expenseservices.NewExpenseService(expenseRepo)
 	financial := financialservices.NewFinancialService(db)
+	goals := goalservices.NewGoalService(db)
 
 	return &Container{
 		Auth:      auth,
@@ -48,5 +51,6 @@ func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 		Metrics:   metrics,
 		Expenses:  expenses,
 		Financial: financial,
+		Goals:     goals,
 	}, nil
 }

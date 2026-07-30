@@ -3,13 +3,35 @@
   top: 0;
   display: flex;
   flex-direction: column;
+  z-index: 20;
+  width: 76px;
   gap: 24px;
   height: 100vh;
   overflow-y: auto;
-  padding: 24px;
+  overflow-x: hidden;
+  padding: 17px;
   border-right: 1px solid var(--braip-theme-border);
   background: rgba(3, 9, 18, 0.9);
   box-shadow: 20px 0 70px rgba(0, 0, 0, 0.18);
+  transition: width .32s cubic-bezier(.22, .61, .36, 1), padding .32s cubic-bezier(.22, .61, .36, 1);
+}
+.app-sidebar:hover, .app-sidebar:focus-within { width: 260px; padding: 24px; }
+.app-sidebar :deep(.brand-mark__content),
+.app-sidebar__label {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-6px);
+  white-space: nowrap;
+  transition: max-width .32s cubic-bezier(.22, .61, .36, 1), opacity .2s ease, transform .32s cubic-bezier(.22, .61, .36, 1);
+}
+.app-sidebar:hover :deep(.brand-mark__content),
+.app-sidebar:focus-within :deep(.brand-mark__content),
+.app-sidebar:hover .app-sidebar__label,
+.app-sidebar:focus-within .app-sidebar__label {
+  max-width: 180px;
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .app-sidebar__nav {
@@ -22,12 +44,14 @@
   display: inline-flex;
   min-height: 42px;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   border-radius: 8px;
   padding: 0 12px;
   color: var(--braip-theme-text-muted);
   font-weight: 700;
 }
+.app-sidebar:hover .app-sidebar__nav a, .app-sidebar:hover .app-sidebar__logout, .app-sidebar:focus-within .app-sidebar__nav a, .app-sidebar:focus-within .app-sidebar__logout { justify-content: flex-start; }
 
 .app-sidebar__nav a.router-link-active {
   color: var(--braip-brand-primary);
@@ -49,10 +73,12 @@
     grid-template-columns: 1fr;
     height: auto;
     max-height: 100vh;
+    width: auto;
     padding: 16px;
     border-right: 0;
     border-bottom: 1px solid var(--braip-theme-border);
   }
+  .app-sidebar :deep(.brand-mark__content), .app-sidebar__label { max-width: 180px; opacity: 1; transform: translateX(0); }
 
   .app-sidebar__nav {
     grid-auto-flow: column;

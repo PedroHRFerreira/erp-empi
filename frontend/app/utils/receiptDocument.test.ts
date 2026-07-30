@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IReceipt, IUser } from '../../server/contracts/types'
 import { buildReceiptDocument, buildReceiptInvoiceData } from './receiptDocument'
+import { buildReceiptPdfBytes } from './receiptPdf'
 
 const baseUser: IUser = {
   id: 'user-1',
@@ -173,5 +174,21 @@ describe('receipt document helpers', () => {
     expect(document.portalRows).toContainEqual({ label: 'CNPJ do prestador', value: '46.377.137/0001-60' })
     expect(document.portalRows).toContainEqual({ label: 'Município da prestação', value: 'Governador Valadares/MG' })
     expect(document.portalRows).toContainEqual({ label: 'CPF/CNPJ do tomador', value: '529.982.247-25' })
+  })
+
+  it('creates a compact receipt without truncating information or exposing card fees', () => {
+    const receipt = makeReceipt({
+      services: 'Troca completa das buchas da suspensão dianteira com revisão do sistema de direção',
+      notes: 'Garantia de três meses para os serviços executados conforme orientação do fabricante.'
+    })
+    const source = new TextDecoder('latin1').decode(buildReceiptPdfBytes(receipt, companyUser))
+
+    expect(source).toContain('/MediaBox [0 0 226.77 510.24]')
+    expect(source).toContain('/Count 1')
+    expect(source).toContain('Troca completa das')
+    expect(source).toContain('Garantia de três meses')
+    expect(source).not.toContain('...')
+    expect(source).not.toContain('Taxa do cartão')
+    expect(source).not.toContain('Juros da maquininha')
   })
 })

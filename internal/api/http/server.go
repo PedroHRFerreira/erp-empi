@@ -34,6 +34,7 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	receiptHandler := NewReceiptHandler(container.Receipts)
 	metricsHandler := NewMetricsHandler(container.Metrics)
 	expenseHandler := NewExpenseHandler(container.Expenses, container.Financial)
+	goalsHandler := NewGoalsHandler(container.Goals)
 
 	api := e.Group("/api")
 	api.POST("/auth/login", authHandler.Login)
@@ -62,6 +63,8 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	private.PUT("/expenses/:id", expenseHandler.Update)
 	private.DELETE("/expenses/:id", expenseHandler.Delete)
 	private.GET("/financial/summary", expenseHandler.Summary)
+	private.GET("/goals", goalsHandler.Get)
+	private.PUT("/goals", goalsHandler.Save)
 
 	return e
 }

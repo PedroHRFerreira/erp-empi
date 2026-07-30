@@ -2,6 +2,7 @@ package database
 
 import (
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
+	goalservices "github.com/empi-autocenter/erp-empi/internal/domain/goals/services"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -32,6 +33,7 @@ func AutoMigrate(db *gorm.DB) error {
 		new(entities.Receipt),
 		new(entities.ReceiptItem),
 		new(entities.Expense),
+		new(goalservices.MonthlyGoal),
 	)
 }
 
