@@ -4,7 +4,8 @@ import type { IGoalsSummary, IMonthlyGoal } from '../../server/contracts/types'
 export const useGoalsStore = defineStore('goals', {
   state: () => ({ summary: null as IGoalsSummary | null, loading: false, error: '' }),
   actions: {
-    async load(month = previousMonth(), startDate = '', endDate = '') {
+    async load(month = previousMonth(), startDate = '', endDate = '', forceRefresh = false) {
+      if (forceRefresh) invalidateApiCache(['/goals'])
       this.loading = true
       const { data, status } = await useApiFetch<IGoalsSummary>('/goals', { query: { month, startDate, endDate } })
       this.loading = false
@@ -28,6 +29,7 @@ export const useGoalsStore = defineStore('goals', {
         this.error = 'Não foi possível salvar as metas.'
         return false
       }
+      invalidateApiCache(['/goals'])
       this.summary = data.value
       this.error = ''
       return true

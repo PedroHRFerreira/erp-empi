@@ -64,7 +64,8 @@ export const useExpensesStore = defineStore('expenses', {
       this.error = Object.values(this.fieldErrors)[0] || ''
       return Object.keys(this.fieldErrors).length === 0
     },
-    async load(offset = 0): Promise<IStoreActionResult<IFinancialSummary>> {
+    async load(offset = 0, forceRefresh = false): Promise<IStoreActionResult<IFinancialSummary>> {
+      if (forceRefresh || offset !== this.offset) invalidateApiCache(['/expenses', '/financial/summary'])
       this.setLoading(true)
       this.offset = offset
       const [expensesResult, summaryResult] = await Promise.all([this.loadExpenses(offset), this.loadSummary()])
@@ -150,6 +151,7 @@ export const useExpensesStore = defineStore('expenses', {
 
       this.fieldErrors = {}
       this.error = ''
+      invalidateApiCache(['/expenses', '/financial/summary', '/metrics/summary', '/goals'])
       await this.load(form.id ? this.offset : 0)
       return { status: 'success', data: data.value }
     },
@@ -161,6 +163,7 @@ export const useExpensesStore = defineStore('expenses', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
+      invalidateApiCache(['/expenses', '/financial/summary', '/metrics/summary', '/goals'])
       await this.load(this.offset)
       return { status: 'success' }
     },

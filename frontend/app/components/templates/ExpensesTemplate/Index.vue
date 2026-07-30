@@ -103,15 +103,15 @@ export default defineComponent({
     }
 
     function applyPeriod() {
-      return expenses.load(0)
+      return expenses.load(0, true)
     }
 
     function previousPage() {
-      return expenses.load(expenses.offset - expenses.limit)
+      return expenses.load(expenses.offset - expenses.limit, true)
     }
 
     function nextPage() {
-      return expenses.load(expenses.offset + expenses.limit)
+      return expenses.load(expenses.offset + expenses.limit, true)
     }
 
     return {

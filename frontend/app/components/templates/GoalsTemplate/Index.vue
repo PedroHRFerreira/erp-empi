@@ -124,16 +124,16 @@ export default defineComponent({
       const now = new Date()
       if (periodPreset.value === 'previous-month') {
         const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        void goals.load(monthValue(previous)); return
+        void goals.load(monthValue(previous), '', '', true); return
       }
-      if (periodPreset.value === 'current-month') { void goals.load(monthValue(now)); return }
+      if (periodPreset.value === 'current-month') { void goals.load(monthValue(now), '', '', true); return }
       if (periodPreset.value === 'current-week') {
         const start = new Date(now)
         start.setDate(now.getDate() - ((now.getDay() + 6) % 7))
         const end = new Date(start); end.setDate(start.getDate() + 6)
-        void goals.load(monthValue(now), dateValue(start), dateValue(end)); return
+        void goals.load(monthValue(now), dateValue(start), dateValue(end), true); return
       }
-      if (customStartDate.value && customEndDate.value) void goals.load(customStartDate.value.slice(0, 7), customStartDate.value, customEndDate.value)
+      if (customStartDate.value && customEndDate.value) void goals.load(customStartDate.value.slice(0, 7), customStartDate.value, customEndDate.value, true)
     }
 
     return { applyPeriod, barWidth, currencyInput, customEndDate, customStartDate, formatCurrency, form, goals, metrics, monthLabel, periodLabel, periodPreset, progress, remaining, required, saveState, scheduleSave, updateCents, value }

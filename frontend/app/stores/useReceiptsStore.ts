@@ -299,6 +299,7 @@ export const useReceiptsStore = defineStore('receipts', {
       this.error = Object.values(this.fieldErrors)[0] || ''
     },
     async load(offset = 0, receiptStatus = ''): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
+      if (offset !== this.offset || receiptStatus !== this.currentStatusFilter) invalidateApiCache(['/receipts'])
       this.setLoading(true)
       this.offset = offset
       this.currentStatusFilter = receiptStatus
@@ -375,6 +376,7 @@ export const useReceiptsStore = defineStore('receipts', {
 
       this.error = ''
       this.fieldErrors = {}
+      invalidateReceiptDependencies()
       const loadResult = await this.load(0)
 
       if (loadResult.status === 'error') {
@@ -399,6 +401,7 @@ export const useReceiptsStore = defineStore('receipts', {
 
       this.error = ''
       this.fieldErrors = {}
+      invalidateReceiptDependencies()
       const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
@@ -415,6 +418,7 @@ export const useReceiptsStore = defineStore('receipts', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
+      invalidateReceiptDependencies()
       const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
@@ -431,6 +435,7 @@ export const useReceiptsStore = defineStore('receipts', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
+      invalidateReceiptDependencies()
       const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
@@ -447,6 +452,7 @@ export const useReceiptsStore = defineStore('receipts', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
+      invalidateReceiptDependencies()
       const loadResult = await this.load(this.offset, this.currentStatusFilter)
 
       if (loadResult.status === 'error') {
@@ -498,6 +504,18 @@ function toDateInputValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function invalidateReceiptDependencies() {
+  invalidateApiCache([
+    '/receipts',
+    '/stock',
+    '/users/clients',
+    '/metrics/summary',
+    '/goals',
+    '/expenses',
+    '/financial/summary'
+  ])
 }
 
 function dateToInputValue(value: string) {

@@ -21,6 +21,7 @@ export const useClientsStore = defineStore('clients', {
       this.loading = isLoading
     },
     async load(offset = 0): Promise<IStoreActionResult<IPaginated<IUser>>> {
+      if (offset !== this.offset) invalidateApiCache(['/users/clients'])
       this.setLoading(true)
       this.offset = offset
       const { data, status } = await useApiFetch<IPaginated<IUser>>('/users/clients', {
@@ -77,6 +78,7 @@ export const useClientsStore = defineStore('clients', {
       }
 
       this.error = ''
+      invalidateApiCache(['/users/clients', '/metrics/summary'])
       const loadResult = await this.load(this.offset)
 
       if (loadResult.status === 'error') {

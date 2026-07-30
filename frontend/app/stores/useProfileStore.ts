@@ -61,6 +61,7 @@ export const useProfileStore = defineStore('profile', {
 
       this.error = ''
       this.fieldErrors = {}
+      invalidateApiCache(['/auth/me', '/metrics/summary'])
 
       return { status: 'success', data: data.value }
     }

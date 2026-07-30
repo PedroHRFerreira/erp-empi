@@ -71,6 +71,7 @@ export const useAuthStore = defineStore('auth', {
       })
       this.user = data.value.user
       this.loaded = true
+      clearApiCache()
 
       return { status: 'success', data: this.user }
     },
@@ -101,6 +102,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async logout(): Promise<IStoreActionResult> {
       useAuthToken().removeTokenCookie()
+      clearApiCache()
       this.user = null
       this.loaded = true
       this.fieldErrors = {}

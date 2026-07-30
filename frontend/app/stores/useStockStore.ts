@@ -45,6 +45,7 @@ export const useStockStore = defineStore('stock', {
       this.error = Object.values(this.fieldErrors)[0] || ''
     },
     async load(offset = 0): Promise<IStoreActionResult<IPaginated<IStockItem>>> {
+      if (offset !== this.offset) invalidateApiCache(['/stock'])
       this.setLoading(true)
       this.offset = offset
       const { data, status } = await useApiFetch<IPaginated<IStockItem>>('/stock', {
@@ -87,6 +88,7 @@ export const useStockStore = defineStore('stock', {
 
       this.error = ''
       this.fieldErrors = {}
+      invalidateApiCache(['/stock', '/metrics/summary'])
       const loadResult = await this.load(this.offset)
 
       if (loadResult.status === 'error') {
@@ -103,6 +105,7 @@ export const useStockStore = defineStore('stock', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
+      invalidateApiCache(['/stock', '/metrics/summary'])
       const loadResult = await this.load(this.offset)
 
       if (loadResult.status === 'error') {
