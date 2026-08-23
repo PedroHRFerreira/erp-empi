@@ -3,10 +3,10 @@
 .goals-template__empty { padding: 28px; color: var(--braip-theme-text-muted); }
 .goals-template__empty--error { color: var(--status-danger); }
 .goals-template__intro, .goals-template__targets, .goals-template__comparison, .goals-template__requirements, .goals-template__tips, .goals-template__pricing { padding: 22px; }
-.goals-template__intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; background: linear-gradient(110deg, rgba(77, 163, 255, .16), rgba(247, 201, 72, .08)); }
+.goals-template__intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; background: linear-gradient(110deg, color-mix(in srgb, var(--watt-data) 10%, transparent), color-mix(in srgb, var(--watt-success) 6%, transparent)); }
 .goals-template__eyebrow, .goals-template__section-heading span, .goals-template__tips-list span { color: var(--braip-brand-secondary); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .goals-template h2 { margin: 5px 0 0; font-size: 20px; }.goals-template__intro p { max-width: 680px; margin: 8px 0 0; color: var(--braip-theme-text-muted); }
-.goals-template__opportunity { display: grid; flex: 0 0 250px; gap: 4px; padding: 15px; border: 1px solid rgba(247, 201, 72, .35); border-radius: 8px; background: rgba(2, 6, 13, .2); }.goals-template__opportunity span, .goals-template__opportunity small { color: var(--braip-theme-text-muted); }.goals-template__opportunity strong { font-size: 22px; color: var(--braip-brand-secondary); }
+.goals-template__opportunity { display: grid; flex: 0 0 250px; gap: 4px; padding: 16px; border: 1px solid var(--braip-theme-border); border-radius: var(--radius-md); background: var(--braip-theme-surface); }.goals-template__opportunity span, .goals-template__opportunity small { color: var(--braip-theme-text-muted); }.goals-template__opportunity strong { font-family: 'Fira Code', monospace; font-size: 22px; color: var(--braip-brand-secondary); }
 .goals-template__section-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }.goals-template__section-heading small { color: var(--braip-theme-text-subtle); }
 .goals-template__save-error { color: var(--status-danger) !important; }
 .goals-template__target-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }.goals-template__target-fields input { width: 100%; }

@@ -33,7 +33,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <section class="metrics-table-section panel table-wrap">
+  <section class="metrics-table-section panel table-wrap" :aria-label="title" tabindex="0">
     <header class="metrics-table-section__header">
       <h2>{{ title }}</h2>
       <NuxtLink class="button button--secondary" :to="to">Ver mais</NuxtLink>

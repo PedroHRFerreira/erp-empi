@@ -127,8 +127,10 @@ function receiptStatusLabel(status: string | undefined) {
         </div>
         <div class="metrics-summary-item metrics-summary-item--stack">
           <dt>Último item</dt>
-          <dd>{{ summary.lastStockItem?.name || '-' }}</dd>
-          <small>{{ formatDateTime(summary.lastStockItem?.createdAt || '') }}</small>
+          <dd>
+            <span>{{ summary.lastStockItem?.name || '-' }}</span>
+            <small>{{ formatDateTime(summary.lastStockItem?.createdAt || '') }}</small>
+          </dd>
         </div>
       </dl>
     </section>

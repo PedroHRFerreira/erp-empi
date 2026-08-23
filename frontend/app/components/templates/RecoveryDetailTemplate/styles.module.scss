@@ -7,7 +7,7 @@
 
 .recovery-detail__overview {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 18px;
+  padding: 20px;
 }
 
 .recovery-detail__overview div,
@@ -47,7 +47,7 @@
   display: grid;
   gap: 14px;
   min-width: 0;
-  padding: 18px;
+  padding: 20px;
 }
 
 .recovery-detail__section h2 {
@@ -89,7 +89,7 @@
 
 .recovery-detail__money {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  padding: 18px;
+  padding: 20px;
 }
 
 .form-error {

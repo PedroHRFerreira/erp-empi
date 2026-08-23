@@ -26,6 +26,14 @@ function emptyTargets(): IMonthlyGoal {
   }
 }
 
+function dateValue(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+}
+
+function monthValue(value: Date) {
+  return dateValue(value).slice(0, 7)
+}
+
 export default defineComponent({
   name: 'GoalsTemplate',
   components: { GoalsProgressChart, PageHeader },
@@ -140,9 +148,6 @@ export default defineComponent({
   }
 })
 </script>
-
-function dateValue(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}` }
-function monthValue(value: Date) { return dateValue(value).slice(0, 7) }
 
 <template>
   <section class="page goals-template">

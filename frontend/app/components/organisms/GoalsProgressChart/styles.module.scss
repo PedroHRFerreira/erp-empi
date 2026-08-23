@@ -49,8 +49,8 @@
 }
 
 .goals-progress {
-  --goals-target: #f7c948;
-  --goals-actual: #4da3ff;
+  --goals-target: var(--watt-data);
+  --goals-actual: var(--watt-success);
 }
 
 .goals-progress__legend-target { background: var(--goals-target); }

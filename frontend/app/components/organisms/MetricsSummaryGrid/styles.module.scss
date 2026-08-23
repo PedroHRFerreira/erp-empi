@@ -1,15 +1,18 @@
 .metrics-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
 }
+
+.metrics-summary-group { grid-column: span 4; }
+.metrics-summary-group:last-child { grid-column: span 12; }
 
 .metrics-summary-group {
   display: grid;
   min-width: 0;
   align-content: start;
   gap: 16px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .metrics-summary-group__header {
@@ -73,6 +76,7 @@
 .metrics-summary-item dd {
   min-width: 0;
   margin: 0;
+  font-family: 'Fira Code', monospace;
   font-size: 18px;
   font-weight: 800;
   line-height: 1.18;
@@ -96,17 +100,17 @@
 }
 
 .metrics-summary-item--stack dd {
+  display: grid;
+  gap: 4px;
   text-align: left;
 }
 
 @media (max-width: 1320px) {
-  .metrics-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .metrics-summary-group { grid-column: span 6; }
+  .metrics-summary-group:last-child { grid-column: span 6; }
 }
 
 @media (max-width: 760px) {
-  .metrics-summary-grid {
-    grid-template-columns: 1fr;
-  }
+  .metrics-summary-group,
+  .metrics-summary-group:last-child { grid-column: 1 / -1; }
 }

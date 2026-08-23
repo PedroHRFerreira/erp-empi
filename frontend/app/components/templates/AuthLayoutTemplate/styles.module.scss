@@ -4,7 +4,7 @@
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(135deg, rgba(18, 101, 199, 0.2), transparent 40%),
-    linear-gradient(220deg, rgba(247, 201, 72, 0.08), transparent 34%),
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--watt-data) 10%, transparent), transparent 30rem),
+    linear-gradient(220deg, color-mix(in srgb, var(--watt-success) 7%, transparent), transparent 34%),
     var(--braip-theme-background);
 }

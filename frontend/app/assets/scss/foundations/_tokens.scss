@@ -1,24 +1,89 @@
 :root {
-  --braip-theme-background: #02060d;
-  --braip-theme-background-soft: #071426;
-  --braip-theme-surface: rgba(8, 18, 33, 0.88);
-  --braip-theme-surface-strong: #071426;
-  --braip-theme-surface-muted: rgba(255, 255, 255, 0.06);
-  --braip-theme-text: #f5f8fc;
-  --braip-theme-text-muted: #b8c7da;
-  --braip-theme-text-subtle: #91a7c0;
-  --braip-theme-border: rgba(166, 196, 232, 0.18);
-  --braip-theme-border-strong: rgba(77, 163, 255, 0.45);
-  --braip-brand-primary: #4da3ff;
-  --braip-brand-primary-strong: #1265c7;
-  --braip-brand-secondary: #f7c948;
-  --braip-brand-secondary-strong: #d9a916;
-  --braip-neutral-0: #ffffff;
-  --braip-neutral-900: #06111f;
-  --status-success: #3ddc97;
-  --status-warning: #f7c948;
-  --status-danger: #ff6b6b;
-  --status-danger-soft: rgba(255, 107, 107, 0.12);
-  --focus-ring: 0 0 0 4px rgba(77, 163, 255, 0.12);
-  --shadow-panel: 0 26px 70px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+
+  --watt-data: #00e5ff;
+  --watt-data-strong: #00b8d4;
+  --watt-success: #30d158;
+  --watt-success-bright: #32d74b;
+  --watt-alert: #ff453a;
+  --watt-background: #121212;
+  --watt-background-soft: #181818;
+  --watt-surface: #1e1e1e;
+  --watt-surface-raised: #252525;
+  --watt-border: #2c2c2e;
+  --watt-border-strong: #3a3a3c;
+  --watt-text: #f2f2f7;
+  --watt-text-muted: #a1a1aa;
+  --watt-text-subtle: #71717a;
+  --watt-alert-background: #3a1c1c;
+  --watt-on-accent: #061012;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  --radius-sm: 8px;
+  --radius-default: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-default: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --shadow-glow: 0 0 0 1px rgba(0, 229, 255, 0.3), 0 8px 28px rgba(0, 229, 255, 0.1);
+  --focus-ring: 0 0 0 3px rgba(0, 229, 255, 0.24);
+
+  --braip-theme-background: var(--watt-background);
+  --braip-theme-background-soft: var(--watt-background-soft);
+  --braip-theme-surface: var(--watt-surface);
+  --braip-theme-surface-strong: var(--watt-surface-raised);
+  --braip-theme-surface-muted: rgba(0, 229, 255, 0.07);
+  --braip-theme-text: var(--watt-text);
+  --braip-theme-text-muted: var(--watt-text-muted);
+  --braip-theme-text-subtle: var(--watt-text-subtle);
+  --braip-theme-text-secondary: var(--watt-text-muted);
+  --braip-theme-border: var(--watt-border);
+  --braip-theme-border-strong: var(--watt-border-strong);
+  --braip-brand-primary: var(--watt-data);
+  --braip-brand-primary-strong: var(--watt-data-strong);
+  --braip-brand-secondary: var(--watt-success);
+  --braip-brand-secondary-strong: #24ad48;
+  --braip-neutral-0: var(--watt-text);
+  --braip-neutral-900: var(--watt-background);
+  --status-success: var(--watt-success);
+  --status-warning: #ffb340;
+  --status-danger: var(--watt-alert);
+  --status-danger-soft: var(--watt-alert-background);
+  --shadow-panel: var(--shadow-default);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --watt-data: #004a56;
+  --watt-data-strong: #003b45;
+  --watt-success: #0f6524;
+  --watt-success-bright: #0c571e;
+  --watt-alert: #a8241e;
+  --watt-background: #dedfe1;
+  --watt-background-soft: #d4d5d8;
+  --watt-surface: #ececee;
+  --watt-surface-raised: #e3e3e6;
+  --watt-border: #c4c5c9;
+  --watt-border-strong: #adaeb4;
+  --watt-text: #18181b;
+  --watt-text-muted: #3f3f46;
+  --watt-text-subtle: #4b4b53;
+  --watt-alert-background: #f2d3d1;
+  --watt-on-accent: #ffffff;
+  --braip-theme-surface-muted: rgba(0, 125, 145, 0.08);
+  --status-warning: #724900;
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.1);
+  --shadow-default: 0 8px 24px rgba(24, 24, 27, 0.1);
+  --shadow-md: 0 12px 32px rgba(24, 24, 27, 0.12);
+  --shadow-lg: 0 18px 48px rgba(24, 24, 27, 0.15);
 }

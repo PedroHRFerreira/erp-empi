@@ -50,17 +50,29 @@ export default defineComponent({
       if (!summary) return []
 
       return [
-        { label: 'Receita recebida', value: formatCurrency(summary.revenuePaidCents), tone: 'positive' },
-        { label: 'Custo dos produtos', value: formatCurrency(summary.productCostCents), tone: 'negative' },
-        { label: 'Taxas de cartão', value: formatCurrency(summary.cardFeesCents), tone: 'negative' },
-        { label: 'Lucro bruto', value: formatCurrency(summary.grossProfitCents), tone: 'neutral' },
-        { label: 'Gastos operacionais', value: formatCurrency(summary.operationalExpensesCents), tone: 'negative' },
-        { label: 'Lucro operacional', value: formatCurrency(summary.operationalProfitCents), tone: summary.operationalProfitCents < 0 ? 'negative' : 'positive' },
-        { label: 'Lucro líquido', value: formatCurrency(summary.netProfitCents), tone: summary.netProfitCents < 0 ? 'negative' : 'positive' },
         {
-          label: 'Margem líquida',
-          value: `${summary.netMarginPercent.toFixed(1)}%`,
-          tone: summary.netMarginPercent < 0 ? 'negative' : summary.netMarginPercent < 15 ? 'warning' : 'positive'
+          label: 'Total pago no período',
+          value: formatCurrency(summary.totalRealizedExpensesCents || 0),
+          detail: 'Somente saídas efetivamente realizadas',
+          tone: 'negative'
+        },
+        {
+          label: 'Gastos operacionais',
+          value: formatCurrency(summary.operationalExpensesCents || 0),
+          detail: `${summary.expensesCount || 0} lançamento${summary.expensesCount === 1 ? '' : 's'}`,
+          tone: 'warning'
+        },
+        {
+          label: 'Compras de estoque pagas',
+          value: formatCurrency(summary.stockExpensesCents || 0),
+          detail: `${summary.stockPaymentsCount || 0} pagamento${summary.stockPaymentsCount === 1 ? '' : 's'}`,
+          tone: 'neutral'
+        },
+        {
+          label: 'Resultado líquido',
+          value: formatCurrency(summary.netProfitCents),
+          detail: `Margem de ${(summary.netMarginPercent || 0).toFixed(1)}%`,
+          tone: summary.netProfitCents < 0 ? 'negative' : 'positive'
         }
       ]
     })
@@ -85,6 +97,7 @@ export default defineComponent({
       <article v-for="card in cards" :key="card.label" class="financial-summary__card panel" :class="`financial-summary__card--${card.tone}`">
         <span>{{ card.label }}</span>
         <strong>{{ card.value }}</strong>
+        <small>{{ card.detail }}</small>
       </article>
     </div>
   </section>

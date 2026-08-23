@@ -1,5 +1,6 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { BellRing } from '@lucide/vue'
+import { defineComponent, onMounted } from 'vue'
 import MetricsSummaryGrid from '../../organisms/MetricsSummaryGrid/Index.vue'
 import MetricsTableSection from '../../organisms/MetricsTableSection/Index.vue'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
@@ -10,15 +11,19 @@ export default defineComponent({
   components: {
     MetricsSummaryGrid,
     MetricsTableSection,
-    PageHeader
+    PageHeader,
+    BellRing
   },
   setup() {
     const metrics = useMetricsStore()
+    const purchases = usePurchasesStore()
+    onMounted(() => purchases.loadAlerts())
 
     return {
       formatCurrency,
       formatDateTime,
-      metrics
+      metrics,
+      purchases
     }
   }
 })
@@ -27,6 +32,12 @@ export default defineComponent({
 <template>
   <section class="page">
     <PageHeader title="Métricas" subtitle="Visão rápida da operação da oficina." />
+
+    <NuxtLink v-if="purchases.alerts.length" class="financial-alert" to="/payables">
+      <BellRing :size="22" />
+      <div><strong>{{ purchases.urgentCount ? `${purchases.urgentCount} pagamento(s) exigem atenção` : 'Há pagamentos que podem ser antecipados' }}</strong><span>Abra Contas a pagar para conferir vencimentos e saldo disponível.</span></div>
+      <span class="financial-alert__count">{{ purchases.alerts.length }}</span>
+    </NuxtLink>
 
     <div v-if="metrics.loading" class="panel empty">Carregando métricas...</div>
 
@@ -190,4 +201,5 @@ export default defineComponent({
 
 <style scoped lang="scss">
 @use "styles.module.scss";
+.financial-alert { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--watt-alert) 55%, var(--watt-border)); border-left: 4px solid var(--watt-alert); border-radius: 14px; color: var(--watt-alert); background: var(--watt-alert-background); }.financial-alert div { display: grid; gap: 2px; }.financial-alert span { color: var(--watt-text-muted); }.financial-alert__count { display: grid; min-width: 30px; height: 30px; place-items: center; border-radius: 9px; color: var(--watt-on-accent) !important; background: var(--watt-alert); font-weight: 800; }
 </style>

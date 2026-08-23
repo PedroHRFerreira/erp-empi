@@ -65,7 +65,13 @@ export default defineComponent({
         <small v-if="auth.fieldErrors.password" class="field__error">{{ auth.fieldErrors.password }}</small>
       </label>
 
-      <p v-if="auth.error" class="login-form__error">{{ auth.error }}</p>
+      <p
+        v-if="auth.error && auth.error !== auth.fieldErrors.cpf && auth.error !== auth.fieldErrors.password"
+        class="login-form__error"
+        role="alert"
+      >
+        {{ auth.error }}
+      </p>
 
       <button class="button button--primary" type="submit" :disabled="auth.loading">
         <span v-if="auth.loading" class="login-form__spinner" aria-hidden="true" />

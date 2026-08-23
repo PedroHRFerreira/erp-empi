@@ -1,0 +1,26 @@
+.theme-toggle {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--braip-theme-border-strong);
+  border-radius: var(--radius-default);
+  color: var(--braip-brand-primary);
+  background: var(--braip-theme-surface);
+  box-shadow: var(--shadow-default);
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.theme-toggle--auth {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 60;
+}
+
+.theme-toggle:hover {
+  border-color: var(--braip-brand-primary);
+  color: var(--braip-theme-text);
+  background: var(--braip-theme-surface-strong);
+  transform: translateY(-1px);
+}

@@ -43,7 +43,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <section class="panel table-wrap">
+  <section class="panel table-wrap" aria-label="Lista de clientes" tabindex="0">
     <table class="clients-list">
       <thead>
         <tr>

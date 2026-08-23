@@ -23,7 +23,15 @@ const publicApiBaseUrl =
 export default defineNuxtConfig({
   srcDir: 'app',
   modules: ['@pinia/nuxt'],
-  css: ['~/assets/scss/main.scss'],
+  css: [
+    '@fontsource/inter/400.css',
+    '@fontsource/inter/500.css',
+    '@fontsource/inter/600.css',
+    '@fontsource/inter/700.css',
+    '@fontsource/fira-code/400.css',
+    '@fontsource/fira-code/700.css',
+    '~/assets/scss/main.scss'
+  ],
   runtimeConfig: {
     apiBase,
     public: {

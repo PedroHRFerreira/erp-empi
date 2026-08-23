@@ -32,6 +32,7 @@
   transition:
     opacity 140ms ease,
     transform 140ms ease;
+  transition-delay: 300ms;
   white-space: normal;
   width: max-content;
 }
@@ -53,6 +54,10 @@
 .icon-action-button__wrap:focus-within .icon-action-button__popper {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.icon-action-button__wrap:not(:hover):not(:focus-within) .icon-action-button__popper {
+  transition-delay: 0ms;
 }
 
 .icon-action-button__wrap:first-child .icon-action-button__popper {

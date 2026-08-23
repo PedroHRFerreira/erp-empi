@@ -77,7 +77,7 @@ export default defineComponent({
     <div v-if="receipts.loading" class="panel empty">Carregando recuperação...</div>
     <p v-else-if="receipts.error" class="form-error">{{ receipts.error }}</p>
 
-    <section v-else class="recovery-template__list panel table-wrap">
+    <section v-else class="recovery-template__list panel table-wrap" aria-label="Recibos em recuperação" tabindex="0">
       <table v-if="receipts.receipts.length">
         <thead>
           <tr>
