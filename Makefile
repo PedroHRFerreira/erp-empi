@@ -1,4 +1,4 @@
-.PHONY: setup dev up down test test-go test-frontend lint format
+.PHONY: setup dev up down test test-go test-frontend lint format backup-verify
 
 setup:
 	cp -n .env.example .env || true
@@ -27,3 +27,7 @@ lint:
 format:
 	gofmt -w cmd config internal
 	pnpm --dir frontend format
+
+backup-verify:
+	@test -n "$(BACKUP_PATH)" || (echo "BACKUP_PATH is required" >&2; exit 1)
+	./scripts/predeploy-migrate.sh verify "$(BACKUP_PATH)"

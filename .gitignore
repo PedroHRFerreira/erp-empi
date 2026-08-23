@@ -14,7 +14,10 @@ frontend/.nuxt/
 frontend/.output/
 frontend/node_modules/
 frontend/coverage/
+frontend/test-results/
 frontend/.data/
+frontend/--port/
+frontend/.rods/
 .pnpm-store/
 /node_modules/
 
