@@ -1,5 +1,5 @@
 .stock-table {
-  min-width: 1120px;
+  min-width: 1380px;
 }
 
 .stock-table th,
@@ -19,6 +19,29 @@
 
 .stock-table__actions {
   display: flex;
+  align-items: center;
   justify-content: flex-start;
   gap: 8px;
+}
+
+.stock-action { min-height: 36px; padding: 7px 10px; font-size: 12px; white-space: nowrap; }
+.stock-status { display: inline-flex; padding: 5px 9px; border-radius: 999px; color: var(--watt-data); background: var(--watt-data-background); font-size: 12px; font-weight: 700; }
+.stock-cards { display: none; }
+
+@media (max-width: 760px) {
+  .table-wrap { padding: 0; border: 0; background: transparent; box-shadow: none; overflow: visible; }
+  .stock-table { display: none; }
+  .stock-cards { display: grid; gap: 14px; }
+  .stock-card { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--watt-border); border-radius: 16px; background: var(--watt-surface-raised); box-shadow: var(--watt-shadow-sm); }
+  .stock-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .stock-card > header div { display: grid; gap: 4px; }
+  .stock-card > header div span, .stock-card dt { color: var(--watt-text-muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .stock-card > header strong { font-size: 18px; }
+  .stock-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0; }
+  .stock-card dl div { display: grid; gap: 4px; }
+  .stock-card dd { margin: 0; overflow-wrap: anywhere; font-weight: 650; }
+  .stock-card__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stock-card__actions .button--primary { grid-column: 1/-1; }
+  .stock-card__actions .button--danger { border: 1px solid var(--watt-alert); color: var(--watt-alert); background: transparent; }
+  .stock-card__history-link { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--watt-border); color: var(--watt-data); font-weight: 750; text-decoration: none; }
 }

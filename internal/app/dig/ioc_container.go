@@ -3,6 +3,7 @@ package dig
 import (
 	"github.com/empi-autocenter/erp-empi/config"
 	authservices "github.com/empi-autocenter/erp-empi/internal/domain/auth/services"
+	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
 	expenserepos "github.com/empi-autocenter/erp-empi/internal/domain/expenses/repositories"
 	expenseservices "github.com/empi-autocenter/erp-empi/internal/domain/expenses/services"
 	financialservices "github.com/empi-autocenter/erp-empi/internal/domain/financial/services"
@@ -26,6 +27,7 @@ type Container struct {
 	Expenses  *expenseservices.ExpenseService
 	Financial *financialservices.FinancialService
 	Goals     *goalservices.GoalService
+	Cash      *cashservices.CashService
 }
 
 func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
@@ -33,13 +35,14 @@ func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 	stockRepo := stockrepos.NewStockRepository(db)
 	receiptRepo := receiptrepos.NewReceiptRepository(db)
 	expenseRepo := expenserepos.NewExpenseRepository(db)
+	cash := cashservices.NewCashService(db)
 
 	users := userservices.NewUserService(userRepo)
 	auth := authservices.NewAuthService(cfg, users)
 	stock := stockservices.NewStockService(stockRepo)
-	receipts := receiptservices.NewReceiptService(receiptRepo, stockRepo, users)
+	receipts := receiptservices.NewReceiptService(receiptRepo, stockRepo, users, cash)
 	metrics := metricservices.NewMetricsService(db)
-	expenses := expenseservices.NewExpenseService(expenseRepo)
+	expenses := expenseservices.NewExpenseService(expenseRepo, cash)
 	financial := financialservices.NewFinancialService(db)
 	goals := goalservices.NewGoalService(db)
 
@@ -52,5 +55,6 @@ func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 		Expenses:  expenses,
 		Financial: financial,
 		Goals:     goals,
+		Cash:      cash,
 	}, nil
 }

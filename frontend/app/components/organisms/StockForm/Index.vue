@@ -68,12 +68,6 @@ export default defineComponent({
       <small v-if="fieldErrors.markupPercent" class="field__error">{{ fieldErrors.markupPercent }}</small>
     </label>
 
-    <label class="field" :class="{ 'field--error': fieldErrors.quantity }">
-      <span>Quantidade</span>
-      <input v-model.number="form.quantity" required type="number" min="0" @input="clearFieldError('quantity')" />
-      <small v-if="fieldErrors.quantity" class="field__error">{{ fieldErrors.quantity }}</small>
-    </label>
-
     <label class="field stock-form__wide">
       <span>Descrição</span>
       <textarea v-model="form.description" placeholder="Detalhes do produto" @input="clearFieldError('description')" />

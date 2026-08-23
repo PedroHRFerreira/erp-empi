@@ -17,6 +17,7 @@ type ExpenseRepository struct {
 func NewExpenseRepository(db *gorm.DB) *ExpenseRepository {
 	return &ExpenseRepository{db: db}
 }
+func (repo *ExpenseRepository) DB() *gorm.DB { return repo.db }
 
 func (repo *ExpenseRepository) List(ctx context.Context, limit int, offset int, start time.Time, end time.Time) ([]entities.Expense, int64, error) {
 	var expenses []entities.Expense
@@ -24,6 +25,7 @@ func (repo *ExpenseRepository) List(ctx context.Context, limit int, offset int, 
 	query := repo.db.WithContext(ctx).
 		Model(&entities.Expense{}).
 		Preload("Receipt.User").
+		Preload("Installments", func(db *gorm.DB) *gorm.DB { return db.Order("number asc") }).
 		Where("archived_at IS NULL").
 		Where("spent_at >= ? AND spent_at < ?", start, end)
 
@@ -44,6 +46,7 @@ func (repo *ExpenseRepository) FindByID(ctx context.Context, id string) (*entiti
 	expense := new(entities.Expense)
 	err := repo.db.WithContext(ctx).
 		Preload("Receipt.User").
+		Preload("Installments", func(db *gorm.DB) *gorm.DB { return db.Order("number asc") }).
 		Where("id = ? AND archived_at IS NULL", id).
 		First(expense).
 		Error

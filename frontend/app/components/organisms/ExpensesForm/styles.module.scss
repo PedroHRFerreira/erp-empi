@@ -2,11 +2,118 @@
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 0.75fr 0.7fr 1.2fr;
   gap: 16px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .expenses-form__wide {
   grid-column: 1 / -1;
+}
+
+.expenses-form__installments {
+  display: grid;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--braip-theme-border);
+}
+
+.expenses-form__installments > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.expenses-form__installments h2,
+.expenses-form__installments p {
+  margin: 0;
+}
+
+.expenses-form__installments header span {
+  color: var(--braip-brand-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.expenses-form__installments header p {
+  max-width: 560px;
+  color: var(--braip-theme-text-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.expenses-form__generator {
+  display: grid;
+  grid-template-columns: 180px 240px auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.expenses-form__installment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.expenses-form__installment-row {
+  display: grid;
+  grid-template-columns: 48px minmax(130px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) 42px;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 12px;
+}
+
+.expenses-form__installment-row > strong {
+  align-self: center;
+}
+
+.expenses-form__remove-installment {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  margin-bottom: 1px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--status-danger);
+  cursor: pointer;
+}
+
+.expenses-form__remove-installment:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.expenses-form__installment-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 10px;
+  background: var(--braip-theme-background-soft);
+}
+
+.expenses-form__installment-total strong {
+  font-family: 'Fira Code', monospace;
+  font-size: 19px;
+}
+
+.expenses-form__installment-total--invalid {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+
+.expenses-form__notice {
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-left: 2px solid var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .expenses-form__actions {
@@ -25,6 +132,14 @@
   .expenses-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .expenses-form__installment-row {
+    grid-template-columns: 48px 1fr 1fr;
+  }
+
+  .expenses-form__installment-row > strong {
+    grid-row: span 2;
+  }
 }
 
 @media (max-width: 620px) {
@@ -34,5 +149,24 @@
 
   .expenses-form__actions {
     display: grid;
+  }
+
+  .expenses-form__installments > header,
+  .expenses-form__installment-total {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .expenses-form__installments header p {
+    text-align: left;
+  }
+
+  .expenses-form__generator,
+  .expenses-form__installment-row {
+    grid-template-columns: 1fr;
+  }
+
+  .expenses-form__installment-row > strong {
+    grid-row: auto;
   }
 }

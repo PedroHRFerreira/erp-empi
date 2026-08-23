@@ -17,12 +17,13 @@ export default defineComponent({
     PaginationControls,
     StockForm,
     StockTable,
-    StockToolbar
+    StockToolbar,
   },
   setup() {
     const auth = useAuthStore()
     const router = useRouter()
     const stock = useStockStore()
+    const purchases = usePurchasesStore()
     const showForm = ref(false)
     const costInput = ref('')
     const defaultMarkupPercent = computed(() => {
@@ -39,6 +40,8 @@ export default defineComponent({
     })
     const pages = computed(() => Math.ceil(stock.total / stock.limit))
     const currentPage = computed(() => Math.floor(stock.offset / stock.limit) + 1)
+
+    purchases.loadPurchases()
 
     function startCreate() {
       return router.push('/stock/new')
@@ -57,6 +60,33 @@ export default defineComponent({
       stock.error = ''
       stock.fieldErrors = {}
       showForm.value = true
+    }
+
+    function addStock(item: IStockItem) {
+      return router.push(`/stock/purchases/new?productId=${item.id}`)
+    }
+
+    async function removeProduct(item: IStockItem) {
+      const related = purchases.purchases.filter((purchase) =>
+        purchase.status === 'confirmed' && purchase.items.some((entry) => entry.stockItemId === item.id)
+      )
+      if (related.some((purchase) => purchase.installments.some((installment) => installment.status === 'paid'))) {
+        window.alert('Este produto não pode ser removido porque possui uma parcela paga. O histórico financeiro precisa ser preservado.')
+        return
+      }
+      if (related.some((purchase) => purchase.items.length > 1)) {
+        window.alert('Este produto pertence a uma compra antiga com outros itens e não pode ser removido isoladamente.')
+        return
+      }
+      if (!window.confirm(`Remover ${item.name}, suas entradas e todas as parcelas pendentes?`)) return
+      for (const purchase of related) {
+        if (!await purchases.cancelPurchase(purchase.id)) {
+          window.alert(purchases.error)
+          return
+        }
+      }
+      const result = await stock.remove(item.id)
+      if (result.status === 'error') window.alert(stock.error)
     }
 
     async function save() {
@@ -85,10 +115,13 @@ export default defineComponent({
       costInput,
       currentPage,
       form,
+      addStock,
       nextPage,
       pages,
       previousPage,
       printStock,
+      purchases,
+      removeProduct,
       save,
       showForm,
       startCreate,
@@ -101,7 +134,7 @@ export default defineComponent({
 
 <template>
   <section class="page">
-    <PageHeader title="Estoque" subtitle="Controle produtos, margem de revenda e uso em recibos.">
+    <PageHeader title="Estoque" subtitle="Cadastre produtos, registre entradas e acompanhe fornecedores e pagamentos.">
       <template #actions>
         <StockToolbar @add="startCreate" @export="stock.exportCsv" @print="printStock" />
       </template>
@@ -118,7 +151,8 @@ export default defineComponent({
       @update:cost-input="(value) => (costInput = value)"
     />
 
-    <StockTable :items="stock.items" @edit="startEdit" @remove="(item) => stock.remove(item.id)" />
+    <p v-if="stock.error || purchases.error" class="alert-box" role="alert">{{ stock.error || purchases.error }}</p>
+    <StockTable :items="stock.items" :purchases="purchases.purchases" @add-stock="addStock" @edit="startEdit" @remove="removeProduct" />
 
     <PaginationControls :current-page="currentPage" :pages="pages" @next="nextPage" @previous="previousPage" />
   </section>

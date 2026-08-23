@@ -1,6 +1,6 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
-import ExpensesTemplate from '../components/templates/ExpensesTemplate/Index.vue'
+import ExpensesTemplate from '../../components/templates/ExpensesTemplate/Index.vue'
 
 export default defineComponent({
   name: 'ExpensesPage',

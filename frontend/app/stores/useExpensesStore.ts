@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import type { IExpense, IExpenseForm, IFinancialSummary, IPaginated } from '../../server/contracts/types'
+import type { IExpense, IExpenseForm, IFinancialSummary, IPaginated, IRealizedExpense, PayableMethod, RealizedExpenseOrigin } from '../../server/contracts/types'
 import { downloadFinancialReportPdf } from '../utils/financialPdf'
+import { validateInstallmentSchedule } from '../utils/purchaseInstallments'
 import type { IStoreActionResult } from './types'
 
 export const expenseCategories = [
@@ -15,13 +16,17 @@ export const expenseCategories = [
   'outros'
 ]
 
-export type ExpenseForm = IExpenseForm
+export type ExpenseForm = Omit<IExpenseForm, 'paymentMethod'> & {
+  installments: Array<{ amountCents: number; dueDate: string; plannedMethod: PayableMethod }>
+}
 
 export const useExpensesStore = defineStore('expenses', {
   state: () => {
     const period = defaultPeriod()
     return {
       expenses: [] as IExpense[],
+      realizedExpenses: [] as IRealizedExpense[],
+      origin: 'all' as RealizedExpenseOrigin,
       summary: null as IFinancialSummary | null,
       total: 0,
       limit: 10,
@@ -60,15 +65,32 @@ export const useExpensesStore = defineStore('expenses', {
       if (!form.category.trim()) this.fieldErrors.category = 'Informe a categoria.'
       if (form.amountCents <= 0) this.fieldErrors.amountCents = 'Informe um valor maior que zero.'
       if (!form.spentAt) this.fieldErrors.spentAt = 'Informe a data do gasto.'
+      const schedule = validateInstallmentSchedule(form.amountCents, form.installments || [])
+      if (schedule.errors.includes('empty')) {
+        this.fieldErrors.installments = 'Gere ao menos uma parcela.'
+      } else if (schedule.errors.includes('invalid_amount')) {
+        this.fieldErrors.installments = 'Todas as parcelas devem ter valor maior que zero.'
+      } else if (schedule.errors.includes('invalid_date')) {
+        this.fieldErrors.installments = 'Informe uma data de vencimento válida em todas as parcelas.'
+      } else if (schedule.errors.includes('total_mismatch')) {
+        this.fieldErrors.installments = 'A soma das parcelas deve ser igual ao valor do gasto.'
+      }
+      if ((form.installments || []).some((installment) => !['boleto', 'cash', 'pix', 'debit_card', 'credit_card'].includes(installment.plannedMethod))) {
+        this.fieldErrors.installments = 'Informe a forma prevista de todas as parcelas.'
+      }
 
       this.error = Object.values(this.fieldErrors)[0] || ''
       return Object.keys(this.fieldErrors).length === 0
     },
     async load(offset = 0, forceRefresh = false): Promise<IStoreActionResult<IFinancialSummary>> {
-      if (forceRefresh || offset !== this.offset) invalidateApiCache(['/expenses', '/financial/summary'])
+      if (forceRefresh || offset !== this.offset) invalidateApiCache(['/expenses', '/financial/expenses', '/financial/summary'])
       this.setLoading(true)
       this.offset = offset
-      const [expensesResult, summaryResult] = await Promise.all([this.loadExpenses(offset), this.loadSummary()])
+      const [expensesResult, realizedResult, summaryResult] = await Promise.all([
+        this.loadExpenses(offset),
+        this.loadRealizedExpenses(offset),
+        this.loadSummary()
+      ])
       this.setLoading(false)
 
       if (expensesResult.status === 'error') {
@@ -77,14 +99,40 @@ export const useExpensesStore = defineStore('expenses', {
       if (summaryResult.status === 'error') {
         return { status: 'error', errors: summaryResult.errors, message: summaryResult.message }
       }
+      if (realizedResult.status === 'error') {
+        return { status: 'error', errors: realizedResult.errors, message: realizedResult.message }
+      }
 
       return { status: 'success', data: summaryResult.data }
+    },
+    async loadRealizedExpenses(offset = 0): Promise<IStoreActionResult<IPaginated<IRealizedExpense>>> {
+      const { data, status } = await useApiFetch<IPaginated<IRealizedExpense>>('/financial/expenses', {
+        query: {
+          limit: this.limit,
+          offset,
+          origin: this.origin,
+          startDate: this.startDate,
+          endDate: this.endDate
+        }
+      })
+
+      if (status.value === 'error' || !data.value) {
+        this.error = 'Não foi possível carregar as saídas realizadas.'
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      const rows = Array.isArray(data.value.data) ? data.value.data : []
+      this.realizedExpenses = rows
+      this.total = data.value.total || rows.length
+      this.error = ''
+
+      return { status: 'success', data: { ...data.value, data: rows, total: this.total } }
     },
     async loadExpenses(offset = 0): Promise<IStoreActionResult<IPaginated<IExpense>>> {
       const { data, status } = await useApiFetch<IPaginated<IExpense>>('/expenses', {
         query: {
-          limit: this.limit,
-          offset,
+          limit: 100,
+          offset: 0,
           startDate: this.startDate,
           endDate: this.endDate
         }
@@ -97,7 +145,6 @@ export const useExpensesStore = defineStore('expenses', {
 
       const expenses = Array.isArray(data.value.data) ? data.value.data : []
       this.expenses = expenses
-      this.total = data.value.total || expenses.length
       this.error = ''
 
       return {
@@ -105,7 +152,7 @@ export const useExpensesStore = defineStore('expenses', {
         data: {
           ...data.value,
           data: expenses,
-          total: this.total
+          total: data.value.total || expenses.length
         }
       }
     },
@@ -151,7 +198,7 @@ export const useExpensesStore = defineStore('expenses', {
 
       this.fieldErrors = {}
       this.error = ''
-      invalidateApiCache(['/expenses', '/financial/summary', '/metrics/summary', '/goals'])
+      invalidateApiCache(['/expenses', '/financial/expenses', '/financial/summary', '/metrics/summary', '/goals'])
       await this.load(form.id ? this.offset : 0)
       return { status: 'success', data: data.value }
     },
@@ -163,7 +210,7 @@ export const useExpensesStore = defineStore('expenses', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
-      invalidateApiCache(['/expenses', '/financial/summary', '/metrics/summary', '/goals'])
+      invalidateApiCache(['/expenses', '/financial/expenses', '/financial/summary', '/metrics/summary', '/goals'])
       await this.load(this.offset)
       return { status: 'success' }
     },
@@ -173,7 +220,7 @@ export const useExpensesStore = defineStore('expenses', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
-      downloadFinancialReportPdf(this.summary, this.expenses)
+      downloadFinancialReportPdf(this.summary, this.realizedExpenses)
       return { status: 'success' }
     }
   }

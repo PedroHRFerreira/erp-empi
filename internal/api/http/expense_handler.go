@@ -30,6 +30,14 @@ func (handler *ExpenseHandler) List(c echo.Context) error {
 	return c.JSON(nethttp.StatusOK, paginatedResponse{Data: expenses, Total: total, Limit: limit, Offset: offset})
 }
 
+func (handler *ExpenseHandler) Get(c echo.Context) error {
+	expense, err := handler.expenses.Get(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, expense)
+}
+
 func (handler *ExpenseHandler) Create(c echo.Context) error {
 	input := new(expenseservices.ExpenseInput)
 	if err := c.Bind(input); err != nil {
@@ -71,4 +79,17 @@ func (handler *ExpenseHandler) Summary(c echo.Context) error {
 		return writeError(c, err)
 	}
 	return c.JSON(nethttp.StatusOK, summary)
+}
+
+func (handler *ExpenseHandler) Realized(c echo.Context) error {
+	limit, offset := pagination(c)
+	start, end, err := queryDateRange(c)
+	if err != nil {
+		return writeError(c, err)
+	}
+	rows, total, err := handler.financial.RealizedExpenses(c.Request().Context(), financialservices.RealizedExpenseOrigin(c.QueryParam("origin")), limit, offset, start, end)
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, paginatedResponse{Data: rows, Total: total, Limit: limit, Offset: offset})
 }

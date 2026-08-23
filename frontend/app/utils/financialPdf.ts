@@ -1,4 +1,4 @@
-import type { IExpense, IFinancialSummary } from '../../server/contracts/types'
+import type { IFinancialSummary, IRealizedExpense, PaymentMethod } from '../../server/contracts/types'
 import { formatCurrency } from './format'
 
 type PdfLine = {
@@ -9,7 +9,7 @@ type PdfLine = {
   font?: 'F1' | 'F2'
 }
 
-export function downloadFinancialReportPdf(summary: IFinancialSummary, expenses: IExpense[]) {
+export function downloadFinancialReportPdf(summary: IFinancialSummary, expenses: IRealizedExpense[]) {
   const bytes = buildFinancialReportPdfBytes(summary, expenses)
   const file = new File([bytes], `relatorio-financeiro-${summary.startDate}-${summary.endDate}.pdf`, {
     type: 'application/pdf'
@@ -22,7 +22,7 @@ export function downloadFinancialReportPdf(summary: IFinancialSummary, expenses:
   URL.revokeObjectURL(href)
 }
 
-function buildFinancialReportPdfBytes(summary: IFinancialSummary, expenses: IExpense[]) {
+export function buildFinancialReportPdfBytes(summary: IFinancialSummary, expenses: IRealizedExpense[]) {
   const lines: PdfLine[] = []
   let y = 790
 
@@ -42,6 +42,8 @@ function buildFinancialReportPdfBytes(summary: IFinancialSummary, expenses: IExp
     ['Taxas de cartão', summary.cardFeesCents],
     ['Lucro bruto', summary.grossProfitCents],
     ['Gastos operacionais', summary.operationalExpensesCents],
+    ['Compras de estoque pagas', summary.stockExpensesCents],
+    ['Total de saídas realizadas', summary.totalRealizedExpensesCents],
     ['Lucro operacional', summary.operationalProfitCents],
     ['Lucro líquido', summary.netProfitCents]
   ]
@@ -68,13 +70,14 @@ function buildFinancialReportPdfBytes(summary: IFinancialSummary, expenses: IExp
   }
   y -= 16
 
-  addLine(lines, 'Gastos lançados', 48, y, 12, 'F2')
+  addLine(lines, 'Saídas realizadas', 48, y, 12, 'F2')
   y -= 18
   if (expenses.length) {
     for (const expense of expenses.slice(0, 12)) {
-      addLine(lines, truncate(`${formatDate(expense.spentAt)} - ${expense.description}`, 48), 48, y)
-      addLine(lines, truncate(expense.category, 18), 300, y)
-      addLine(lines, formatCurrency(expense.amountCents), 430, y, 10, 'F2')
+      addLine(lines, truncate(`${formatDate(expense.occurredAt)} - ${expense.description}`, 40), 48, y)
+      addLine(lines, expense.origin === 'stock' ? 'Estoque' : 'Operacional', 270, y)
+      addLine(lines, paymentMethodLabel(expense.paymentMethod), 350, y)
+      addLine(lines, formatCurrency(expense.amountCents), 460, y, 10, 'F2')
       y -= 14
     }
   } else {
@@ -152,6 +155,15 @@ function healthLabel(status: IFinancialSummary['healthStatus']) {
   if (status === 'red') return 'Vermelho'
   if (status === 'yellow') return 'Amarelo'
   return 'Verde'
+}
+
+function paymentMethodLabel(method?: PaymentMethod) {
+  if (method === 'pix') return 'PIX'
+  if (method === 'debit_card') return 'Débito'
+  if (method === 'credit_card') return 'Crédito'
+  if (method === 'cash') return 'Dinheiro'
+  if (method === 'legacy') return 'Forma não registrada - legado'
+  return 'Não informado'
 }
 
 function truncate(value: string, maxLength: number) {

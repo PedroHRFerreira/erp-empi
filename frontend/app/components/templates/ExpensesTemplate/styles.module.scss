@@ -7,17 +7,127 @@
 
 .expenses-template__filters {
   display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) auto;
+  grid-template-columns: minmax(270px, 1fr) minmax(150px, 190px) minmax(150px, 190px) auto;
   align-items: end;
   gap: 14px;
   padding: 16px;
+}
+
+.expenses-template__origin-filter {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 10px;
+  background: var(--braip-theme-background-soft);
+}
+
+.expenses-template__origin-filter legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.expenses-template__origin-button {
+  flex: 1;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--braip-theme-text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.expenses-template__origin-button:hover,
+.expenses-template__origin-button--active {
+  background: var(--braip-theme-surface-muted);
+  color: var(--braip-brand-primary);
+}
+
+.expenses-template__origin-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--braip-brand-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.expenses-template__origin-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.expenses-template__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 112px;
+  padding: 20px;
+  color: var(--braip-theme-text-muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.expenses-template__state--error {
+  flex-direction: column;
+  color: var(--status-danger);
+}
+
+.expenses-template__state--error span {
+  color: var(--braip-theme-text-muted);
+  font-size: 13px;
+}
+
+.expenses-template__section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.expenses-template__section-heading div {
+  display: grid;
+  gap: 4px;
+}
+
+.expenses-template__section-heading span {
+  color: var(--braip-brand-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.expenses-template__section-heading h2,
+.expenses-template__section-heading p {
+  margin: 0;
+}
+
+.expenses-template__section-heading h2 {
+  font-size: 20px;
+}
+
+.expenses-template__section-heading p {
+  max-width: 590px;
+  color: var(--braip-theme-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: right;
 }
 
 .expenses-template__categories,
 .expenses-template__receipt-costs {
   display: grid;
   gap: 16px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .expenses-template__categories header,
@@ -89,5 +199,13 @@
   .expenses-template__filters {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .expenses-template__section-heading {
+    display: grid;
+  }
+
+  .expenses-template__section-heading p {
+    text-align: left;
   }
 }

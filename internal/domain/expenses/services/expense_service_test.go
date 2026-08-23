@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	expenserepos "github.com/empi-autocenter/erp-empi/internal/domain/expenses/repositories"
 	expenseservices "github.com/empi-autocenter/erp-empi/internal/domain/expenses/services"
@@ -74,6 +75,99 @@ func TestExpenseServiceCreatesUpdatesAndArchivesExpenses(t *testing.T) {
 	}
 }
 
+func TestExpenseUpdateAndArchiveKeepOpenLedgerConsistent(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := testDB(t)
+	cash := cashservices.NewCashService(db)
+	service := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cash)
+	start, _ := currentDayRange()
+	expense, err := service.Create(ctx, expenseservices.ExpenseInput{Description: "Energia", Category: "energia", AmountCents: 2000, SpentAt: start.Format("2006-01-02"), PaymentMethod: entities.PaymentMethodPix})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.Update(ctx, expense.ID, expenseservices.ExpenseInput{Description: "Energia ajustada", Category: "energia", AmountCents: 3500, SpentAt: start.Format("2006-01-02"), PaymentMethod: entities.PaymentMethodDebitCard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Installments) != 1 || updated.Installments[0].AmountCents != 3500 || updated.Installments[0].Status != entities.PayablePending {
+		t.Fatalf("pending installment not redistributed: %+v", updated.Installments)
+	}
+	if err := service.Archive(ctx, updated.ID); err != nil {
+		t.Fatal(err)
+	}
+	var count int64
+	if err := db.Model(&entities.PayableInstallment{}).Where("expense_id = ?", updated.ID).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("expected archived expense installments removed, got %d", count)
+	}
+}
+
+func TestPaidExpenseBlocksUpdateAndArchive(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := testDB(t)
+	cash := cashservices.NewCashService(db)
+	service := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cash)
+	start, _ := currentDayRange()
+	expense, err := service.Create(ctx, expenseservices.ExpenseInput{Description: "Internet", Category: "internet", AmountCents: 5000, SpentAt: start.Format("2006-01-02"), PaymentMethod: entities.PaymentMethodPix})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expense.Installments) != 1 {
+		t.Fatalf("expected one installment: %+v", expense)
+	}
+	if _, err := cash.PayInstallment(ctx, expense.Installments[0].ID, entities.PaymentMethodPix); err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.Update(ctx, expense.ID, expenseservices.ExpenseInput{Description: "Internet alterada", Category: "internet", AmountCents: 9000, SpentAt: start.Format("2006-01-02")})
+	if !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected paid installment conflict, got %v", err)
+	}
+	if err := service.Archive(ctx, expense.ID); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected archive conflict, got %v", err)
+	}
+	current, err := expenserepos.NewExpenseRepository(db).FindByID(ctx, expense.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Description != "Internet" || current.AmountCents != 5000 {
+		t.Fatalf("expense update was not rolled back: %+v", current)
+	}
+}
+
+func TestExpenseInstallmentsRequireExactTotalAndAppearInHistory(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := testDB(t)
+	service := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cashservices.NewCashService(db))
+	start, _ := currentDayRange()
+	input := expenseservices.ExpenseInput{
+		Description: "Aluguel", Category: "estrutura", AmountCents: 10001, SpentAt: start.Format("2006-01-02"),
+		Installments: []expenseservices.ExpenseInstallmentInput{
+			{AmountCents: 5001, DueDate: start.Format("2006-01-02"), PlannedMethod: entities.PayableMethodPix},
+			{AmountCents: 5000, DueDate: start.AddDate(0, 1, 0).Format("2006-01-02"), PlannedMethod: entities.PayableMethodBoleto},
+		},
+	}
+	expense, err := service.Create(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	history, err := service.Get(ctx, expense.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Installments) != 2 || history.Installments[0].Number != 1 || history.Installments[1].AmountCents != 5000 {
+		t.Fatalf("unexpected installment history: %+v", history.Installments)
+	}
+	input.Installments[1].AmountCents = 4999
+	if _, err := service.Create(ctx, input); !errors.Is(err, apperrors.ErrInvalidInput) {
+		t.Fatalf("expected exact-total validation, got %v", err)
+	}
+}
+
 func TestExpenseServiceCreatesAndUpdatesReceiptLink(t *testing.T) {
 	t.Parallel()
 
@@ -84,7 +178,8 @@ func TestExpenseServiceCreatesAndUpdatesReceiptLink(t *testing.T) {
 	receiptRepo := receiptrepos.NewReceiptRepository(db)
 	userService := userservices.NewUserService(userRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db))
+	cash := cashservices.NewCashService(db)
+	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cash)
 	admin := createAdmin(t, ctx, userRepo)
 	start, _ := currentDayRange()
 
@@ -142,7 +237,8 @@ func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) 
 	userService := userservices.NewUserService(userRepo)
 	stockService := stockservices.NewStockService(stockRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db))
+	cash := cashservices.NewCashService(db)
+	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cash)
 	financialService := financialservices.NewFinancialService(db)
 	admin := createAdmin(t, ctx, userRepo)
 	start, end := currentDayRange()
@@ -197,13 +293,17 @@ func TestFinancialSummaryUsesPaidReceiptsExpensesCostsAndCardFees(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	if _, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
+	createdExpense, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
 		Description: "Gasolina",
 		Category:    "combustível",
 		AmountCents: 3000,
 		SpentAt:     start.Format("2006-01-02"),
 		ReceiptID:   &paidReceipt.ID,
-	}); err != nil {
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cash.PayInstallment(ctx, createdExpense.Installments[0].ID, entities.PaymentMethodPix); err != nil {
 		t.Fatal(err)
 	}
 
@@ -262,7 +362,8 @@ func TestFinancialSummaryDoesNotIncludeCancelledReceiptCosts(t *testing.T) {
 	receiptRepo := receiptrepos.NewReceiptRepository(db)
 	userService := userservices.NewUserService(userRepo)
 	receiptService := receiptservices.NewReceiptService(receiptRepo, stockRepo, userService)
-	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db))
+	cash := cashservices.NewCashService(db)
+	expenseService := expenseservices.NewExpenseService(expenserepos.NewExpenseRepository(db), cash)
 	financialService := financialservices.NewFinancialService(db)
 	admin := createAdmin(t, ctx, userRepo)
 	start, end := currentDayRange()
@@ -285,13 +386,17 @@ func TestFinancialSummaryDoesNotIncludeCancelledReceiptCosts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
+	createdExpense, err := expenseService.Create(ctx, expenseservices.ExpenseInput{
 		Description: "Gasolina",
 		Category:    "combustível",
 		AmountCents: 3000,
 		SpentAt:     start.Format("2006-01-02"),
 		ReceiptID:   &receipt.ID,
-	}); err != nil {
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cash.PayInstallment(ctx, createdExpense.Installments[0].ID, entities.PaymentMethodPix); err != nil {
 		t.Fatal(err)
 	}
 

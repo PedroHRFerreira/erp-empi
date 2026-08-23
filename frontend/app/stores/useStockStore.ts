@@ -31,7 +31,6 @@ export const useStockStore = defineStore('stock', {
       if (!form.name.trim()) this.fieldErrors.name = 'Informe o produto.'
       if (form.costCents <= 0) this.fieldErrors.costCents = 'Informe um custo válido.'
       if (form.markupPercent < 0) this.fieldErrors.markupPercent = 'Margem de revenda não pode ser negativa.'
-      if (form.quantity < 0) this.fieldErrors.quantity = 'Quantidade não pode ser negativa.'
 
       this.error = Object.values(this.fieldErrors)[0] || ''
       return Object.keys(this.fieldErrors).length === 0
@@ -79,7 +78,7 @@ export const useStockStore = defineStore('stock', {
       }
       const method = form.id ? 'PUT' : 'POST'
       const url = form.id ? `/stock/${form.id}` : '/stock'
-      const { status } = await useApiFetch(url, { method, body: form })
+      const { data, status } = await useApiFetch<IStockItem>(url, { method, body: { ...form, quantity: form.id ? form.quantity : 0 } })
 
       if (status.value === 'error') {
         this.error = 'Não foi possível salvar o produto.'
@@ -95,7 +94,7 @@ export const useStockStore = defineStore('stock', {
         return loadResult
       }
 
-      return { status: 'success' }
+      return { status: 'success', data: data.value || undefined }
     },
     async remove(id: string): Promise<IStoreActionResult> {
       const { status } = await useApiFetch(`/stock/${id}`, { method: 'DELETE' })

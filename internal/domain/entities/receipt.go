@@ -20,6 +20,7 @@ const (
 	PaymentMethodDebitCard  PaymentMethod = "debit_card"
 	PaymentMethodPix        PaymentMethod = "pix"
 	PaymentMethodCash       PaymentMethod = "cash"
+	PaymentMethodLegacy     PaymentMethod = "legacy"
 )
 
 type Receipt struct {

@@ -5,32 +5,51 @@ import (
 	"strings"
 	"time"
 
+	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	"github.com/empi-autocenter/erp-empi/internal/domain/expenses/repositories"
 	"github.com/empi-autocenter/erp-empi/internal/shared/apperrors"
+	"gorm.io/gorm"
 )
 
 const dateLayout = "2006-01-02"
 
 type ExpenseService struct {
 	repo *repositories.ExpenseRepository
+	cash *cashservices.CashService
 }
 
 type ExpenseInput struct {
-	Description string  `json:"description"`
-	Category    string  `json:"category"`
-	AmountCents int64   `json:"amountCents"`
-	SpentAt     string  `json:"spentAt"`
-	Notes       string  `json:"notes"`
-	ReceiptID   *string `json:"receiptId"`
+	Description   string                    `json:"description"`
+	Category      string                    `json:"category"`
+	AmountCents   int64                     `json:"amountCents"`
+	SpentAt       string                    `json:"spentAt"`
+	Notes         string                    `json:"notes"`
+	ReceiptID     *string                   `json:"receiptId"`
+	PaymentMethod entities.PaymentMethod    `json:"paymentMethod"`
+	Installments  []ExpenseInstallmentInput `json:"installments"`
 }
 
-func NewExpenseService(repo *repositories.ExpenseRepository) *ExpenseService {
-	return &ExpenseService{repo: repo}
+type ExpenseInstallmentInput struct {
+	AmountCents   int64                  `json:"amountCents"`
+	DueDate       string                 `json:"dueDate"`
+	PlannedMethod entities.PayableMethod `json:"plannedMethod"`
+}
+
+func NewExpenseService(repo *repositories.ExpenseRepository, cash ...*cashservices.CashService) *ExpenseService {
+	service := &ExpenseService{repo: repo}
+	if len(cash) > 0 {
+		service.cash = cash[0]
+	}
+	return service
 }
 
 func (service *ExpenseService) List(ctx context.Context, limit int, offset int, start time.Time, end time.Time) ([]entities.Expense, int64, error) {
 	return service.repo.List(ctx, limit, offset, start, end)
+}
+
+func (service *ExpenseService) Get(ctx context.Context, id string) (*entities.Expense, error) {
+	return service.repo.FindByID(ctx, strings.TrimSpace(id))
 }
 
 func (service *ExpenseService) Create(ctx context.Context, input ExpenseInput) (*entities.Expense, error) {
@@ -38,7 +57,12 @@ func (service *ExpenseService) Create(ctx context.Context, input ExpenseInput) (
 	if err != nil {
 		return nil, err
 	}
-	if err := service.repo.Create(ctx, expense); err != nil {
+	installments, err := buildInstallments(input, expense)
+	if err != nil {
+		return nil, err
+	}
+	expense.Installments = installments
+	if err := service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error { return tx.Create(expense).Error }); err != nil {
 		return nil, err
 	}
 	return service.repo.FindByID(ctx, expense.ID)
@@ -53,7 +77,25 @@ func (service *ExpenseService) Update(ctx context.Context, id string, input Expe
 	if err != nil {
 		return nil, err
 	}
-	if err := service.repo.Update(ctx, expense); err != nil {
+	installments, err := buildInstallments(input, expense)
+	if err != nil {
+		return nil, err
+	}
+	err = service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var paid int64
+		if err := tx.Model(&entities.PayableInstallment{}).Where("expense_id = ? AND status = ?", id, entities.PayablePaid).Count(&paid).Error; err != nil {
+			return err
+		}
+		if paid > 0 {
+			return apperrors.ErrConflict
+		}
+		if err := tx.Where("expense_id = ?", id).Delete(&entities.PayableInstallment{}).Error; err != nil {
+			return err
+		}
+		expense.Installments = installments
+		return tx.Session(&gorm.Session{FullSaveAssociations: true}).Save(expense).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	return service.repo.FindByID(ctx, expense.ID)
@@ -66,7 +108,50 @@ func (service *ExpenseService) Archive(ctx context.Context, id string) error {
 	}
 	now := time.Now()
 	expense.ArchivedAt = &now
-	return service.repo.Update(ctx, expense)
+	return service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var paid int64
+		if err := tx.Model(&entities.PayableInstallment{}).Where("expense_id = ? AND status = ?", id, entities.PayablePaid).Count(&paid).Error; err != nil {
+			return err
+		}
+		if paid > 0 {
+			return apperrors.ErrConflict
+		}
+		if err := tx.Where("expense_id = ?", id).Delete(&entities.PayableInstallment{}).Error; err != nil {
+			return err
+		}
+		expense.Installments = nil
+		return tx.Save(expense).Error
+	})
+}
+
+func buildInstallments(input ExpenseInput, expense *entities.Expense) ([]entities.PayableInstallment, error) {
+	rows := input.Installments
+	if len(rows) == 0 {
+		rows = []ExpenseInstallmentInput{{AmountCents: expense.AmountCents, DueDate: expense.SpentAt.Format(dateLayout), PlannedMethod: entities.PayableMethodBoleto}}
+	}
+	result := make([]entities.PayableInstallment, 0, len(rows))
+	var total int64
+	for index, row := range rows {
+		dueDate, err := ParseExpenseDate(row.DueDate)
+		if err != nil || row.AmountCents <= 0 || !validPlannedMethod(row.PlannedMethod) {
+			return nil, apperrors.ErrInvalidInput
+		}
+		total += row.AmountCents
+		result = append(result, entities.PayableInstallment{ExpenseID: &expense.ID, Number: index + 1, AmountCents: row.AmountCents, DueDate: dueDate, Status: entities.PayablePending, PlannedMethod: row.PlannedMethod})
+	}
+	if total != expense.AmountCents {
+		return nil, apperrors.ErrInvalidInput
+	}
+	return result, nil
+}
+
+func validPlannedMethod(method entities.PayableMethod) bool {
+	switch method {
+	case entities.PayableMethodBoleto, entities.PayableMethodCash, entities.PayableMethodPix, entities.PayableMethodDebitCard, entities.PayableMethodCreditCard:
+		return true
+	default:
+		return false
+	}
 }
 
 func (service *ExpenseService) buildExpense(ctx context.Context, input ExpenseInput, current *entities.Expense) (*entities.Expense, error) {
@@ -84,7 +169,7 @@ func (service *ExpenseService) buildExpense(ctx context.Context, input ExpenseIn
 
 	expense := current
 	if expense == nil {
-		expense = &entities.Expense{}
+		expense = &entities.Expense{AffectsProfit: true}
 	}
 	expense.Description = description
 	expense.Category = category

@@ -1,0 +1,59 @@
+.expenses-registry { overflow: hidden; }
+
+.expenses-registry__head,
+.expenses-registry__row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.3fr) minmax(120px, .75fr) minmax(110px, .65fr) minmax(120px, .7fr) minmax(110px, .65fr) minmax(260px, auto);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.expenses-registry__head {
+  border-bottom: 1px solid var(--braip-theme-border);
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.expenses-registry__row { min-height: 72px; border-bottom: 1px solid var(--braip-theme-border); }
+.expenses-registry__row:last-of-type { border-bottom: 0; }
+.expenses-registry__row:hover { background: var(--braip-theme-surface-muted); }
+.expenses-registry__cell { display: grid; min-width: 0; gap: 4px; }
+.expenses-registry__cell strong, .expenses-registry__cell small { min-width: 0; overflow-wrap: anywhere; }
+.expenses-registry__cell small { color: var(--braip-theme-text-muted); font-weight: 700; }
+.expenses-registry__cell--money strong { color: var(--status-danger); }
+.expenses-registry__label { display: none; }
+
+.expenses-registry__status {
+  justify-self: start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--braip-theme-surface-muted);
+  color: var(--braip-theme-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.expenses-registry__status--pendente { color: var(--status-warning); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+.expenses-registry__status--parcial { color: var(--braip-brand-primary); background: color-mix(in srgb, var(--braip-brand-primary) 12%, transparent); }
+.expenses-registry__status--pago { color: var(--status-success); background: color-mix(in srgb, var(--status-success) 12%, transparent); }
+.expenses-registry__actions { display: flex; gap: 8px; }
+.expenses-registry__action { min-height: 34px; padding: 7px 10px; font-size: 12px; }
+.expenses-registry__action:disabled { cursor: not-allowed; opacity: .48; }
+
+@media (max-width: 1050px) {
+  .expenses-registry { display: grid; gap: 12px; border: 0; background: transparent; box-shadow: none; }
+  .expenses-registry__head { display: none; }
+  .expenses-registry__row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 16px; border: 1px solid var(--braip-theme-border); border-radius: 8px; background: var(--braip-theme-surface); box-shadow: var(--shadow-panel); }
+  .expenses-registry__label { display: inline; color: var(--braip-theme-text-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+  .expenses-registry__actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .expenses-registry__row { grid-template-columns: 1fr; }
+  .expenses-registry__actions { grid-column: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .expenses-registry__action--history { grid-column: 1 / -1; }
+}

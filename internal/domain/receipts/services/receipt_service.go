@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	receiptrepos "github.com/empi-autocenter/erp-empi/internal/domain/receipts/repositories"
 	stockrepos "github.com/empi-autocenter/erp-empi/internal/domain/stock/repositories"
@@ -17,6 +18,7 @@ type ReceiptService struct {
 	repo      *receiptrepos.ReceiptRepository
 	stockRepo *stockrepos.StockRepository
 	users     *userservices.UserService
+	cash      *cashservices.CashService
 }
 
 type ReceiptItemInput struct {
@@ -57,8 +59,12 @@ type preparedReceipt struct {
 	ServiceExpenses []entities.Expense
 }
 
-func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrepos.StockRepository, users *userservices.UserService) *ReceiptService {
-	return &ReceiptService{repo: repo, stockRepo: stockRepo, users: users}
+func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrepos.StockRepository, users *userservices.UserService, cash ...*cashservices.CashService) *ReceiptService {
+	service := &ReceiptService{repo: repo, stockRepo: stockRepo, users: users}
+	if len(cash) > 0 {
+		service.cash = cash[0]
+	}
+	return service
 }
 
 func (service *ReceiptService) List(ctx context.Context, limit int, offset int, status string) ([]entities.Receipt, int64, error) {
@@ -343,6 +349,11 @@ func (service *ReceiptService) MarkPaid(ctx context.Context, id string) (*entiti
 		now := time.Now()
 		receipt.Status = entities.ReceiptStatusPaid
 		receipt.PaidAt = &now
+		if service.cash != nil {
+			if err := service.cash.RecordReceiptPayment(tx.WithContext(ctx), receipt); err != nil {
+				return err
+			}
+		}
 		updated = receipt
 		return service.repo.UpdateWithTx(tx.WithContext(ctx), receipt)
 	})
