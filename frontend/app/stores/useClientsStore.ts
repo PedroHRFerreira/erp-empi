@@ -6,6 +6,7 @@ export const useClientsStore = defineStore('clients', {
   state: () => {
     return {
       clients: [] as IUser[],
+      clientOptions: [] as IUser[],
       detail: null as IClientDetail | null,
       total: 0,
       limit: 10,
@@ -19,6 +20,12 @@ export const useClientsStore = defineStore('clients', {
     setLoading(isLoading: boolean) {
       this.isLoading = isLoading
       this.loading = isLoading
+    },
+    async loadOptions(): Promise<IStoreActionResult<IUser[]>> {
+      const { data, status } = await useApiFetch<IPaginated<IUser>>('/users/clients', { query: { limit: 100, offset: 0 } })
+      if (status.value === 'error' || !data.value) return { status: 'error', message: 'Não foi possível carregar as sugestões de clientes.' }
+      this.clientOptions = Array.isArray(data.value.data) ? data.value.data : []
+      return { status: 'success', data: this.clientOptions }
     },
     async load(offset = 0): Promise<IStoreActionResult<IPaginated<IUser>>> {
       if (offset !== this.offset) invalidateApiCache(['/users/clients'])

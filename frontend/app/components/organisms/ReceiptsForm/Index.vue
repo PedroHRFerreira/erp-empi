@@ -1,6 +1,6 @@
 <script lang="ts">
 import { computed, defineComponent, reactive, ref, watch, type PropType } from 'vue'
-import type { IStockItem } from '../../../../server/contracts/types'
+import type { IStockItem, IUser } from '../../../../server/contracts/types'
 import { expenseCategories } from '../../../stores/useExpensesStore'
 import {
   makeReceiptServiceExpense,
@@ -9,7 +9,7 @@ import {
   type ReceiptServiceExpenseForm
 } from '../../../stores/useReceiptsStore'
 import type { IStoreActionResult } from '../../../stores/types'
-import { currencyMaskToCents, formatCentsAsCurrency } from '../../../utils/masks'
+import { currencyMaskToCents, formatCentsAsCurrency, maskPhone } from '../../../utils/masks'
 import ReceiptClientStep from '../ReceiptClientStep/Index.vue'
 import ReceiptFinalizeStep from '../ReceiptFinalizeStep/Index.vue'
 import ReceiptProductsStep from '../ReceiptProductsStep/Index.vue'
@@ -59,9 +59,11 @@ export default defineComponent({
   setup(props, { emit }) {
     const auth = useAuthStore()
     const receipts = useReceiptsStore()
+    const clients = useClientsStore()
 
     if (props.mode === 'create') {
       receipts.resetReceiptWizard(defaultFees(), props.quick)
+      if (!props.quick) clients.loadOptions()
     }
 
     const form = computed(() => receipts.receiptDraft)
@@ -73,6 +75,9 @@ export default defineComponent({
     const serviceExpenseAmountInput = ref('')
     const serviceExpenseError = ref('')
     const itemError = ref('')
+    const selectedClientId = ref('')
+    const suggestionLoading = ref(false)
+    const suggestionNotice = ref('')
     const hasAppliedProfileFees = ref(Boolean(auth.user))
     const installmentOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
@@ -89,6 +94,41 @@ export default defineComponent({
     const selectedStockItem = computed(() => {
       return props.stockItems.find((item) => item.id === selectedStockId.value) || null
     })
+    const clientSuggestions = computed(() => {
+      if (props.mode !== 'create' || selectedClientId.value) return []
+      const name = form.value.client.name.trim().toLocaleLowerCase('pt-BR')
+      const phone = form.value.client.phone.replace(/\D/g, '')
+      if (name.length < 2 && phone.length < 3) return []
+      return clients.clientOptions.filter((client) => {
+        return (name.length >= 2 && client.name.toLocaleLowerCase('pt-BR').includes(name))
+          || (phone.length >= 3 && client.phone.replace(/\D/g, '').includes(phone))
+      }).slice(0, 6)
+    })
+
+    function clearClientSelection() {
+      selectedClientId.value = ''
+      suggestionNotice.value = ''
+    }
+
+    async function selectClient(client: IUser) {
+      suggestionLoading.value = true
+      const result = await clients.loadDetail(client.id)
+      suggestionLoading.value = false
+      if (result.status !== 'success' || !result.data) return
+      const detail = result.data
+      const latest = [...detail.receipts].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0]
+      form.value.client.name = detail.client.name
+      form.value.client.phone = maskPhone(detail.client.phone)
+      if (latest) {
+        form.value.vehicleModel = latest.vehicleModel || ''
+        form.value.vehicleYear = latest.vehicleYear || new Date().getFullYear()
+        form.value.vehiclePlate = latest.vehiclePlate || ''
+        suggestionNotice.value = 'Cliente e veículo preenchidos com base no recibo mais recente. Confira antes de avançar.'
+      } else {
+        suggestionNotice.value = 'Cliente selecionado. Nenhum veículo anterior foi encontrado.'
+      }
+      selectedClientId.value = client.id
+    }
     const availableQuantity = computed(() => {
       if (!selectedStockItem.value) return 0
 
@@ -359,7 +399,9 @@ export default defineComponent({
       addServiceExpense,
       availableQuantity,
       cardFeeCents,
+      clientSuggestions,
       categories: expenseCategories,
+      clearClientSelection,
       clearFieldError,
       clearItemsError,
       clearServiceExpensesError,
@@ -384,6 +426,7 @@ export default defineComponent({
       removeItem,
       removeServiceExpense,
       selectedQuantity,
+      selectedClientId,
       selectedStockId,
       selectedStockItem,
       serviceExpense,
@@ -392,10 +435,13 @@ export default defineComponent({
       serviceExpensesTotalCents,
       stockName,
       submitLabel,
+      suggestionLoading,
+      suggestionNotice,
       submitStep,
       subtotalCents,
       syncCardFeePercent,
       totalCents,
+      selectClient,
       updatePaymentMethod
     }
   }
@@ -411,7 +457,14 @@ export default defineComponent({
       :field-errors="fieldErrors"
       :form="form"
       :step-label="currentStepLabel"
+      :selected-client-id="selectedClientId"
+      :suggestion-loading="suggestionLoading"
+      :suggestion-notice="suggestionNotice"
+      :suggestions="clientSuggestions"
+      @client-input="clearClientSelection"
       @clear-field-error="clearFieldError"
+      @clear-selection="clearClientSelection"
+      @select-client="selectClient"
     />
 
     <ReceiptVehicleStep

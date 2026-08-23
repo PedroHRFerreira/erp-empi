@@ -9,7 +9,8 @@ import {
   type IReceiptInvoicePortalRow,
 } from "./receiptDocument";
 
-export const NFSE_PORTAL_URL = "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional";
+export const NFSE_PORTAL_URL =
+  "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional";
 
 const PRINT_STYLES = `
   @page {
@@ -306,7 +307,10 @@ const PRINT_STYLES = `
   }
 `;
 
-export function printReceiptDocument(receipt: IReceipt, company: IUser | null = null) {
+export function printReceiptDocument(
+  receipt: IReceipt,
+  company: IUser | null = null,
+) {
   const document = buildReceiptDocument(receipt, company);
 
   openPrintDocument(
@@ -340,7 +344,7 @@ export function printReceiptDocument(receipt: IReceipt, company: IUser | null = 
           <table class="receipt-items">
             <thead>
               <tr>
-                <th>Itens</th>
+                <th>Serviços</th>
                 <th class="right">Quantidade</th>
                 <th class="right">Preço</th>
                 <th class="right">Total da linha</th>
@@ -383,7 +387,10 @@ export function printReceiptDocument(receipt: IReceipt, company: IUser | null = 
   );
 }
 
-export function printReceiptInvoiceData(receipt: IReceipt, company: IUser | null = null) {
+export function printReceiptInvoiceData(
+  receipt: IReceipt,
+  company: IUser | null = null,
+) {
   const document = buildReceiptInvoiceData(receipt, company);
 
   openPrintDocument(
@@ -453,7 +460,10 @@ export function printReceiptInvoiceData(receipt: IReceipt, company: IUser | null
   );
 }
 
-export function prepareReceiptInvoiceIssue(receipt: IReceipt, company: IUser | null = null) {
+export function prepareReceiptInvoiceIssue(
+  receipt: IReceipt,
+  company: IUser | null = null,
+) {
   const portal = window.open(NFSE_PORTAL_URL, "_blank");
   if (portal) {
     portal.opener = null;
@@ -470,7 +480,10 @@ export function prepareReceiptInvoiceIssue(receipt: IReceipt, company: IUser | n
     .catch(() => false);
 }
 
-export function buildReceiptInvoiceClipboardText(receipt: IReceipt, company: IUser | null = null) {
+export function buildReceiptInvoiceClipboardText(
+  receipt: IReceipt,
+  company: IUser | null = null,
+) {
   const document = buildReceiptInvoiceData(receipt, company);
 
   return [
@@ -622,7 +635,9 @@ function renderParties(parties: IReceiptDocumentParty[]) {
 }
 
 function renderTextLines(lines: string[]) {
-  return lines.map((line) => `<p class="muted">${escapeHtml(line)}</p>`).join("");
+  return lines
+    .map((line) => `<p class="muted">${escapeHtml(line)}</p>`)
+    .join("");
 }
 
 function escapeHtml(value: string) {

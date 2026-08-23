@@ -1,13 +1,13 @@
 .receipts-form {
   display: grid;
   gap: 18px;
-  padding: 18px;
+  padding: 20px;
 }
 
 :deep(.receipt-step) {
   display: grid;
   gap: 18px;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--braip-theme-border);
   border-radius: 8px;
   background: var(--braip-theme-surface);
@@ -49,6 +49,39 @@
 :deep(.receipt-step__wide) {
   grid-column: 1 / -1;
 }
+
+:deep(.client-suggestions) {
+  display: grid;
+  max-height: 280px;
+  gap: 6px;
+  overflow-y: auto;
+  margin: -8px 0 0;
+  padding: 8px;
+  border: 1px solid var(--watt-border);
+  border-radius: 12px;
+  background: var(--watt-surface-raised);
+  list-style: none;
+}
+
+:deep(.client-suggestions button) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--watt-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+:deep(.client-suggestions button:hover),
+:deep(.client-suggestions button:focus-visible) { background: var(--watt-data-background); }
+:deep(.client-suggestions span), :deep(.client-suggestion-state) { color: var(--watt-text-muted); }
+:deep(.client-suggestion-applied) { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--watt-data); border-radius: 10px; color: var(--watt-text); background: var(--watt-data-background); }
+:deep(.client-suggestion-applied button) { border: 0; color: var(--watt-data); font: inherit; font-weight: 750; background: transparent; cursor: pointer; }
 
 :deep(.receipt-step__empty) {
   margin: 0;
