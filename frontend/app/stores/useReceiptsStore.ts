@@ -154,6 +154,7 @@ export const useReceiptsStore = defineStore('receipts', {
       isLoading: false,
       loading: false,
       optionsLoading: false,
+      creating: false,
       error: '',
       fieldErrors: {} as Record<string, string>
     }
@@ -361,29 +362,37 @@ export const useReceiptsStore = defineStore('receipts', {
       return { status: 'success', data: this.receiptOptions }
     },
     async create(form: ReceiptForm): Promise<IStoreActionResult> {
+      if (this.creating) {
+        return { status: 'error', errors: 'O recibo já está sendo salvo.', message: 'O recibo já está sendo salvo.' }
+      }
       if (!this.validate(form)) {
         return { status: 'error', errors: this.fieldErrors, message: this.error }
       }
-      const { error, status } = await useApiFetch('/receipts', {
-        method: 'POST',
-        body: buildReceiptPayload(form)
-      })
+      this.creating = true
+      try {
+        const { error, status } = await useApiFetch('/receipts', {
+          method: 'POST',
+          body: buildReceiptPayload(form)
+        })
 
-      if (status.value === 'error') {
-        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível salvar o recibo.')
-        return { status: 'error', errors: this.error, message: this.error }
+        if (status.value === 'error') {
+          this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível salvar o recibo.')
+          return { status: 'error', errors: this.error, message: this.error }
+        }
+
+        this.error = ''
+        this.fieldErrors = {}
+        invalidateReceiptDependencies()
+        const loadResult = await this.load(0)
+
+        if (loadResult.status === 'error') {
+          return loadResult
+        }
+
+        return { status: 'success' }
+      } finally {
+        this.creating = false
       }
-
-      this.error = ''
-      this.fieldErrors = {}
-      invalidateReceiptDependencies()
-      const loadResult = await this.load(0)
-
-      if (loadResult.status === 'error') {
-        return loadResult
-      }
-
-      return { status: 'success' }
     },
     async update(id: string, form: ReceiptForm): Promise<IStoreActionResult> {
       if (!this.validate(form)) {

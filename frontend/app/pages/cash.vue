@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { currencyMaskToCents, maskCurrency } from '../utils/masks'
 import { formatCurrency, formatDate, formatTime } from '../utils/format'
 import PageHeader from '../components/molecules/PageHeader/Index.vue'
+import { calculateCashSummary } from '../utils/cashSummary'
 
 const cash = useCashStore()
 await cash.load()
@@ -11,11 +12,13 @@ const closingInput = ref('')
 const closingNotes = ref('')
 const adjustmentValue = ref('')
 const adjustment = reactive({ direction: 'out' as 'in' | 'out', paymentMethod: 'cash' as 'cash' | 'pix' | 'debit_card' | 'credit_card', description: '', reason: '' })
-const totals = computed(() => cash.dailyEntries.reduce((result, entry) => {
-  result[entry.paymentMethod] = (result[entry.paymentMethod] || 0) + entry.amountCents
-  return result
-}, {} as Record<string, number>))
-const consolidated = computed(() => Object.values(totals.value).reduce((sum, value) => sum + value, 0))
+const summary = computed(() => calculateCashSummary(cash.dailyEntries, cash.session?.openingCashCents || 0))
+const totals = computed(() => summary.value.totals)
+const dailyResultLabel = computed(() => {
+  if (summary.value.dailyResultCents < 0) return 'prejuízo'
+  if (summary.value.dailyResultCents > 0) return 'lucro'
+  return 'sem lucro nem prejuízo'
+})
 
 function money(event: Event, target: 'opening' | 'closing' | 'adjustment') {
   const value = maskCurrency((event.target as HTMLInputElement).value)
@@ -40,7 +43,11 @@ async function saveAdjustment() {
     <p v-if="cash.error" class="cash-alert" role="alert">{{ cash.error }}</p>
 
     <section class="panel cash-summary">
-      <header class="cash-section__header"><div><span class="eyebrow">Movimento financeiro</span><h2>Resumo do dia</h2></div><strong class="consolidated">{{ formatCurrency(consolidated) }}</strong></header>
+      <header class="cash-section__header"><div><span class="eyebrow">Movimento financeiro</span><h2>Resumo do dia</h2></div></header>
+      <div class="cash-results">
+        <article class="cash-result"><span>Saldo total disponível</span><strong>{{ formatCurrency(summary.availableBalanceCents) }}</strong><small>Fundo inicial + todas as entradas − todas as saídas.</small></article>
+        <article class="cash-result"><span>Resultado do dia</span><strong :class="summary.dailyResultCents < 0 ? 'out' : 'in'">{{ formatCurrency(summary.dailyResultCents) }}</strong><small>Entradas do dia − saídas do dia: {{ dailyResultLabel }}. O fundo inicial não entra neste resultado.</small></article>
+      </div>
       <div class="cash-methods">
         <article v-for="method in ['cash','pix','debit_card','credit_card']" :key="method" class="cash-method"><span>{{ method === 'cash' ? 'Dinheiro' : method === 'pix' ? 'PIX' : method === 'debit_card' ? 'Débito' : 'Crédito' }}</span><strong>{{ formatCurrency(totals[method] || 0) }}</strong></article>
       </div>
@@ -74,7 +81,7 @@ async function saveAdjustment() {
 </template>
 
 <style scoped lang="scss">
-.cash-page,.cash-summary,.cash-section{display:grid;min-width:0;gap:18px}.cash-summary,.cash-section{padding:22px}.cash-section__header{display:flex;align-items:center;justify-content:space-between;gap:16px}.cash-section h2,.cash-summary h2{margin:3px 0 0}.eyebrow{color:var(--watt-text-muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.description{margin:0;color:var(--watt-text-muted)}.consolidated,.expected{font:700 30px 'Fira Code',monospace;color:var(--watt-data);white-space:nowrap}.cash-methods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.cash-method{display:grid;gap:6px;padding:16px;border:1px solid var(--watt-border);border-radius:12px;background:var(--watt-surface-raised)}.cash-method span{color:var(--watt-text-muted);font-size:11px;text-transform:uppercase}.cash-method strong{font:700 19px 'Fira Code',monospace}.status,.count{display:grid;min-width:32px;height:32px;place-items:center;border-radius:9px;padding:0 10px;color:var(--watt-success);background:color-mix(in srgb,var(--watt-success) 14%,transparent)}.action{width:max-content}.close-grid,.adjustment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}.adjustment-grid{grid-template-columns:repeat(5,minmax(0,1fr)) auto}.cash-alert{margin:0;padding:14px 16px;border-left:4px solid var(--watt-alert);color:var(--watt-alert);background:var(--watt-alert-background)}td:first-child{display:grid;gap:3px}td small{color:var(--watt-text-muted)}td:last-child{font-family:'Fira Code',monospace;font-weight:700}.in{color:var(--watt-success)}.out{color:var(--watt-alert)}@media(max-width:1000px){.cash-methods{grid-template-columns:repeat(2,1fr)}.adjustment-grid{grid-template-columns:repeat(2,1fr)}.close-grid{grid-template-columns:1fr 1fr}}@media(max-width:640px){.cash-methods,.adjustment-grid,.close-grid{grid-template-columns:1fr}.cash-section__header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}.consolidated{font-size:20px}}
+.cash-page,.cash-summary,.cash-section{display:grid;min-width:0;gap:18px}.cash-summary,.cash-section{padding:22px}.cash-section__header{display:flex;align-items:center;justify-content:space-between;gap:16px}.cash-section h2,.cash-summary h2{margin:3px 0 0}.eyebrow{color:var(--watt-text-muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.description{margin:0;color:var(--watt-text-muted)}.expected{font:700 30px 'Fira Code',monospace;color:var(--watt-data);white-space:nowrap}.cash-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cash-result{display:grid;gap:6px;padding:16px;border:1px solid var(--watt-border);border-radius:12px;background:var(--watt-surface-raised)}.cash-result span{font-weight:700}.cash-result strong{font:700 26px 'Fira Code',monospace;color:var(--watt-data)}.cash-result strong.out{color:var(--watt-alert)}.cash-result strong.in{color:var(--watt-success)}.cash-result small{color:var(--watt-text-muted)}.cash-methods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.cash-method{display:grid;gap:6px;padding:16px;border:1px solid var(--watt-border);border-radius:12px;background:var(--watt-surface-raised)}.cash-method span{color:var(--watt-text-muted);font-size:11px;text-transform:uppercase}.cash-method strong{font:700 19px 'Fira Code',monospace}.status,.count{display:grid;min-width:32px;height:32px;place-items:center;border-radius:9px;padding:0 10px;color:var(--watt-success);background:color-mix(in srgb,var(--watt-success) 14%,transparent)}.action{width:max-content}.close-grid,.adjustment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}.adjustment-grid{grid-template-columns:repeat(5,minmax(0,1fr)) auto}.cash-alert{margin:0;padding:14px 16px;border-left:4px solid var(--watt-alert);color:var(--watt-alert);background:var(--watt-alert-background)}td:first-child{display:grid;gap:3px}td small{color:var(--watt-text-muted)}td:last-child{font-family:'Fira Code',monospace;font-weight:700}.in{color:var(--watt-success)}.out{color:var(--watt-alert)}@media(max-width:1000px){.cash-methods{grid-template-columns:repeat(2,1fr)}.adjustment-grid{grid-template-columns:repeat(2,1fr)}.close-grid{grid-template-columns:1fr 1fr}}@media(max-width:640px){.cash-results,.cash-methods,.adjustment-grid,.close-grid{grid-template-columns:1fr}.cash-section__header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}.cash-result strong{font-size:20px}}
 .cash-section__header > * { min-width: 0; }
 .cash-method { min-width: 0; }
 .cash-method strong { overflow: hidden; text-overflow: ellipsis; }
@@ -87,7 +94,7 @@ async function saveAdjustment() {
 @media(max-width:640px){
   .cash-summary,.cash-section{padding:16px}
   .cash-section__header{grid-template-columns:minmax(0,1fr)}
-  .consolidated,.expected{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+  .expected{max-width:100%;overflow-wrap:anywhere;white-space:normal}
   .status,.count{justify-self:start}
 }
 </style>

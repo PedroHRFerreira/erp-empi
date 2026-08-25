@@ -224,10 +224,13 @@ test('registra gasto e atualiza o resumo financeiro', async ({ page }, testInfo)
   await expect(page.getByText(description)).toBeVisible()
 })
 
-test('abre o caixa diário e apresenta o resumo operacional', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'Jornada mutável executada uma vez na base compartilhada')
+test('abre o caixa diário e apresenta o resumo operacional', async ({ page }) => {
   await login(page)
   await ensureCashIsOpen(page)
+  await expect(page.getByText('Saldo total disponível')).toBeVisible()
+  await expect(page.getByText('Resultado do dia')).toBeVisible()
+  await expect(page.getByText('Fundo inicial + todas as entradas − todas as saídas.')).toBeVisible()
+  await expect(page.getByText(/O fundo inicial não entra neste resultado/)).toBeVisible()
   await expect(page.getByText('Dinheiro esperado na gaveta')).toBeVisible()
 })
 

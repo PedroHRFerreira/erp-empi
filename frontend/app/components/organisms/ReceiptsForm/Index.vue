@@ -551,7 +551,9 @@ export default defineComponent({
         {{ receipts.receiptWizardStep === 0 ? 'Voltar' : 'Anterior' }}
       </button>
       <button v-if="!isFinalStep" class="button button--primary" type="button" @click="nextStep">Avançar</button>
-      <button v-else class="button button--primary" type="submit">{{ submitLabel }}</button>
+      <button v-else class="button button--primary" type="submit" :disabled="receipts.creating">
+        {{ receipts.creating ? 'Salvando...' : submitLabel }}
+      </button>
     </footer>
   </form>
 </template>
