@@ -202,3 +202,76 @@ func TestPayableAlertsPrioritizeUrgencyAndPreserveOpeningCash(t *testing.T) {
 		t.Fatalf("unexpected alert order: %#v", alerts)
 	}
 }
+
+func TestBalancesPreserveNonCashAcrossDrawerCloseAndReopen(t *testing.T) {
+	service, db := newCashTestService(t)
+	ctx := context.Background()
+	opened, err := service.Open(ctx, OpenInput{OpeningCashCents: 5_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	adjustments := []AdjustmentInput{
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodPix, AmountCents: 10_000, Description: "PIX recebido", Reason: "Teste"},
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodDebitCard, AmountCents: 20_000, Description: "Débito recebido", Reason: "Teste"},
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodCreditCard, AmountCents: 30_000, Description: "Crédito recebido", Reason: "Teste"},
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodCash, AmountCents: 4_000, Description: "Dinheiro recebido", Reason: "Teste"},
+	}
+	for _, input := range adjustments {
+		if _, err := service.AddAdjustment(ctx, input); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := service.Close(ctx, CloseInput{ClosingCashCents: 9_000}); err != nil {
+		t.Fatal(err)
+	}
+	// Move the closed fixture to yesterday so Open can model the next business
+	// day without relying on the wall clock advancing during the test.
+	yesterday := businessDay(time.Now()).AddDate(0, 0, -1)
+	if err := db.Model(&entities.CashSession{}).Where("id = ?", opened.ID).Update("business_date", yesterday).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Open(ctx, OpenInput{OpeningCashCents: 9_000}); err != nil {
+		t.Fatal(err)
+	}
+
+	balances, err := service.Balances(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if balances.PixCents != 10_000 || balances.DebitCardCents != 20_000 || balances.CreditCardCents != 30_000 {
+		t.Fatalf("non-cash balances did not survive close and reopen: %#v", balances)
+	}
+}
+
+func TestBalancesApplySignedOutflowsAndExcludeCash(t *testing.T) {
+	service, _ := newCashTestService(t)
+	ctx := context.Background()
+	if _, err := service.Open(ctx, OpenInput{OpeningCashCents: 50_000}); err != nil {
+		t.Fatal(err)
+	}
+
+	adjustments := []AdjustmentInput{
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodPix, AmountCents: 12_000, Description: "PIX recebido", Reason: "Teste"},
+		{Direction: entities.CashEntryOut, PaymentMethod: entities.PaymentMethodPix, AmountCents: 4_500, Description: "PIX enviado", Reason: "Teste"},
+		{Direction: entities.CashEntryIn, PaymentMethod: entities.PaymentMethodCash, AmountCents: 8_000, Description: "Dinheiro recebido", Reason: "Teste"},
+		{Direction: entities.CashEntryOut, PaymentMethod: entities.PaymentMethodCash, AmountCents: 3_000, Description: "Dinheiro retirado", Reason: "Teste"},
+	}
+	for _, input := range adjustments {
+		if _, err := service.AddAdjustment(ctx, input); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	balances, err := service.Balances(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if balances.PixCents != 7_500 {
+		t.Fatalf("expected signed PIX balance 7500, got %d", balances.PixCents)
+	}
+	if balances.DebitCardCents != 0 || balances.CreditCardCents != 0 {
+		t.Fatalf("cash movements leaked into non-cash balances: %#v", balances)
+	}
+}

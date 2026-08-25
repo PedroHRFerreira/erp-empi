@@ -12,7 +12,11 @@ const closingInput = ref('')
 const closingNotes = ref('')
 const adjustmentValue = ref('')
 const adjustment = reactive({ direction: 'out' as 'in' | 'out', paymentMethod: 'cash' as 'cash' | 'pix' | 'debit_card' | 'credit_card', description: '', reason: '' })
-const summary = computed(() => calculateCashSummary(cash.dailyEntries, cash.session?.openingCashCents || 0))
+const summary = computed(() => calculateCashSummary(
+  cash.dailyEntries,
+  cash.session?.openingCashCents || 0,
+  cash.balances,
+))
 const totals = computed(() => summary.value.totals)
 const dailyResultLabel = computed(() => {
   if (summary.value.dailyResultCents < 0) return 'prejuízo'
@@ -45,13 +49,13 @@ async function saveAdjustment() {
     <section class="panel cash-summary">
       <header class="cash-section__header"><div><span class="eyebrow">Movimento financeiro</span><h2>Resumo do dia</h2></div></header>
       <div class="cash-results">
-        <article class="cash-result"><span>Saldo total disponível</span><strong>{{ formatCurrency(summary.availableBalanceCents) }}</strong><small>Fundo inicial + todas as entradas − todas as saídas.</small></article>
+        <article class="cash-result"><span>Saldo total disponível</span><strong>{{ formatCurrency(summary.availableBalanceCents) }}</strong><small>Dinheiro esperado na gaveta + saldos acumulados de PIX e cartões.</small></article>
         <article class="cash-result"><span>Resultado do dia</span><strong :class="summary.dailyResultCents < 0 ? 'out' : 'in'">{{ formatCurrency(summary.dailyResultCents) }}</strong><small>Entradas do dia − saídas do dia: {{ dailyResultLabel }}. O fundo inicial não entra neste resultado.</small></article>
       </div>
       <div class="cash-methods">
-        <article v-for="method in ['cash','pix','debit_card','credit_card']" :key="method" class="cash-method"><span>{{ method === 'cash' ? 'Dinheiro' : method === 'pix' ? 'PIX' : method === 'debit_card' ? 'Débito' : 'Crédito' }}</span><strong>{{ formatCurrency(totals[method] || 0) }}</strong></article>
+        <article v-for="method in ['cash','pix','debit_card','credit_card']" :key="method" class="cash-method"><span>{{ method === 'cash' ? 'Dinheiro · hoje' : method === 'pix' ? 'PIX · acumulado' : method === 'debit_card' ? 'Débito · acumulado' : 'Crédito · acumulado' }}</span><strong>{{ formatCurrency(totals[method] || 0) }}</strong></article>
       </div>
-      <p class="description">PIX e cartões aparecem no movimento do dia mesmo quando a gaveta não está aberta.</p>
+      <p class="description">Dinheiro mostra o movimento de hoje. PIX e cartões preservam o saldo acumulado, mesmo após fechar e reabrir a gaveta.</p>
     </section>
 
     <section v-if="!cash.session" class="panel cash-section cash-opening">

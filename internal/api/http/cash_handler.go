@@ -27,6 +27,13 @@ func (h *CashHandler) ListSessions(c echo.Context) error {
 	}
 	return c.JSON(nethttp.StatusOK, sessions)
 }
+func (h *CashHandler) Balances(c echo.Context) error {
+	balances, err := h.cash.Balances(c.Request().Context())
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, balances)
+}
 func (h *CashHandler) Open(c echo.Context) error {
 	input := new(cashservices.OpenInput)
 	if err := c.Bind(input); err != nil {

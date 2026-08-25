@@ -30,6 +30,14 @@ type AdjustmentInput struct {
 	Reason        string                      `json:"reason"`
 	ReferenceID   string                      `json:"referenceId"`
 }
+
+// CashBalances represents the accumulated balances for payment methods that
+// are not tied to the lifecycle of a physical cash drawer.
+type CashBalances struct {
+	PixCents        int64 `json:"pixCents" gorm:"column:pix_cents"`
+	DebitCardCents  int64 `json:"debitCardCents" gorm:"column:debit_card_cents"`
+	CreditCardCents int64 `json:"creditCardCents" gorm:"column:credit_card_cents"`
+}
 type PurchaseInput struct {
 	SupplierName string                     `json:"supplierName"`
 	Items        []PurchaseItemInput        `json:"items"`
@@ -112,6 +120,22 @@ func (s *CashService) ListSessions(ctx context.Context, limit int) ([]entities.C
 		sessions[i].ExpectedCashCents = expected
 	}
 	return sessions, nil
+}
+
+// Balances returns the lifetime ledger balance for non-cash payment methods.
+// Cash is intentionally excluded because its balance belongs to a drawer
+// session and is exposed by Current.
+func (s *CashService) Balances(ctx context.Context) (*CashBalances, error) {
+	var balances CashBalances
+	err := s.db.WithContext(ctx).Model(&entities.CashEntry{}).Select(`
+		COALESCE(SUM(CASE WHEN payment_method = ? THEN amount_cents ELSE 0 END), 0) AS pix_cents,
+		COALESCE(SUM(CASE WHEN payment_method = ? THEN amount_cents ELSE 0 END), 0) AS debit_card_cents,
+		COALESCE(SUM(CASE WHEN payment_method = ? THEN amount_cents ELSE 0 END), 0) AS credit_card_cents
+	`, entities.PaymentMethodPix, entities.PaymentMethodDebitCard, entities.PaymentMethodCreditCard).Scan(&balances).Error
+	if err != nil {
+		return nil, err
+	}
+	return &balances, nil
 }
 
 // EnsureReferenceMutable prevents a source record from rewriting a closed day.

@@ -150,6 +150,12 @@ export interface ICashEntry {
   occurredAt: string;
 }
 
+export interface ICashBalances {
+  pixCents: number;
+  debitCardCents: number;
+  creditCardCents: number;
+}
+
 export interface ICashSession {
   id: string;
   businessDate: string;

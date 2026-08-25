@@ -67,6 +67,7 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	private.GET("/financial/summary", expenseHandler.Summary)
 	private.GET("/financial/expenses", expenseHandler.Realized)
 	private.GET("/cash/current", cashHandler.Current)
+	private.GET("/cash/balances", cashHandler.Balances)
 	private.GET("/cash/sessions", cashHandler.ListSessions)
 	private.POST("/cash/open", cashHandler.Open)
 	private.POST("/cash/close", cashHandler.Close)

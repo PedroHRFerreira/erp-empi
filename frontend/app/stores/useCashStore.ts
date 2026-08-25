@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import type {
+  ICashBalances,
   ICashEntry,
   ICashSession,
   IReceipt,
@@ -12,23 +13,37 @@ export const useCashStore = defineStore("cash", {
     session: null as ICashSession | null,
     sessions: [] as ICashSession[],
     dailyEntries: [] as ICashEntry[],
+    balances: {
+      pixCents: 0,
+      debitCardCents: 0,
+      creditCardCents: 0,
+    } as ICashBalances,
     loading: false,
     error: "",
   }),
   actions: {
     async load(forceRefresh = false) {
-      if (forceRefresh) invalidateApiCache(["/cash/current", "/cash/sessions", "/cash/daily-entries"]);
+      if (forceRefresh) {
+        invalidateApiCache([
+          "/cash/current",
+          "/cash/sessions",
+          "/cash/daily-entries",
+          "/cash/balances",
+        ]);
+      }
       this.loading = true;
-      const [current, sessions, dailyEntries] = await Promise.all([
+      const [current, sessions, dailyEntries, balances] = await Promise.all([
         useApiFetch<ICashSession | null>("/cash/current"),
         useApiFetch<ICashSession[]>("/cash/sessions"),
         useApiFetch<ICashEntry[]>("/cash/daily-entries"),
+        useApiFetch<ICashBalances>("/cash/balances"),
       ]);
       this.loading = false;
       if (
         current.status.value === "error" ||
         sessions.status.value === "error" ||
-          dailyEntries.status.value === "error"
+        dailyEntries.status.value === "error" ||
+        balances.status.value === "error"
       ) {
         this.error = "Não foi possível carregar o caixa.";
         return false;
@@ -36,6 +51,11 @@ export const useCashStore = defineStore("cash", {
       this.session = current.data.value || null;
       this.sessions = Array.isArray(sessions.data.value) ? sessions.data.value : [];
       this.dailyEntries = Array.isArray(dailyEntries.data.value) ? dailyEntries.data.value : [];
+      this.balances = balances.data.value || {
+        pixCents: 0,
+        debitCardCents: 0,
+        creditCardCents: 0,
+      };
       this.error = "";
       return true;
     },
