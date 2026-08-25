@@ -23,6 +23,7 @@ services:
       - .env
     environment:
       DB_WRITE_DSN: ${DB_WRITE_DSN:-host=postgres user=empi password=empi dbname=empi port=5432 sslmode=disable TimeZone=America/Sao_Paulo}
+      TIMEZONE: ${TIMEZONE:-America/Sao_Paulo}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - "8080:8080"

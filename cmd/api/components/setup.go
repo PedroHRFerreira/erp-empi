@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/empi-autocenter/erp-empi/config"
 	httpapi "github.com/empi-autocenter/erp-empi/internal/api/http"
@@ -19,6 +20,9 @@ import (
 func Run() error {
 	cfg, err := config.Load()
 	if err != nil {
+		return err
+	}
+	if err := configureTimezone(cfg.Timezone); err != nil {
 		return err
 	}
 
@@ -52,4 +56,13 @@ func Run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return server.Shutdown(ctx)
+}
+
+func configureTimezone(name string) error {
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		return err
+	}
+	time.Local = location
+	return nil
 }

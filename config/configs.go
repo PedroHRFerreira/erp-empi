@@ -14,6 +14,7 @@ type Config struct {
 	Env         string         `mapstructure:"env"`
 	APIPort     string         `mapstructure:"apiPort"`
 	FrontendURL string         `mapstructure:"frontendURL"`
+	Timezone    string         `mapstructure:"timezone"`
 	JWT         JWTConfig      `mapstructure:"jwt"`
 	Database    DatabaseConfig `mapstructure:"database"`
 	Admin       AdminConfig    `mapstructure:"admin"`
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 	v.SetDefault("env", "local")
 	v.SetDefault("apiPort", "8080")
 	v.SetDefault("frontendURL", "http://localhost:3000")
+	v.SetDefault("timezone", "America/Sao_Paulo")
 	v.SetDefault("jwt.accessTTLMinutes", 15)
 	v.SetDefault("admin.markupPercent", 10)
 	v.SetDefault("admin.machineFeePercent", 0)
@@ -83,6 +85,9 @@ func normalizeConfig(cfg *Config) {
 	}
 	if cfg.FrontendURL != "" && !strings.HasPrefix(cfg.FrontendURL, "http://") && !strings.HasPrefix(cfg.FrontendURL, "https://") {
 		cfg.FrontendURL = "https://" + cfg.FrontendURL
+	}
+	if strings.TrimSpace(cfg.Timezone) == "" {
+		cfg.Timezone = "America/Sao_Paulo"
 	}
 	if cfg.JWT.AccessTTLMinutes == 0 {
 		cfg.JWT.AccessTTLMinutes = int(parseDurationEnv("JWT_ACCESS_TTL_MINUTES", 15*time.Minute).Minutes())

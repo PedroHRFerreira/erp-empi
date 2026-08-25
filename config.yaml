@@ -1,6 +1,7 @@
 env: ${ENV}
 apiPort: ${API_PORT}
 frontendURL: ${FRONTEND_URL}
+timezone: ${TIMEZONE}
 jwt:
   accessSecret: ${JWT_ACCESS_SECRET}
   accessTTLMinutes: ${JWT_ACCESS_TTL_MINUTES}
