@@ -104,7 +104,7 @@ export const useStockStore = defineStore('stock', {
         return { status: 'error', errors: this.error, message: this.error }
       }
 
-      invalidateApiCache(['/stock', '/metrics/summary'])
+      invalidateApiCache(['/stock', '/stock/purchases', '/payables', '/payables/alerts', '/metrics/summary'])
       const loadResult = await this.load(this.offset)
 
       if (loadResult.status === 'error') {

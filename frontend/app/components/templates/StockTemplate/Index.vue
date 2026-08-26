@@ -80,14 +80,10 @@ export default defineComponent({
         return
       }
       if (!await feedback.confirm({ title: 'Remover produto?', message: `Remover ${item.name}, suas entradas e todas as parcelas pendentes?`, tone: 'danger', confirmLabel: 'Remover produto' })) return
-      for (const purchase of related) {
-        if (!await purchases.cancelPurchase(purchase.id)) {
-          feedback.error('Não foi possível remover o produto', purchases.error)
-          return
-        }
-      }
       const result = await stock.remove(item.id)
-      if (result.status === 'error') feedback.error('Não foi possível remover o produto', stock.error)
+      if (result.status === 'error') { feedback.error('Não foi possível remover o produto', stock.error); return }
+      await purchases.loadPurchases()
+      feedback.success('Produto removido', 'As contas pendentes vinculadas foram canceladas.')
     }
 
     async function save() {

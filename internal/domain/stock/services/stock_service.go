@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	"github.com/empi-autocenter/erp-empi/internal/domain/stock/repositories"
 	"github.com/empi-autocenter/erp-empi/internal/shared/apperrors"
 	"github.com/empi-autocenter/erp-empi/internal/shared/validation"
+	"gorm.io/gorm"
 )
 
 type StockService struct {
@@ -55,12 +57,60 @@ func (service *StockService) Update(ctx context.Context, id string, input StockI
 }
 
 func (service *StockService) Delete(ctx context.Context, id string) error {
-	item, err := service.repo.FindByID(ctx, id)
-	if err != nil {
-		return err
-	}
-	item.Active = false
-	return service.repo.Update(ctx, item)
+	return service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		item, err := service.repo.FindByIDForUpdate(tx, id)
+		if err != nil {
+			return err
+		}
+
+		var purchaseIDs []string
+		if err := tx.Table("stock_purchase_items").
+			Select("DISTINCT stock_purchase_items.stock_purchase_id").
+			Joins("JOIN stock_purchases ON stock_purchases.id = stock_purchase_items.stock_purchase_id").
+			Where("stock_purchase_items.stock_item_id = ? AND stock_purchases.status = ?", id, entities.StockPurchaseConfirmed).
+			Scan(&purchaseIDs).Error; err != nil {
+			return err
+		}
+
+		if len(purchaseIDs) > 0 {
+			var sharedPurchases int64
+			sharedPurchaseQuery := tx.Table("stock_purchase_items").
+				Select("stock_purchase_id").
+				Where("stock_purchase_id IN ?", purchaseIDs).
+				Group("stock_purchase_id").
+				Having("COUNT(*) > 1")
+			if err := tx.Table("(?) AS shared_purchases", sharedPurchaseQuery).Count(&sharedPurchases).Error; err != nil {
+				return err
+			}
+			if sharedPurchases > 0 {
+				return apperrors.ErrConflict
+			}
+
+			var paidInstallments int64
+			if err := tx.Model(&entities.PayableInstallment{}).
+				Where("stock_purchase_id IN ? AND status = ?", purchaseIDs, entities.PayablePaid).
+				Count(&paidInstallments).Error; err != nil {
+				return err
+			}
+			if paidInstallments > 0 {
+				return apperrors.ErrConflict
+			}
+
+			now := time.Now()
+			if err := tx.Model(&entities.PayableInstallment{}).
+				Where("stock_purchase_id IN ? AND status = ?", purchaseIDs, entities.PayablePending).
+				Updates(map[string]any{"status": entities.PayableCancelled, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&entities.StockPurchase{}).Where("id IN ?", purchaseIDs).
+				Updates(map[string]any{"status": entities.StockPurchaseCancelled, "cancelled_at": now, "updated_at": now}).Error; err != nil {
+				return err
+			}
+		}
+
+		item.Active = false
+		return tx.Save(item).Error
+	})
 }
 
 func (service *StockService) buildItem(input StockInput, current *entities.StockItem) (*entities.StockItem, error) {
