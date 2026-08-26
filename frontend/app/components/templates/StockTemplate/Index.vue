@@ -24,6 +24,7 @@ export default defineComponent({
     const router = useRouter()
     const stock = useStockStore()
     const purchases = usePurchasesStore()
+    const feedback = useSystemFeedback()
     const showForm = ref(false)
     const costInput = ref('')
     const defaultMarkupPercent = computed(() => {
@@ -71,22 +72,22 @@ export default defineComponent({
         purchase.status === 'confirmed' && purchase.items.some((entry) => entry.stockItemId === item.id)
       )
       if (related.some((purchase) => purchase.installments.some((installment) => installment.status === 'paid'))) {
-        window.alert('Este produto não pode ser removido porque possui uma parcela paga. O histórico financeiro precisa ser preservado.')
+        feedback.warning('Produto não removido', 'Este produto possui uma parcela paga. O histórico financeiro precisa ser preservado.')
         return
       }
       if (related.some((purchase) => purchase.items.length > 1)) {
-        window.alert('Este produto pertence a uma compra antiga com outros itens e não pode ser removido isoladamente.')
+        feedback.warning('Produto não removido', 'Este produto pertence a uma compra antiga com outros itens e não pode ser removido isoladamente.')
         return
       }
-      if (!window.confirm(`Remover ${item.name}, suas entradas e todas as parcelas pendentes?`)) return
+      if (!await feedback.confirm({ title: 'Remover produto?', message: `Remover ${item.name}, suas entradas e todas as parcelas pendentes?`, tone: 'danger', confirmLabel: 'Remover produto' })) return
       for (const purchase of related) {
         if (!await purchases.cancelPurchase(purchase.id)) {
-          window.alert(purchases.error)
+          feedback.error('Não foi possível remover o produto', purchases.error)
           return
         }
       }
       const result = await stock.remove(item.id)
-      if (result.status === 'error') window.alert(stock.error)
+      if (result.status === 'error') feedback.error('Não foi possível remover o produto', stock.error)
     }
 
     async function save() {

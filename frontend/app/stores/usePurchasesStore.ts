@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { IPayableAlert, IPayableInstallment, IStockPurchase, PayableMethod, PaymentMethod } from '../../server/contracts/types'
+import type { IPayableAlert, IPayableInstallment, IPayablePaymentHistory, IStockPurchase, PayableMethod, PaymentMethod } from '../../server/contracts/types'
 
 export interface PurchaseDraft {
   supplierName: string
@@ -11,6 +11,7 @@ export const usePurchasesStore = defineStore('purchases', {
   state: () => ({
     purchases: [] as IStockPurchase[],
     payables: [] as IPayableInstallment[],
+    paymentHistory: null as IPayablePaymentHistory | null,
     alerts: [] as IPayableAlert[],
     loading: false,
     alertsLoading: false,
@@ -39,6 +40,16 @@ export const usePurchasesStore = defineStore('purchases', {
         return false
       }
       this.payables = Array.isArray(data.value) ? data.value : []
+      return true
+    },
+    async loadPaymentHistory(id: string) {
+      const { data, status } = await useApiFetch<IPayablePaymentHistory>(`/payables/${id}/history`)
+      if (status.value === 'error' || !data.value) {
+        this.error = 'Não foi possível carregar o histórico deste pagamento.'
+        return false
+      }
+      this.paymentHistory = data.value
+      this.error = ''
       return true
     },
     async loadAlerts(forceRefresh = false) {
@@ -80,6 +91,17 @@ export const usePurchasesStore = defineStore('purchases', {
       }
       invalidateApiCache(['/payables', '/payables/alerts', '/cash/current', '/cash/daily-entries', '/financial/expenses', '/financial/summary'])
       await Promise.all([this.loadPayables(), this.loadAlerts(true)])
+      return true
+    },
+    async revokePayment(id: string) {
+      const { status } = await useApiFetch(`/payables/${id}/revoke`, { method: 'POST' })
+      if (status.value === 'error') {
+        this.error = 'Este pagamento não pode ser revogado ou já utilizou a única revogação permitida.'
+        return false
+      }
+      invalidateApiCache(['/stock', '/stock/purchases', '/payables', '/payables/alerts', '/cash/current', '/cash/daily-entries', '/financial/expenses', '/financial/summary', `/payables/${id}/history`])
+      await Promise.all([this.loadPurchases(), this.loadPayables(), this.loadAlerts(true), this.loadPaymentHistory(id)])
+      this.error = ''
       return true
     }
   }

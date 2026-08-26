@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import ThemeToggle from './components/atoms/ThemeToggle/Index.vue'
+import SystemFeedbackHost from './components/organisms/SystemFeedbackHost/Index.vue'
 
 const { initialise } = useTheme()
 const route = useRoute()
@@ -19,4 +20,5 @@ onMounted(initialise)
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  <SystemFeedbackHost />
 </template>

@@ -14,11 +14,12 @@ export default defineComponent({
   },
   setup() {
     const clients = useClientsStore()
+    const feedback = useSystemFeedback()
     const pages = computed(() => Math.ceil(clients.total / clients.limit))
     const currentPage = computed(() => Math.floor(clients.offset / clients.limit) + 1)
 
     async function remove(client: IUser) {
-      const confirmed = window.confirm(`Remover ${client.name} da listagem de clientes? Os recibos serão preservados.`)
+      const confirmed = await feedback.confirm({ title: 'Remover cliente?', message: `Remover ${client.name} da listagem de clientes? Os recibos serão preservados.`, tone: 'danger', confirmLabel: 'Remover cliente' })
       if (!confirmed) return
 
       await clients.remove(client.id)

@@ -193,14 +193,14 @@ export default defineComponent({
 
     async function remove(row: IRealizedExpense) {
       if (!row.editable || row.origin !== 'operational') return
-      const confirmed = window.confirm(`Remover o gasto "${row.description}"?`)
+      const confirmed = await useSystemFeedback().confirm({ title: 'Remover gasto?', message: `Remover o gasto "${row.description}"?`, tone: 'danger', confirmLabel: 'Remover gasto' })
       if (!confirmed) return
       await expenses.remove(row.expenseId || row.id)
     }
 
     async function removeExpense(expense: IExpense) {
       if (expense.installments?.some((installment) => installment.status === 'paid')) return
-      const confirmed = window.confirm(`Remover o gasto "${expense.description}"?`)
+      const confirmed = await useSystemFeedback().confirm({ title: 'Remover gasto?', message: `Remover o gasto "${expense.description}"?`, tone: 'danger', confirmLabel: 'Remover gasto' })
       if (!confirmed) return
       await expenses.remove(expense.id)
     }

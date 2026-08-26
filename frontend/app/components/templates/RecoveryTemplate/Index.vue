@@ -24,6 +24,7 @@ export default defineComponent({
   },
   setup() {
     const receipts = useReceiptsStore()
+    const feedback = useSystemFeedback()
     const pages = computed(() => Math.ceil(receipts.total / receipts.limit))
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
 
@@ -37,7 +38,7 @@ export default defineComponent({
     }
 
     async function reopen(receipt: IReceipt) {
-      const confirmed = window.confirm(`Retornar o recibo de ${receiptClientName(receipt)} para pendente?`)
+      const confirmed = await feedback.confirm({ title: 'Retornar recibo?', message: `Retornar o recibo de ${receiptClientName(receipt)} para pendente?`, confirmLabel: 'Retornar para pendente' })
       if (!confirmed) return
 
       await receipts.reopen(receipt.id)

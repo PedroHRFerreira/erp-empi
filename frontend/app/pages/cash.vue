@@ -72,7 +72,7 @@ async function saveAdjustment() {
     <section class="panel cash-section">
       <header class="cash-section__header"><div><span class="eyebrow">Extrato</span><h2>Movimentos financeiros de hoje</h2></div><span class="count">{{ cash.dailyEntries.length }}</span></header>
       <p v-if="!cash.dailyEntries.length" class="description">Nenhum movimento registrado hoje.</p>
-      <div v-else class="table-wrap" tabindex="0" aria-label="Extrato financeiro de hoje"><table><thead><tr><th>Horário e origem</th><th>Meio</th><th>Valor</th></tr></thead><tbody><tr v-for="entry in cash.dailyEntries" :key="entry.id"><td><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></td><td>{{ entry.paymentMethod === 'cash' ? 'Dinheiro' : entry.paymentMethod === 'pix' ? 'PIX' : entry.paymentMethod === 'debit_card' ? 'Débito' : 'Crédito' }}</td><td :class="entry.amountCents < 0 ? 'out' : 'in'">{{ formatCurrency(entry.amountCents) }}</td></tr></tbody></table></div>
+      <div v-else class="table-wrap" tabindex="0" aria-label="Extrato financeiro de hoje"><table><thead><tr><th>Horário e origem</th><th>Meio</th><th>Valor</th></tr></thead><tbody><tr v-for="entry in cash.dailyEntries" :key="entry.id"><td><NuxtLink v-if="entry.referenceType === 'payable_installment' && entry.referenceId" class="entry-link" :to="`/payment-history/${entry.referenceId}`" :aria-label="`Ver histórico do pagamento de ${entry.description}`"><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></NuxtLink><template v-else><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></template></td><td>{{ entry.paymentMethod === 'cash' ? 'Dinheiro' : entry.paymentMethod === 'pix' ? 'PIX' : entry.paymentMethod === 'debit_card' ? 'Débito' : 'Crédito' }}</td><td :class="entry.amountCents < 0 ? 'out' : 'in'">{{ formatCurrency(entry.amountCents) }}</td></tr></tbody></table></div>
     </section>
 
     <section class="panel cash-section">
@@ -95,6 +95,11 @@ async function saveAdjustment() {
 .table-wrap td:first-child > strong,
 .table-wrap td:first-child > small { display: block; }
 .table-wrap td:first-child > small { margin-top: 3px; }
+.entry-link { display: block; width: fit-content; color: inherit; text-decoration: none; }
+.entry-link > strong, .entry-link > small { display: block; }
+.entry-link > small { margin-top: 3px; }
+.entry-link:hover > strong { text-decoration: underline; }
+.entry-link:focus-visible { border-radius: 3px; outline: 2px solid var(--watt-focus, currentColor); outline-offset: 3px; }
 @media(max-width:640px){
   .cash-summary,.cash-section{padding:16px}
   .cash-section__header{grid-template-columns:minmax(0,1fr)}

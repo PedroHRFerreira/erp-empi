@@ -21,6 +21,7 @@ export default defineComponent({
     const router = useRouter()
     const receipts = useReceiptsStore()
     const auth = useAuthStore()
+    const feedback = useSystemFeedback()
     const pages = computed(() => Math.ceil(receipts.total / receipts.limit))
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
 
@@ -37,7 +38,7 @@ export default defineComponent({
     }
 
     async function cancelReceipt(receipt: IReceipt) {
-      const confirmed = window.confirm(`Cancelar o recibo de ${receiptClientName(receipt)}? Ele não reservará mais produtos no estoque.`)
+      const confirmed = await feedback.confirm({ title: 'Cancelar recibo?', message: `Cancelar o recibo de ${receiptClientName(receipt)}? Ele não reservará mais produtos no estoque.`, tone: 'danger', confirmLabel: 'Cancelar recibo' })
       if (!confirmed) return
 
       await receipts.cancel(receipt.id)

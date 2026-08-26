@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { AlertTriangle, CalendarClock, CheckCircle2, RotateCcw, Search, Sparkles, WalletCards, X } from '@lucide/vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { AlertTriangle, CalendarClock, CheckCircle2, RotateCcw, Search, Sparkles, WalletCards } from '@lucide/vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import type { IPayableInstallment, PaymentMethod } from '../../server/contracts/types'
 import PageHeader from '../components/molecules/PageHeader/Index.vue'
 import { formatCurrency, formatDate } from '../utils/format'
@@ -9,6 +9,7 @@ type StatusFilter = 'all' | 'overdue' | 'due_soon' | 'pending'
 type PeriodFilter = 'all' | '7' | '30' | '90'
 
 const purchases = usePurchasesStore()
+const systemFeedback = useSystemFeedback()
 const selectedMethods = reactive<Record<string, PaymentMethod>>({})
 const paymentDate = ref('')
 const loading = ref(true)
@@ -16,12 +17,7 @@ const loadError = ref('')
 const search = ref('')
 const statusFilter = ref<StatusFilter>('all')
 const periodFilter = ref<PeriodFilter>('all')
-const pendingPayment = ref<IPayableInstallment | null>(null)
 const paying = ref(false)
-const feedback = ref('')
-const confirmDialog = ref<HTMLElement | null>(null)
-const confirmCloseButton = ref<HTMLButtonElement | null>(null)
-let paymentTrigger: HTMLElement | null = null
 
 const today = computed(() => {
   const now = new Date()
@@ -131,58 +127,31 @@ function state(row: IPayableInstallment) {
   return { label: 'Pode antecipar', className: 'early' }
 }
 
-function requestPayment(row: IPayableInstallment) {
-  feedback.value = ''
-  paymentTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  pendingPayment.value = row
-  paymentDate.value = localDateInputValue(new Date())
-  nextTick(() => confirmCloseButton.value?.focus())
-}
-
-function closePayment() {
+async function requestPayment(row: IPayableInstallment) {
   if (paying.value) return
-  pendingPayment.value = null
-  nextTick(() => paymentTrigger?.focus())
-}
-
-function onPaymentDialogKeydown(event: KeyboardEvent) {
-  if (!pendingPayment.value) return
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    closePayment()
-    return
-  }
-  if (event.key !== 'Tab' || !confirmDialog.value) return
-  const focusable = Array.from(confirmDialog.value.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
-  if (!focusable.length) return
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last?.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first?.focus()
-  }
-}
-
-async function confirmPayment() {
-  const row = pendingPayment.value
-  if (!row || paying.value || !paymentDate.value) return
   const method = selectedMethods[row.id] || (row.plannedMethod === 'boleto' ? 'pix' : row.plannedMethod)
+  const decision = await systemFeedback.confirmWithDate({
+    title: 'Registrar pagamento?',
+    message: `Esta ação lançará a saída no caixa e ${row.expense ? 'em Gastos operacionais' : 'como compra de estoque realizada'} na data informada.`,
+    confirmLabel: 'Confirmar pagamento',
+    cancelLabel: 'Cancelar',
+    inputLabel: 'Data do pagamento',
+    inputValue: localDateInputValue(new Date()),
+    details: [
+      { label: 'Origem', value: payableName(row) },
+      { label: 'Valor', value: formatCurrency(row.amountCents) },
+      { label: 'Meio', value: methodLabel(method) },
+    ],
+  })
+  if (!decision.confirmed || !decision.value) return
+  paymentDate.value = decision.value
   purchases.error = ''
   paying.value = true
   const success = await purchases.payInstallment(row.id, method as PaymentMethod, paymentDate.value)
   paying.value = false
-  if (!success) return
-  feedback.value = `Parcela de ${formatCurrency(row.amountCents)} paga via ${methodLabel(method)} em ${formatDate(paymentDate.value)}.`
-  closePayment()
+  if (!success) { systemFeedback.error('Não foi possível registrar o pagamento', purchases.error); return }
+  systemFeedback.success('Pagamento registrado', `Parcela de ${formatCurrency(row.amountCents)} paga via ${methodLabel(method)} em ${formatDate(paymentDate.value)}.`)
 }
-
-if (import.meta.client) window.addEventListener('keydown', onPaymentDialogKeydown)
-onBeforeUnmount(() => {
-  if (import.meta.client) window.removeEventListener('keydown', onPaymentDialogKeydown)
-})
 </script>
 
 <template>
@@ -193,7 +162,6 @@ onBeforeUnmount(() => {
       <span>{{ loadError || purchases.error }}</span>
       <button v-if="loadError" class="button button--secondary" type="button" :disabled="loading" @click="loadPage">Tentar novamente</button>
     </div>
-    <p v-if="feedback" class="success-box" role="status"><CheckCircle2 :size="18" />{{ feedback }}</p>
 
     <section class="kpi-grid" aria-label="Resumo de contas a pagar">
       <article class="kpi-card"><span>Total em aberto</span><strong>{{ formatCurrency(openTotal) }}</strong><small>{{ purchases.payables.length }} parcela(s)</small></article>
@@ -250,21 +218,6 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <Teleport to="body">
-      <div v-if="pendingPayment" class="confirm-payment" role="presentation">
-        <button class="confirm-payment__backdrop" type="button" aria-label="Cancelar pagamento" @click="closePayment" />
-        <section ref="confirmDialog" class="confirm-payment__dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-payment-title" aria-describedby="confirm-payment-description">
-          <button ref="confirmCloseButton" class="confirm-payment__close" type="button" aria-label="Fechar confirmação" @click="closePayment"><X :size="19" /></button>
-          <div class="confirm-payment__icon"><WalletCards :size="24" /></div>
-          <span class="eyebrow">Confirmar quitação</span>
-          <h2 id="confirm-payment-title">Registrar pagamento?</h2>
-          <p id="confirm-payment-description">Esta ação lançará a saída no caixa e {{ pendingPayment.expense ? 'em Gastos operacionais' : 'como compra de estoque realizada' }} na data informada.</p>
-          <dl><div><dt>Origem</dt><dd>{{ payableName(pendingPayment) }}</dd></div><div><dt>Valor</dt><dd>{{ formatCurrency(pendingPayment.amountCents) }}</dd></div><div><dt>Meio</dt><dd>{{ methodLabel(selectedMethods[pendingPayment.id] ?? (pendingPayment.plannedMethod === 'boleto' ? 'pix' : pendingPayment.plannedMethod)) }}</dd></div></dl>
-          <label class="confirm-payment__date"><span>Data do pagamento</span><input v-model="paymentDate" type="date" required :disabled="paying" /></label>
-          <div class="confirm-payment__actions"><button class="button button--ghost" type="button" :disabled="paying" @click="closePayment">Cancelar</button><button class="button button--primary" type="button" :disabled="paying || !paymentDate" @click="confirmPayment">{{ paying ? 'Registrando...' : 'Confirmar pagamento' }}</button></div>
-        </section>
-      </div>
-    </Teleport>
   </section>
 </template>
 

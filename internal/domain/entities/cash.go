@@ -110,19 +110,20 @@ type StockPurchaseItem struct {
 }
 
 type PayableInstallment struct {
-	ID              string                   `json:"id" gorm:"type:char(36);primaryKey"`
-	StockPurchaseID *string                  `json:"stockPurchaseId,omitempty" gorm:"type:char(36);index"`
-	ExpenseID       *string                  `json:"expenseId,omitempty" gorm:"type:char(36);index"`
-	Number          int                      `json:"number" gorm:"not null"`
-	AmountCents     int64                    `json:"amountCents" gorm:"not null"`
-	DueDate         time.Time                `json:"dueDate" gorm:"not null;index"`
-	Status          PayableInstallmentStatus `json:"status" gorm:"size:20;not null;index"`
-	PlannedMethod   PayableMethod            `json:"plannedMethod" gorm:"size:30;not null;default:boleto"`
-	PaymentMethod   PaymentMethod            `json:"paymentMethod,omitempty" gorm:"size:30"`
-	PaidAt          *time.Time               `json:"paidAt,omitempty"`
-	CashEntryID     *string                  `json:"cashEntryId,omitempty" gorm:"type:char(36);index"`
-	StockPurchase   *StockPurchase           `json:"stockPurchase,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
-	Expense         *Expense                 `json:"expense,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	ID               string                   `json:"id" gorm:"type:char(36);primaryKey"`
+	StockPurchaseID  *string                  `json:"stockPurchaseId,omitempty" gorm:"type:char(36);index"`
+	ExpenseID        *string                  `json:"expenseId,omitempty" gorm:"type:char(36);index"`
+	Number           int                      `json:"number" gorm:"not null"`
+	AmountCents      int64                    `json:"amountCents" gorm:"not null"`
+	DueDate          time.Time                `json:"dueDate" gorm:"not null;index"`
+	Status           PayableInstallmentStatus `json:"status" gorm:"size:20;not null;index"`
+	PlannedMethod    PayableMethod            `json:"plannedMethod" gorm:"size:30;not null;default:boleto"`
+	PaymentMethod    PaymentMethod            `json:"paymentMethod,omitempty" gorm:"size:30"`
+	PaidAt           *time.Time               `json:"paidAt,omitempty"`
+	PaymentRevokedAt *time.Time               `json:"paymentRevokedAt,omitempty"`
+	CashEntryID      *string                  `json:"cashEntryId,omitempty" gorm:"type:char(36);index"`
+	StockPurchase    *StockPurchase           `json:"stockPurchase,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	Expense          *Expense                 `json:"expense,omitempty" gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 	Timestamps
 }
 

@@ -21,6 +21,7 @@ export default defineComponent({
   setup() {
     const receipts = useReceiptsStore()
     const auth = useAuthStore()
+    const feedback = useSystemFeedback()
     const receipt = computed(() => receipts.receiptDetail)
 
     function phone(value: string) {
@@ -43,7 +44,7 @@ export default defineComponent({
     }
 
     async function reopen(value: IReceipt) {
-      const confirmed = window.confirm(`Retornar o recibo de ${receiptClientName(value)} para pendente?`)
+      const confirmed = await feedback.confirm({ title: 'Retornar recibo?', message: `Retornar o recibo de ${receiptClientName(value)} para pendente?`, confirmLabel: 'Retornar para pendente' })
       if (!confirmed) return
 
       const result = await receipts.reopen(value.id)

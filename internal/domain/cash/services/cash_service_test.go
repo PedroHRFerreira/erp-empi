@@ -105,6 +105,63 @@ func TestPurchaseUpdatesMultipleItemsAndOnlyPaidInstallmentsCreateOutflow(t *tes
 	}
 }
 
+func TestParsePaidAtKeepsCurrentLocalClockForDateOnlyInput(t *testing.T) {
+	now := time.Date(2026, time.August, 26, 19, 17, 6, 123, time.Local)
+	paidAt, err := parsePaidAtAt("2026-08-20", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, time.August, 20, 19, 17, 6, 123, time.Local)
+	if !paidAt.Equal(want) {
+		t.Fatalf("expected selected date with current clock %v, got %v", want, paidAt)
+	}
+}
+
+func TestInstallmentPaymentCanOnlyBeRevokedOnce(t *testing.T) {
+	service, db := newCashTestService(t)
+	ctx := context.Background()
+	item := createCashTestStock(t, db, "Correia", 9_000, 0)
+	purchase, err := service.CreatePurchase(ctx, PurchaseInput{
+		SupplierName: "Fornecedor",
+		Items:        []PurchaseItemInput{{StockItemID: item.ID, Quantity: 1, UnitCostCents: 9_000}},
+		Installments: []PurchaseInstallmentInput{{AmountCents: 9_000, DueDate: "2026-08-26", PlannedMethod: entities.PayableMethodPix}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := purchase.Installments[0].ID
+	if _, err := service.PayInstallment(ctx, id, entities.PaymentMethodPix); err != nil {
+		t.Fatal(err)
+	}
+	revoked, err := service.RevokeInstallmentPayment(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revoked.Status != entities.PayablePending || revoked.PaymentRevokedAt == nil || revoked.PaidAt != nil || revoked.CashEntryID != nil || revoked.PaymentMethod != "" {
+		t.Fatalf("unexpected revoked installment: %#v", revoked)
+	}
+	var entryCount int64
+	if err := db.Model(&entities.CashEntry{}).Count(&entryCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if entryCount != 0 {
+		t.Fatalf("expected revoked payment outflow to be removed, got %d entries", entryCount)
+	}
+	if _, err := service.PayInstallment(ctx, id, entities.PaymentMethodPix); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RevokeInstallmentPayment(ctx, id); !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("expected second revocation to conflict, got %v", err)
+	}
+	history, err := service.GetInstallmentHistory(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if history.Purchase == nil || len(history.Installments) != 1 || history.Installment.PaymentRevokedAt == nil {
+		t.Fatalf("unexpected payment history: %#v", history)
+	}
+}
+
 func TestPurchaseValidationAndSafeCancellation(t *testing.T) {
 	service, db := newCashTestService(t)
 	ctx := context.Background()

@@ -81,6 +81,13 @@ type PayableAlert struct {
 	PlannedMethod entities.PayableMethod `json:"plannedMethod"`
 }
 
+type PayablePaymentHistory struct {
+	Installment  entities.PayableInstallment   `json:"installment"`
+	Purchase     *entities.StockPurchase       `json:"purchase,omitempty"`
+	Expense      *entities.Expense             `json:"expense,omitempty"`
+	Installments []entities.PayableInstallment `json:"installments"`
+}
+
 func NewCashService(db *gorm.DB) *CashService { return &CashService{db: db} }
 func businessDay(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -421,6 +428,25 @@ func (s *CashService) PendingInstallments(ctx context.Context) ([]entities.Payab
 	err := s.db.WithContext(ctx).Preload("StockPurchase.Items.StockItem").Preload("StockPurchase.Installments").Preload("Expense").Where("status = ?", entities.PayablePending).Order("due_date asc, number asc").Find(&rows).Error
 	return rows, err
 }
+
+func (s *CashService) GetInstallmentHistory(ctx context.Context, id string) (*PayablePaymentHistory, error) {
+	var row entities.PayableInstallment
+	err := s.db.WithContext(ctx).
+		Preload("StockPurchase.Items.StockItem").
+		Preload("StockPurchase.Installments", func(db *gorm.DB) *gorm.DB { return db.Order("number asc") }).
+		Preload("Expense.Installments", func(db *gorm.DB) *gorm.DB { return db.Order("number asc") }).
+		First(&row, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	history := &PayablePaymentHistory{Installment: row, Purchase: row.StockPurchase, Expense: row.Expense}
+	if row.StockPurchase != nil {
+		history.Installments = row.StockPurchase.Installments
+	} else if row.Expense != nil {
+		history.Installments = row.Expense.Installments
+	}
+	return history, nil
+}
 func (s *CashService) PayInstallment(ctx context.Context, id string, method entities.PaymentMethod) (*entities.PayableInstallment, error) {
 	return s.PayInstallmentAt(ctx, id, method, "")
 }
@@ -469,13 +495,45 @@ func (s *CashService) PayInstallmentAt(ctx context.Context, id string, method en
 	return &result, err
 }
 
+func (s *CashService) RevokeInstallmentPayment(ctx context.Context, id string) (*entities.PayableInstallment, error) {
+	var result entities.PayableInstallment
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row entities.PayableInstallment
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if !CanRevokePayment(row.Status, row.CashEntryID, row.PaymentRevokedAt) {
+			return apperrors.ErrConflict
+		}
+		if err := tx.Delete(&entities.CashEntry{}, "id = ?", *row.CashEntryID).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		row.Status = entities.PayablePending
+		row.PaymentRevokedAt = &now
+		row.PaidAt = nil
+		row.PaymentMethod = ""
+		row.CashEntryID = nil
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		result = row
+		return nil
+	})
+	return &result, err
+}
+
 func parsePaidAt(value string) (time.Time, error) {
+	return parsePaidAtAt(value, time.Now())
+}
+
+func parsePaidAtAt(value string, now time.Time) (time.Time, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return time.Now(), nil
+		return now, nil
 	}
 	if parsed, err := time.ParseInLocation("2006-01-02", value, time.Local); err == nil {
-		return parsed, nil
+		return time.Date(parsed.Year(), parsed.Month(), parsed.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.Local), nil
 	}
 	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
 		return parsed, nil

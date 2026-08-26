@@ -113,6 +113,20 @@ func (h *CashHandler) PayInstallment(c echo.Context) error {
 	}
 	return c.JSON(nethttp.StatusOK, row)
 }
+func (h *CashHandler) GetInstallmentHistory(c echo.Context) error {
+	history, err := h.cash.GetInstallmentHistory(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, history)
+}
+func (h *CashHandler) RevokeInstallmentPayment(c echo.Context) error {
+	row, err := h.cash.RevokeInstallmentPayment(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, row)
+}
 func (h *CashHandler) CancelPurchase(c echo.Context) error {
 	row, err := h.cash.CancelPurchase(c.Request().Context(), c.Param("id"))
 	if err != nil {

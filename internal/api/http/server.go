@@ -79,6 +79,8 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	private.POST("/cash/purchases", cashHandler.CreatePurchase)
 	private.POST("/cash/payables/:id/pay", cashHandler.PayInstallment)
 	private.POST("/payables/:id/pay", cashHandler.PayInstallment)
+	private.GET("/payables/:id/history", cashHandler.GetInstallmentHistory)
+	private.POST("/payables/:id/revoke", cashHandler.RevokeInstallmentPayment)
 	private.GET("/stock/purchases", cashHandler.ListPurchases)
 	private.POST("/stock/purchases", cashHandler.CreatePurchase)
 	private.GET("/stock/purchases/:id", cashHandler.GetPurchase)

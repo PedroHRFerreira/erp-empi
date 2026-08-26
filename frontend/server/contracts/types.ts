@@ -82,6 +82,13 @@ export interface IReceipt {
   updatedAt: string;
 }
 
+export interface IPayablePaymentHistory {
+  installment: IPayableInstallment;
+  purchase?: IStockPurchase;
+  expense?: IExpense;
+  installments: IPayableInstallment[];
+}
+
 export interface IClientDetail {
   client: IUser;
   receipts: IReceipt[];
@@ -147,6 +154,8 @@ export interface ICashEntry {
   amountCents: number;
   description: string;
   reason: string;
+  referenceType?: string;
+  referenceId?: string;
   occurredAt: string;
 }
 
@@ -179,6 +188,7 @@ export interface IPayableInstallment {
   plannedMethod: PayableMethod;
   paymentMethod?: PaymentMethod;
   paidAt?: string;
+  paymentRevokedAt?: string;
   cashEntryId?: string;
   stockPurchase?: IStockPurchase;
   expense?: IExpense;

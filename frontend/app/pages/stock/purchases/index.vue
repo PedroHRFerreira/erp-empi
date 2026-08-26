@@ -20,6 +20,7 @@ type PeriodFilter = 'month' | '30_days' | 'year' | 'all'
 type StatusFilter = 'all' | 'open' | 'paid' | 'overdue' | 'cancelled'
 
 const purchases = usePurchasesStore()
+const feedback = useSystemFeedback()
 const supplierQuery = ref('')
 const periodFilter = ref<PeriodFilter>('month')
 const statusFilter = ref<StatusFilter>('all')
@@ -129,7 +130,7 @@ async function retry() {
 async function cancel(purchase: IStockPurchase) {
   if (cancellingPurchaseId.value) return
   const message = `Cancelar a compra de ${formatCurrency(purchase.totalCents)} de ${purchase.supplierName} e reverter as unidades recebidas?`
-  if (!window.confirm(message)) return
+  if (!await feedback.confirm({ title: 'Cancelar compra?', message, tone: 'danger', confirmLabel: 'Cancelar compra' })) return
   purchases.error = ''
   cancellingPurchaseId.value = purchase.id
   await purchases.cancelPurchase(purchase.id)
