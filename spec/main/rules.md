@@ -11,3 +11,4 @@
 - Preferir ícones de raio, tomada ou medidor e evitar ícones genéricos de lâmpada.
 - Validar todos os fluxos afetados em desktop, tablet e celular e atender WCAG 2.2 AA.
 - Preferir transições sutis e respeitar `prefers-reduced-motion`; reservar cores de alerta para estados que realmente exigem atenção.
+- Links que redirecionam para outra tela devem indicar claramente que são clicáveis, combinando um rótulo descritivo do destino com ícone direcional e estados visuais de hover e foco compatíveis com os temas claro e escuro.

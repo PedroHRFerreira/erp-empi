@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowRight } from '@lucide/vue'
 import { computed, reactive, ref } from 'vue'
 import { currencyMaskToCents, maskCurrency } from '../utils/masks'
 import { formatCurrency, formatDate, formatTime } from '../utils/format'
@@ -72,7 +73,7 @@ async function saveAdjustment() {
     <section class="panel cash-section">
       <header class="cash-section__header"><div><span class="eyebrow">Extrato</span><h2>Movimentos financeiros de hoje</h2></div><span class="count">{{ cash.dailyEntries.length }}</span></header>
       <p v-if="!cash.dailyEntries.length" class="description">Nenhum movimento registrado hoje.</p>
-      <div v-else class="table-wrap" tabindex="0" aria-label="Extrato financeiro de hoje"><table><thead><tr><th>Horário e origem</th><th>Meio</th><th>Valor</th></tr></thead><tbody><tr v-for="entry in cash.dailyEntries" :key="entry.id"><td><NuxtLink v-if="entry.referenceType === 'payable_installment' && entry.referenceId" class="entry-link" :to="`/payment-history/${entry.referenceId}`" :aria-label="`Ver histórico do pagamento de ${entry.description}`"><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></NuxtLink><template v-else><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></template></td><td>{{ entry.paymentMethod === 'cash' ? 'Dinheiro' : entry.paymentMethod === 'pix' ? 'PIX' : entry.paymentMethod === 'debit_card' ? 'Débito' : 'Crédito' }}</td><td :class="entry.amountCents < 0 ? 'out' : 'in'">{{ formatCurrency(entry.amountCents) }}</td></tr></tbody></table></div>
+      <div v-else class="table-wrap" tabindex="0" aria-label="Extrato financeiro de hoje"><table><thead><tr><th>Horário e origem</th><th>Meio</th><th>Valor</th></tr></thead><tbody><tr v-for="entry in cash.dailyEntries" :key="entry.id"><td><NuxtLink v-if="entry.referenceType === 'payable_installment' && entry.referenceId" class="entry-link" :to="`/payment-history/${entry.referenceId}`" :aria-label="`Ver histórico do pagamento de ${entry.description}`"><span class="entry-link__details"><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></span><span class="entry-link__action">Ver pagamento <ArrowRight :size="15" aria-hidden="true" /></span></NuxtLink><template v-else><strong>{{ entry.description }}</strong><small>{{ formatTime(entry.occurredAt) }}</small></template></td><td>{{ entry.paymentMethod === 'cash' ? 'Dinheiro' : entry.paymentMethod === 'pix' ? 'PIX' : entry.paymentMethod === 'debit_card' ? 'Débito' : 'Crédito' }}</td><td :class="entry.amountCents < 0 ? 'out' : 'in'">{{ formatCurrency(entry.amountCents) }}</td></tr></tbody></table></div>
     </section>
 
     <section class="panel cash-section">
@@ -95,15 +96,13 @@ async function saveAdjustment() {
 .table-wrap td:first-child > strong,
 .table-wrap td:first-child > small { display: block; }
 .table-wrap td:first-child > small { margin-top: 3px; }
-.entry-link { display: block; width: fit-content; color: inherit; text-decoration: none; }
-.entry-link > strong, .entry-link > small { display: block; }
-.entry-link > small { margin-top: 3px; }
-.entry-link:hover > strong { text-decoration: underline; }
-.entry-link:focus-visible { border-radius: 3px; outline: 2px solid var(--watt-focus, currentColor); outline-offset: 3px; }
+.entry-link { display:inline-flex;align-items:center;gap:12px;width:fit-content;max-width:100%;padding:7px 9px;border:1px solid color-mix(in srgb,var(--watt-data) 32%,var(--watt-border));border-radius:9px;color:inherit;background:color-mix(in srgb,var(--watt-data) 7%,var(--watt-surface-raised));text-decoration:none;transition:border-color .16s ease,background-color .16s ease,transform .16s ease }
+.entry-link__details { display:grid;min-width:0;gap:3px }.entry-link__details strong { overflow:hidden;text-overflow:ellipsis }.entry-link__action { display:inline-flex;flex:none;align-items:center;gap:5px;color:var(--watt-data);font-size:12px;font-weight:700 }.entry-link:hover { border-color:var(--watt-data);background:color-mix(in srgb,var(--watt-data) 13%,var(--watt-surface-raised));transform:translateY(-1px) }.entry-link:focus-visible { outline:2px solid var(--watt-focus,var(--watt-data));outline-offset:3px }@media(prefers-reduced-motion:reduce){.entry-link{transition:none}.entry-link:hover{transform:none}}
 @media(max-width:640px){
   .cash-summary,.cash-section{padding:16px}
   .cash-section__header{grid-template-columns:minmax(0,1fr)}
   .expected{max-width:100%;overflow-wrap:anywhere;white-space:normal}
   .status,.count{justify-self:start}
+  .entry-link{align-items:flex-start;flex-direction:column;gap:6px}
 }
 </style>
