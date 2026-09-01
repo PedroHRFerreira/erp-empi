@@ -2,7 +2,7 @@ import type { IReceipt, IUser } from '../../server/contracts/types'
 import { formatCurrency } from './format'
 import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from './receiptDisplay'
 
-const FALLBACK_COMPANY_NAME = 'EMPI Autocenter'
+const COMPANY_NAME = 'EMPI AUTO CENTER'
 export const COMPANY_CNPJ = '46377137000160'
 export const NFSE_SERVICE_CITY = 'Governador Valadares/MG'
 export const NFSE_TAX_CODE = '31.01.03 - Serviços técnicos em mecânica e congêneres.'
@@ -83,9 +83,11 @@ export interface IReceiptInvoiceDataDocument {
 export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = null): IReceiptDocument {
   const lines = buildReceiptLines(receipt)
   const discountCents = receipt.discountCents || 0
-  const subtotalCents = receipt.subtotalCents || sumLineTotals(lines) - discountCents
   const cardFeeCents = receipt.cardFeeCents || 0
-  const totalCents = receipt.priceCents || subtotalCents + cardFeeCents
+  const visibleSubtotalCents = sumLineTotals(lines)
+  const calculatedTotalCents = Math.max(0, visibleSubtotalCents - discountCents) + cardFeeCents
+  const hasInternalExpenses = Array.isArray(receipt.expenses) && receipt.expenses.length > 0
+  const totalCents = hasInternalExpenses && receipt.priceCents ? receipt.priceCents : calculatedTotalCents
 
   return {
     receiptNumber: receiptNumber(receipt),
@@ -99,12 +101,12 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
       dateLabel: formatDate(receipt.paidAt || receipt.createdAt),
       methodLabel: paymentMethodLabel(receipt),
       amountLabel: receipt.status === 'paid' ? formatCurrency(totalCents) : statusLabel(receipt.status),
-      statusLabel: statusLabel(receipt.status)
+      statusLabel: statusLabel(receipt.status),
     },
     notes: normalizeText(receipt.notes),
     thankYouTitle: 'Obrigado',
     thankYouMessage: 'Tenha um ótimo dia!',
-    legalNotice: 'Este recibo não é uma nota fiscal.'
+    legalNotice: 'Este recibo não é uma nota fiscal.',
   }
 }
 
@@ -119,21 +121,21 @@ export function buildReceiptInvoiceData(receipt: IReceipt, company: IUser | null
     providerRows: [
       {
         name: 'Prestador',
-        lines: partyLines(document.company.name, document.company.lines)
-      }
+        lines: partyLines(document.company.name, document.company.lines),
+      },
     ],
     customerRows: [
       {
         name: 'Tomador',
-        lines: partyLines(document.customer.name, document.customer.lines)
+        lines: partyLines(document.customer.name, document.customer.lines),
       },
       {
         name: 'Veículo',
-        lines: partyLines(document.vehicle.name, document.vehicle.lines)
-      }
+        lines: partyLines(document.vehicle.name, document.vehicle.lines),
+      },
     ],
     serviceRows: document.lines,
-    summaryRows: document.summaryRows
+    summaryRows: document.summaryRows,
   }
 }
 
@@ -151,20 +153,12 @@ export function statusLabel(status: IReceipt['status']) {
 }
 
 function buildReceiptLines(receipt: IReceipt): IReceiptDocumentLine[] {
-  const lines: IReceiptDocumentLine[] = [
-    moneyLine('service', receipt.services || 'Serviços', '1', receipt.laborPriceCents || 0, receipt.laborPriceCents || 0)
-  ]
+  const lines: IReceiptDocumentLine[] = [moneyLine('service', receipt.services || 'Serviços', '1', receipt.laborPriceCents || 0, receipt.laborPriceCents || 0)]
 
   for (const item of Array.isArray(receipt.items) ? receipt.items : []) {
     const quantity = Number(item.quantity || 0)
     const unitPriceCents = Number(item.unitResaleCents || item.stockItem?.resalePriceCents || 0)
-    lines.push(
-      moneyLine('product', item.stockItem?.name || item.stockItemId || 'Produto', String(quantity), unitPriceCents, unitPriceCents * quantity)
-    )
-  }
-
-  for (const expense of Array.isArray(receipt.expenses) ? receipt.expenses : []) {
-    lines.push(moneyLine('expense', `Gasto do serviço: ${expense.description}`, '1', expense.amountCents || 0, expense.amountCents || 0))
+    lines.push(moneyLine('product', item.stockItem?.name || item.stockItemId || 'Produto', String(quantity), unitPriceCents, unitPriceCents * quantity))
   }
 
   return lines
@@ -190,7 +184,7 @@ function moneyLine(kind: IReceiptDocumentLine['kind'], description: string, quan
     priceLabel: formatCurrency(priceCents),
     taxLabel: EMPTY_VALUE,
     totalCents,
-    totalLabel: formatCurrency(totalCents)
+    totalLabel: formatCurrency(totalCents),
   }
 }
 
@@ -199,12 +193,12 @@ function moneyRow(label: string, valueCents: number, strong = false): IReceiptDo
     label,
     valueCents,
     valueLabel: formatCurrency(valueCents),
-    strong
+    strong,
   }
 }
 
 function receiptCompany(company: IUser | null): IReceiptDocumentCompany {
-  const name = normalizeText(company?.name) || FALLBACK_COMPANY_NAME
+  const name = COMPANY_NAME
   const cnpjLabel = formatCnpj(COMPANY_CNPJ)
   const address = normalizeText(company?.address)
   const email = normalizeText(company?.email)
@@ -218,7 +212,7 @@ function receiptCompany(company: IUser | null): IReceiptDocumentCompany {
     address,
     email,
     phone,
-    lines: [`CNPJ: ${cnpjLabel}`, address, email, phone].filter(Boolean)
+    lines: [address, phone ? `Tel: ${phone}` : '', `CNPJ: ${cnpjLabel}`].filter(Boolean),
   }
 }
 
@@ -227,14 +221,14 @@ function receiptCustomer(receipt: IReceipt): IReceiptDocumentParty {
   const name = receiptClientName(receipt)
   return {
     name,
-    lines: [normalizeText(user?.address), normalizeText(user?.email), normalizeText(user?.phone)].filter(Boolean)
+    lines: [user?.cpf ? `CPF/CNPJ: ${formatCpfCnpj(user.cpf)}` : '', user?.phone ? `Telefone: ${normalizeText(user.phone)}` : ''].filter(Boolean),
   }
 }
 
 function receiptVehicle(receipt: IReceipt): IReceiptDocumentParty {
   return {
     name: receiptVehicleName(receipt),
-    lines: [`Placa: ${receiptVehiclePlate(receipt)}`]
+    lines: [`Placa: ${receiptVehiclePlate(receipt)}`, receipt.vehicleYear ? `Ano: ${receipt.vehicleYear}` : ''].filter(Boolean),
   }
 }
 
@@ -252,17 +246,32 @@ function buildInvoicePortalRows(receipt: IReceipt, document: IReceiptDocument): 
     { label: 'CNPJ do prestador', value: document.company.cnpjLabel },
     { label: 'Data de competência', value: document.issuedAtLabel },
     { label: 'País do tomador', value: 'Brasil' },
-    { label: 'CPF/CNPJ do tomador', value: receipt.user?.cpf ? formatCpfCnpj(receipt.user.cpf) : 'Preencher no portal com o documento do cliente' },
+    {
+      label: 'CPF/CNPJ do tomador',
+      value: receipt.user?.cpf ? formatCpfCnpj(receipt.user.cpf) : 'Preencher no portal com o documento do cliente',
+    },
     { label: 'Município da prestação', value: NFSE_SERVICE_CITY },
     { label: 'Código de Tributação Nacional', value: NFSE_TAX_CODE },
-    { label: 'Caso de imunidade/exportação/não incidência do ISSQN', value: 'Não' },
-    { label: 'Descrição do serviço', value: invoiceServiceDescription(receipt) },
-    { label: 'Valor do serviço prestado', value: totalRow?.valueLabel || formatCurrency(receipt.priceCents) },
+    {
+      label: 'Caso de imunidade/exportação/não incidência do ISSQN',
+      value: 'Não',
+    },
+    {
+      label: 'Descrição do serviço',
+      value: invoiceServiceDescription(receipt),
+    },
+    {
+      label: 'Valor do serviço prestado',
+      value: totalRow?.valueLabel || formatCurrency(receipt.priceCents),
+    },
     { label: 'Regime especial de tributação', value: 'Nenhum' },
     { label: 'Exigibilidade do ISSQN suspensa', value: 'Não' },
     { label: 'Retenção do ISSQN', value: 'Não' },
     { label: 'Benefício municipal', value: 'Não' },
-    { label: 'Tributos aproximados', value: 'Não informar nenhum valor estimado' }
+    {
+      label: 'Tributos aproximados',
+      value: 'Não informar nenhum valor estimado',
+    },
   ]
 }
 
@@ -286,7 +295,7 @@ function formatDate(value: string) {
   if (Number.isNaN(date.getTime())) return EMPTY_VALUE
 
   return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'medium'
+    dateStyle: 'medium',
   }).format(date)
 }
 

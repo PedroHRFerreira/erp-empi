@@ -9,6 +9,7 @@ type PdfText = {
   y: number;
   size?: number;
   font?: "F1" | "F2";
+  color?: "black" | "white";
 };
 
 type PdfRule = {
@@ -18,12 +19,21 @@ type PdfRule = {
   y: number;
 };
 
-type PdfElement = PdfText | PdfRule;
+type PdfBox = {
+  kind: "box";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill?: "navy" | "gray";
+};
 
-const PAGE_WIDTH = 226.77;
-const PAGE_HEIGHT = 510.24;
-const LEFT = 12;
-const RIGHT = PAGE_WIDTH - 12;
+type PdfElement = PdfText | PdfRule | PdfBox;
+
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const LEFT = 62;
+const RIGHT = PAGE_WIDTH - 62;
 const CONTENT_WIDTH = RIGHT - LEFT;
 
 export function receiptWhatsAppMessage(
@@ -31,22 +41,35 @@ export function receiptWhatsAppMessage(
   company: IUser | null = null,
 ) {
   const document = buildReceiptDocument(receipt, company);
-  const itemLines = document.lines.map(
-    (line) => `- ${line.quantity}x ${line.description}: ${line.totalLabel}`,
-  );
+  const services = document.lines.filter((line) => line.kind === "service");
+  const products = document.lines.filter((line) => line.kind === "product");
+  const total = document.summaryRows.find((row) => row.label === "Total");
+  const statusTotal =
+    receipt.status === "paid" ? "TOTAL PAGO" : "TOTAL A PAGAR";
+  const lineText = (line: (typeof document.lines)[number]) =>
+    `- ${line.quantity}x ${line.description}: ${line.totalLabel}`;
 
   return [
-    document.receiptNumber,
-    document.company.name,
-    ...document.company.lines,
-    `Cliente: ${document.customer.name}`,
-    `Veículo: ${document.vehicle.name}`,
-    ...document.vehicle.lines,
-    "Serviços:",
-    ...itemLines,
-    `Pagamento: ${document.payment.methodLabel}`,
-    ...document.summaryRows.map((row) => `${row.label}: ${row.valueLabel}`),
-    document.legalNotice,
+    `Olá, ${document.customer.name}!`,
+    "",
+    `Segue o seu recibo da *${document.company.name}*.`,
+    `*${document.receiptNumber}* - ${document.issuedAtLabel}`,
+    "",
+    `*Veículo:* ${document.vehicle.name}`,
+    document.vehicle.lines.join(" | "),
+    "",
+    "*SERVIÇOS*",
+    ...services.map(lineText),
+    ...(products.length
+      ? ["", "*PEÇAS E MATERIAIS*", ...products.map(lineText)]
+      : []),
+    "",
+    `*Forma de pagamento:* ${document.payment.methodLabel}`,
+    `*Status:* ${document.payment.statusLabel}`,
+    `*${statusTotal}: ${total?.valueLabel || document.payment.amountLabel}*`,
+    ...(document.notes ? ["", `*Observações:* ${document.notes}`] : []),
+    "",
+    "Obrigado pela confiança! O recibo em PDF segue em anexo.",
   ].join("\n");
 }
 
@@ -92,10 +115,7 @@ export function buildReceiptPdfBytes(
   company: IUser | null = null,
 ) {
   const document = buildReceiptDocument(receipt, company);
-  const pages = [9, 8, 7]
-    .map((fontSize) => layoutReceipt(document, fontSize))
-    .find((candidate) => candidate.length === 1);
-  const selectedPages = pages || layoutReceipt(document, 7);
+  const selectedPages = layoutReceipt(document, 10);
   return createPdf(
     selectedPages.map((page) =>
       page.map((element) => drawElement(element)).join("\n"),
@@ -107,27 +127,9 @@ function layoutReceipt(
   document: ReturnType<typeof buildReceiptDocument>,
   fontSize: number,
 ): PdfElement[][] {
-  const pages: PdfElement[][] = [];
-  let elements: PdfElement[] = [];
-  pages.push(elements);
-  let y = PAGE_HEIGHT - 14;
-  const lineHeight = fontSize + 2;
-  const sectionTitleSize = fontSize + 2;
-  const ensure = (height: number) => {
-    if (y - height >= 14) return;
-    elements = [];
-    pages.push(elements);
-    y = PAGE_HEIGHT - 14;
-    addHeader(
-      elements,
-      document,
-      fontSize,
-      () => y,
-      (value) => {
-        y = value;
-      },
-    );
-  };
+  const elements: PdfElement[] = [];
+  let y = PAGE_HEIGHT - 62;
+  const lineHeight = fontSize + 4;
   const text = (
     value: string,
     x = LEFT,
@@ -135,147 +137,224 @@ function layoutReceipt(
     font: "F1" | "F2" = "F1",
     size = fontSize,
   ) => {
-    const lines = wrapText(value || "-", maxCharacters(width, size));
-    ensure(lines.length * lineHeight);
-    for (const part of lines) {
+    for (const part of wrapText(value || "-", maxCharacters(width, size))) {
       addLine(elements, part, x, y, size, font);
-      y -= lineHeight;
+      y -= size + 4;
     }
   };
-  const rule = () => {
-    ensure(4);
-    addRule(elements, y, LEFT, RIGHT);
-    y -= 5;
+  const centered = (value: string, size: number, font: "F1" | "F2" = "F2") => {
+    addLine(elements, value, centeredX(value, size), y, size, font);
+    y -= size + 5;
   };
-  const heading = (value: string) => {
-    ensure(sectionTitleSize + 8);
-    addLine(elements, value, LEFT, y, sectionTitleSize, "F2");
-    y -= sectionTitleSize + 4;
-    rule();
+  const bar = (title: string) => {
+    y -= 3;
+    elements.push({
+      kind: "box",
+      x: LEFT,
+      y: y - 21,
+      width: CONTENT_WIDTH,
+      height: 21,
+      fill: "navy",
+    });
+    addLine(elements, title, centeredX(title, 12), y - 15, 12, "F2", "white");
+    y -= 38;
   };
-  const section = (title: string, lines: typeof document.lines) => {
+  const sectionHeading = (title: string) => {
+    y -= 14;
+    const textWidth = estimatedTextWidth(title, 13, true);
+    const titleWidth = Math.max(164, textWidth + 24);
+    const titleX = (PAGE_WIDTH - titleWidth) / 2;
+    addRule(elements, y + 3, LEFT, titleX - 14);
+    elements.push({
+      kind: "box",
+      x: titleX,
+      y: y - 6,
+      width: titleWidth,
+      height: 20,
+      fill: "gray",
+    });
+    addLine(elements, title, (PAGE_WIDTH - textWidth) / 2, y, 13, "F2");
+    addRule(elements, y + 3, titleX + titleWidth + 14, RIGHT);
+    y -= 34;
+  };
+  const itemSection = (title: string, lines: typeof document.lines) => {
     if (!lines.length) return;
-    heading(title);
+    sectionHeading(title);
+    addLine(elements, title.includes("SERVIÇOS") ? "SERVIÇO" : "DESCRIÇÃO", LEFT, y, fontSize, "F2");
+    addLine(elements, "VALOR (R$)", RIGHT - 78, y, fontSize, "F2");
+    y -= 10;
+    addRule(elements, y, LEFT, RIGHT);
+    y -= 16;
     for (const line of lines) {
-      ensure(lineHeight * 2 + 3);
-      text(line.description, LEFT, 112);
-      addLine(elements, `Qtd. ${line.quantity}`, 128, y + lineHeight, fontSize);
-      addLine(elements, line.totalLabel, 176, y + lineHeight, fontSize, "F2");
+      const parts = wrapText(
+        line.quantity === "1"
+          ? line.description
+          : `${line.quantity}x ${line.description}`,
+        maxCharacters(340, fontSize),
+      );
+      parts.forEach((part, index) => {
+        addLine(elements, part, LEFT, y, fontSize);
+        if (index === 0)
+          addLine(
+            elements,
+            line.totalLabel.replace("R$ ", ""),
+            RIGHT - 64,
+            y,
+            fontSize,
+          );
+        y -= lineHeight;
+      });
       y -= 3;
+      addRule(elements, y, LEFT, RIGHT);
+      y -= 15;
     }
+    const subtotal = lines.reduce((sum, line) => sum + line.totalCents, 0);
+    addLine(
+      elements,
+      `Subtotal ${title.includes("SERVIÇOS") ? "Serviços" : "Peças"}:`,
+      LEFT,
+      y,
+      fontSize,
+      "F2",
+    );
+    addLine(elements, formatCents(subtotal), RIGHT - 64, y, fontSize, "F2");
+    y -= 20;
   };
 
-  addHeader(
+  centered(document.company.name.toUpperCase(), 31);
+  centered("-  Serviços Automotivos  -", 16);
+  addRule(elements, y, LEFT, RIGHT);
+  y -= 23;
+  addLine(elements, document.receiptNumber.replace("Recibo ", "Recibo Nº: "), LEFT, y, 14, "F2");
+  addLine(
     elements,
-    document,
-    fontSize,
-    () => y,
-    (value) => {
-      y = value;
-    },
+    `Data: ${document.issuedAtLabel}  |  Governador Valadares - MG`,
+    RIGHT - 245,
+    y,
+    10,
+    "F2",
   );
-  heading("Cliente e veículo");
-  text(document.customer.name, LEFT, CONTENT_WIDTH, "F2");
-  text(document.customer.lines.join(" | ") || "-", LEFT);
-  text(`Veículo: ${document.vehicle.name}`, LEFT, CONTENT_WIDTH, "F2");
-  text(document.vehicle.lines.join(" | "), LEFT);
-  section(
-    "Serviços",
-    document.lines.filter((line) => line.kind !== "product"),
+  y -= 20;
+  addRule(elements, y, LEFT, RIGHT);
+  y -= 16;
+  text(document.company.lines.join("  |  "), LEFT, CONTENT_WIDTH, "F1", 8);
+
+  bar("DADOS DO CLIENTE");
+  text(`Cliente: ${document.customer.name}`, LEFT, CONTENT_WIDTH, "F2", 14);
+  text(
+    document.customer.lines.join("  |  ") || "-",
+    LEFT,
+    CONTENT_WIDTH,
+    "F1",
+    10,
   );
-  section(
-    "Produtos",
+  bar("DADOS DO VEÍCULO");
+  text(
+    `Veículo: ${document.vehicle.name.replace(/\s+\d{4}$/, "")}  |  ${document.vehicle.lines.join("  |  ")}`,
+    LEFT,
+    CONTENT_WIDTH,
+    "F1",
+    12,
+  );
+
+  itemSection(
+    "DESCRIÇÃO DOS SERVIÇOS",
+    document.lines.filter((line) => line.kind === "service"),
+  );
+  itemSection(
+    "PEÇAS E MATERIAIS",
     document.lines.filter((line) => line.kind === "product"),
   );
-  rule();
-  for (const row of document.summaryRows) {
-    ensure(lineHeight);
-    addLine(
-      elements,
-      row.label,
-      118,
-      y,
-      row.strong ? fontSize + 2 : fontSize,
-      row.strong ? "F2" : "F1",
-    );
-    addLine(
-      elements,
-      row.valueLabel,
-      176,
-      y,
-      row.strong ? fontSize + 2 : fontSize,
-      row.strong ? "F2" : "F1",
-    );
-    y -= row.strong ? lineHeight + 2 : lineHeight;
+
+  const detailRows = document.summaryRows.filter((row) => !row.strong);
+  if (detailRows.some((row) => row.label === "Desconto")) {
+    const netTotal = document.summaryRows.find((row) => row.strong)?.valueCents || 0;
+    const discount = Math.abs(detailRows.find((row) => row.label === "Desconto")?.valueCents || 0);
+    const grossTotal = netTotal + discount;
+    addLine(elements, "TOTAL:", LEFT, y, 12);
+    addLine(elements, `R$ ${formatCents(grossTotal)}`, RIGHT - 90, y, 12);
+    y -= 18;
   }
-  heading("Pagamento");
-  text(
-    `${document.payment.methodLabel} — ${document.payment.amountLabel}`,
-    LEFT,
-    CONTENT_WIDTH,
-    "F2",
-  );
-  text(`Data: ${document.payment.dateLabel}`, LEFT);
-  if (document.notes) {
-    heading("Observações");
-    text(document.notes);
+  for (const row of detailRows) {
+    addLine(elements, `${row.label.toUpperCase()}:`, LEFT, y, 12);
+    addLine(elements, row.valueLabel, RIGHT - 90, y, 12);
+    y -= 18;
   }
-  heading(document.thankYouTitle);
-  text(document.thankYouMessage);
-  ensure(lineHeight * 4);
-  addRule(elements, y - lineHeight, LEFT, 94);
-  addRule(elements, y - lineHeight, 132, RIGHT);
+  const total = document.summaryRows.find((row) => row.strong);
+  y -= 7;
+  elements.push({
+    kind: "box",
+    x: LEFT,
+    y: y - 7,
+    width: CONTENT_WIDTH,
+    height: 30,
+    fill: "navy",
+  });
   addLine(
     elements,
-    document.company.name,
-    LEFT,
-    y - lineHeight * 2,
-    fontSize - 1,
+    document.payment.statusLabel === "Pago" ? "TOTAL PAGO:" : "TOTAL A PAGAR:",
+    LEFT + 8,
+    y,
+    16,
     "F2",
+    "white",
   );
   addLine(
     elements,
-    document.customer.name,
-    132,
-    y - lineHeight * 2,
-    fontSize - 1,
+    total?.valueLabel || document.payment.amountLabel,
+    RIGHT - 110,
+    y,
+    18,
     "F2",
+    "white",
   );
-  y -= lineHeight * 3;
+  y -= 37;
   text(
-    document.legalNotice,
+    `Forma de pagamento: ${document.payment.methodLabel} (${document.payment.dateLabel}) - ${document.payment.statusLabel}`,
     LEFT,
     CONTENT_WIDTH,
     "F2",
-    Math.max(fontSize - 1, 6),
+    10,
   );
-  return pages;
+  if (document.notes)
+    text(`Observações: ${document.notes}`, LEFT, CONTENT_WIDTH, "F1", 10);
+  y -= 26;
+  addRule(elements, y, LEFT, LEFT + 200);
+  addRule(elements, y, RIGHT - 200, RIGHT);
+  y -= 15;
+  addLine(elements, "Assinatura do Cliente", LEFT + 48, y, 9);
+  addLine(
+    elements,
+    `Assinatura / Carimbo - ${document.company.name}`,
+    RIGHT - 190,
+    y,
+    9,
+  );
+  addLine(
+    elements,
+    `Obrigado pela confiança! ${document.company.name} - Atendimento de segunda a sexta 08:00-18:00 | sábado 08:00-12:00`,
+    LEFT,
+    44,
+    8,
+    "F2",
+  );
+  addLine(elements, document.legalNotice, LEFT, 30, 7);
+  return [elements];
 }
 
-function addHeader(
-  elements: PdfElement[],
-  document: ReturnType<typeof buildReceiptDocument>,
-  fontSize: number,
-  getY: () => number,
-  setY: (value: number) => void,
-) {
-  let y = getY();
-  addLine(elements, document.company.name, LEFT, y, fontSize + 3, "F2");
-  y -= fontSize + 4;
-  for (const line of document.company.lines) {
-    for (const part of wrapText(
-      line,
-      maxCharacters(CONTENT_WIDTH, fontSize - 1),
-    )) {
-      addLine(elements, part, LEFT, y, Math.max(fontSize - 1, 6));
-      y -= fontSize + 1;
-    }
-  }
-  addLine(elements, document.receiptNumber, LEFT, y, fontSize + 1, "F2");
-  addLine(elements, document.issuedAtLabel, 164, y, fontSize);
-  y -= fontSize + 5;
-  addRule(elements, y, LEFT, RIGHT);
-  setY(y - 6);
+function centeredX(value: string, size: number) {
+  return Math.max(LEFT, (PAGE_WIDTH - estimatedTextWidth(value, size)) / 2);
+}
+
+function estimatedTextWidth(value: string, size: number, bold = false) {
+  return value.length * size * (bold ? 0.56 : 0.52);
+}
+
+function formatCents(value: number) {
+  return (value / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function maxCharacters(width: number, size: number) {
@@ -311,8 +390,9 @@ function addLine(
   y: number,
   size = 10,
   font: "F1" | "F2" = "F1",
+  color: "black" | "white" = "black",
 ) {
-  elements.push({ kind: "text", text, x, y, size, font });
+  elements.push({ kind: "text", text, x, y, size, font, color });
 }
 
 function addRule(elements: PdfElement[], y: number, x1 = LEFT, x2 = RIGHT) {
@@ -320,13 +400,18 @@ function addRule(elements: PdfElement[], y: number, x1 = LEFT, x2 = RIGHT) {
 }
 
 function drawElement(element: PdfElement) {
+  if (element.kind === "box") {
+    const fill = element.fill === "navy" ? "0.04 0.13 0.25 rg" : "0.93 g";
+    return `${fill} ${element.x} ${element.y} ${element.width} ${element.height} re f 0 g 0 G`;
+  }
   if (element.kind === "rule")
     return `0.6 w ${element.x1} ${element.y} m ${element.x2} ${element.y} l S`;
   return drawText(element);
 }
 
 function drawText(line: PdfText) {
-  return `BT /${line.font || "F1"} ${line.size || 10} Tf 1 0 0 1 ${line.x} ${line.y} Tm (${escapePdfString(line.text)}) Tj ET`;
+  const color = line.color === "white" ? "1 g " : "0 g ";
+  return `${color}BT /${line.font || "F1"} ${line.size || 10} Tf 1 0 0 1 ${line.x} ${line.y} Tm (${escapePdfString(line.text)}) Tj ET 0 g`;
 }
 
 function createPdf(contentStreams: string[]) {

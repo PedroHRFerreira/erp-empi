@@ -8,6 +8,7 @@ import {
   type IReceiptDocumentParty,
   type IReceiptInvoicePortalRow,
 } from "./receiptDocument";
+import { buildReceiptPdfFile } from "./receiptPdf";
 
 export const NFSE_PORTAL_URL =
   "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional";
@@ -311,80 +312,18 @@ export function printReceiptDocument(
   receipt: IReceipt,
   company: IUser | null = null,
 ) {
-  const document = buildReceiptDocument(receipt, company);
+  const file = buildReceiptPdfFile(receipt, company);
+  const href = URL.createObjectURL(file);
+  const popup = window.open(href, "_blank", "noopener,noreferrer");
 
-  openPrintDocument(
-    document.receiptNumber,
-    `
-      <main class="document document--receipt">
-        <header class="receipt-header">
-          <div class="company">
-            <span class="company__badge">${escapeHtml(document.company.initials)}</span>
-            <div class="company__details">
-              <strong>${escapeHtml(document.company.name)}</strong>
-              ${renderTextLines(document.company.lines)}
-            </div>
-          </div>
-          <div class="document-title">
-            <h1>${escapeHtml(document.receiptNumber)}</h1>
-            <p class="muted">${escapeHtml(document.issuedAtLabel)}</p>
-          </div>
-        </header>
+  if (!popup) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = file.name;
+    link.click();
+  }
 
-        <div class="divider"></div>
-
-        <section>
-          <h2 class="section-title">Dados do cliente</h2>
-          <p><strong>${escapeHtml(document.customer.name)}</strong></p>
-          ${renderTextLines(document.customer.lines)}
-          <p class="muted">${escapeHtml(document.vehicle.name)} - ${escapeHtml(document.vehicle.lines.join(" "))}</p>
-        </section>
-
-        <section>
-          <table class="receipt-items">
-            <thead>
-              <tr>
-                <th>Serviços</th>
-                <th class="right">Quantidade</th>
-                <th class="right">Preço</th>
-                <th class="right">Total da linha</th>
-              </tr>
-            </thead>
-            <tbody>${renderReceiptLineRows(document.lines)}</tbody>
-          </table>
-        </section>
-
-        <section class="summary">
-          <span aria-hidden="true"></span>
-          <div class="summary__box">
-            ${renderSummaryRows(document.summaryRows)}
-          </div>
-        </section>
-
-        <div class="divider"></div>
-
-        <section class="payment-details">
-          <h2 class="section-title">Detalhes do pagamento</h2>
-          <div class="payment-details__list">
-            <span>${escapeHtml(document.payment.dateLabel)}</span>
-            <span>${escapeHtml(document.payment.methodLabel)}</span>
-            <span>${escapeHtml(document.payment.amountLabel)}</span>
-          </div>
-        </section>
-
-        <div class="divider"></div>
-
-        <section class="thank-you">
-          <h2 class="section-title">${escapeHtml(document.thankYouTitle)}</h2>
-          <p>${escapeHtml(document.thankYouMessage)}</p>
-        </section>
-
-        <footer class="footer">
-          <p><strong>${escapeHtml(document.legalNotice)}</strong></p>
-        </footer>
-      </main>
-    `,
-  );
+  window.setTimeout(() => URL.revokeObjectURL(href), 60_000);
 }
 
 export function printReceiptInvoiceData(
