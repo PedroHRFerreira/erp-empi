@@ -52,13 +52,30 @@ func TestLegacyProductionMigrationPreservesDataAndIsIdempotent(t *testing.T) {
 	}
 	assertLegacyMigration(t, db)
 
+	if err := db.Exec(`INSERT INTO expenses (id, description, category, amount_cents, spent_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, "expense-late-legacy", "Combustível", "combustível", 2000, createdAt, "", createdAt, createdAt).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := requireLegacyMigrationApplied(db); err == nil {
+		t.Fatal("API startup should be blocked for a late legacy expense")
+	}
+	if err := Migrate(db); err != nil {
+		t.Fatalf("repair migration failed: %v", err)
+	}
+	var lateInstallments int64
+	if err := db.Model(&entities.PayableInstallment{}).Where("expense_id = ?", "expense-late-legacy").Count(&lateInstallments).Error; err != nil {
+		t.Fatal(err)
+	}
+	if lateInstallments != 1 {
+		t.Fatalf("late legacy expense received %d installments", lateInstallments)
+	}
+
 	start, _ := time.Parse(time.RFC3339, "2026-07-01T00:00:00Z")
 	end, _ := time.Parse(time.RFC3339, "2026-08-01T00:00:00Z")
 	summary, err := financialservices.NewFinancialService(db).Summary(context.Background(), start, end)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.OperationalExpensesCents != 2500 || summary.ExpensesCount != 1 {
+	if summary.OperationalExpensesCents != 4500 || summary.ExpensesCount != 2 {
 		t.Fatalf("legacy operational totals changed: %+v", summary)
 	}
 	if summary.StockExpensesCents != 8000 || summary.StockPaymentsCount != 2 {
@@ -68,7 +85,7 @@ func TestLegacyProductionMigrationPreservesDataAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 3 || len(rows) != 3 {
+	if total != 4 || len(rows) != 4 {
 		t.Fatalf("legacy realized rows missing: total=%d rows=%+v", total, rows)
 	}
 	for _, row := range rows {

@@ -45,10 +45,8 @@ func requireLegacyMigrationApplied(db *gorm.DB) error {
 func migrateLegacyProductionData(tx *gorm.DB) error {
 	var applied dataMigration
 	err := tx.First(&applied, "id = ?", legacyProductionMigrationID).Error
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	alreadyApplied := err == nil
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	if err := validateLegacyInputs(tx); err != nil {
@@ -62,6 +60,9 @@ func migrateLegacyProductionData(tx *gorm.DB) error {
 	}
 	if err := validateLegacyOutputs(tx); err != nil {
 		return err
+	}
+	if alreadyApplied {
+		return nil
 	}
 	return tx.Create(&dataMigration{ID: legacyProductionMigrationID, AppliedAt: time.Now()}).Error
 }
