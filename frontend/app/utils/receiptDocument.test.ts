@@ -220,7 +220,7 @@ describe('receipt document helpers', () => {
     expect(source).not.toContain('Deslocamento')
   })
 
-  it('keeps item descriptions while showing only the paid total as a monetary value', () => {
+  it('matches the customer receipt hierarchy with service and product subtotals', () => {
     const source = new TextDecoder('latin1').decode(
       buildReceiptPdfBytes(
         makeReceipt({ discountCents: 5000, priceCents: 19150, status: 'paid' }),
@@ -230,11 +230,9 @@ describe('receipt document helpers', () => {
 
     expect(source).toContain('DESCRIÇÃO DOS SERVIÇOS')
     expect(source).toContain('PEÇAS E MATERIAIS')
+    expect(source).toContain('Subtotal Serviços:')
+    expect(source).toContain('Subtotal Peças:')
     expect(source).toContain('TOTAL PAGO:')
-    expect(source).not.toContain('VALOR (R$)')
-    expect(source).not.toContain('Subtotal Serviços:')
-    expect(source).not.toContain('Subtotal Peças:')
-    expect(source).not.toContain('DESCONTO:')
   })
 
   it('builds a concise WhatsApp message with the receipt summary', () => {
@@ -244,8 +242,6 @@ describe('receipt document helpers', () => {
     expect(message).toContain('*SERVIÇOS*')
     expect(message).toContain('*PEÇAS E MATERIAIS*')
     expect(message).toContain('*TOTAL PAGO: R$')
-    expect(message).not.toContain('Higienização interna: R$')
-    expect(message).not.toContain('Produto premium: R$')
     expect(message).toContain('PDF segue em anexo')
     expect(message).not.toContain('Deslocamento')
   })

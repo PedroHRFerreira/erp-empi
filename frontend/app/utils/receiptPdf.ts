@@ -47,7 +47,7 @@ export function receiptWhatsAppMessage(
   const statusTotal =
     receipt.status === "paid" ? "TOTAL PAGO" : "TOTAL A PAGAR";
   const lineText = (line: (typeof document.lines)[number]) =>
-    `- ${line.quantity}x ${line.description}`;
+    `- ${line.quantity}x ${line.description}: ${line.totalLabel}`;
 
   return [
     `Olá, ${document.customer.name}!`,
@@ -181,6 +181,7 @@ function layoutReceipt(
     if (!lines.length) return;
     sectionHeading(title);
     addLine(elements, title.includes("SERVIÇOS") ? "SERVIÇO" : "DESCRIÇÃO", LEFT, y, fontSize, "F2");
+    addLine(elements, "VALOR (R$)", RIGHT - 78, y, fontSize, "F2");
     y -= 10;
     addRule(elements, y, LEFT, RIGHT);
     y -= 16;
@@ -191,14 +192,33 @@ function layoutReceipt(
           : `${line.quantity}x ${line.description}`,
         maxCharacters(340, fontSize),
       );
-      parts.forEach((part) => {
+      parts.forEach((part, index) => {
         addLine(elements, part, LEFT, y, fontSize);
+        if (index === 0)
+          addLine(
+            elements,
+            line.totalLabel.replace("R$ ", ""),
+            RIGHT - 64,
+            y,
+            fontSize,
+          );
         y -= lineHeight;
       });
       y -= 3;
       addRule(elements, y, LEFT, RIGHT);
       y -= 15;
     }
+    const subtotal = lines.reduce((sum, line) => sum + line.totalCents, 0);
+    addLine(
+      elements,
+      `Subtotal ${title.includes("SERVIÇOS") ? "Serviços" : "Peças"}:`,
+      LEFT,
+      y,
+      fontSize,
+      "F2",
+    );
+    addLine(elements, formatCents(subtotal), RIGHT - 64, y, fontSize, "F2");
+    y -= 20;
   };
 
   centered(document.company.name.toUpperCase(), 31);
@@ -246,6 +266,20 @@ function layoutReceipt(
     document.lines.filter((line) => line.kind === "product"),
   );
 
+  const detailRows = document.summaryRows.filter((row) => !row.strong);
+  if (detailRows.some((row) => row.label === "Desconto")) {
+    const netTotal = document.summaryRows.find((row) => row.strong)?.valueCents || 0;
+    const discount = Math.abs(detailRows.find((row) => row.label === "Desconto")?.valueCents || 0);
+    const grossTotal = netTotal + discount;
+    addLine(elements, "TOTAL:", LEFT, y, 12);
+    addLine(elements, `R$ ${formatCents(grossTotal)}`, RIGHT - 90, y, 12);
+    y -= 18;
+  }
+  for (const row of detailRows) {
+    addLine(elements, `${row.label.toUpperCase()}:`, LEFT, y, 12);
+    addLine(elements, row.valueLabel, RIGHT - 90, y, 12);
+    y -= 18;
+  }
   const total = document.summaryRows.find((row) => row.strong);
   y -= 7;
   elements.push({
@@ -314,6 +348,13 @@ function centeredX(value: string, size: number) {
 
 function estimatedTextWidth(value: string, size: number, bold = false) {
   return value.length * size * (bold ? 0.56 : 0.52);
+}
+
+function formatCents(value: number) {
+  return (value / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function maxCharacters(width: number, size: number) {
