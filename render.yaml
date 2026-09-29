@@ -48,7 +48,7 @@ services:
     name: erp-empi-keepalive
     runtime: node
     plan: starter
-    schedule: "*/10 * * * *"
+    schedule: "0 3 1 * *"
     buildCommand: "true"
     startCommand: "node -e \"fetch('https://' + process.env.API_HOST + '/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))\""
     envVars:
