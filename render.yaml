@@ -2,7 +2,7 @@ services:
   - type: web
     name: erp-empi-api
     runtime: docker
-    plan: free
+    plan: starter
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
     healthCheckPath: /health
@@ -88,7 +88,7 @@ services:
   - type: web
     name: erp-empi-web
     runtime: docker
-    plan: free
+    plan: starter
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
     healthCheckPath: /login
