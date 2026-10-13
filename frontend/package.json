@@ -15,8 +15,15 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@fontsource/anton": "^5.3.0",
+    "@fontsource/bebas-neue": "^5.3.0",
+    "@fontsource/dancing-script": "^5.3.0",
     "@fontsource/fira-code": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
+    "@fontsource/kalam": "^5.3.0",
+    "@fontsource/knewave": "^5.3.0",
+    "@fontsource/oswald": "^5.3.0",
+    "@fontsource/roboto-condensed": "^5.3.0",
     "@lucide/vue": "^1.0.0",
     "@pinia/nuxt": "^0.11.0",
     "nuxt": "^4.0.0",

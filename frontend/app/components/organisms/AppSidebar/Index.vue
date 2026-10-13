@@ -8,6 +8,7 @@ import {
   FileText,
   LogOut,
   Menu,
+  Megaphone,
   RotateCcw,
   Target,
   UserRound,
@@ -15,7 +16,7 @@ import {
   Wallet,
   X,
 } from "@lucide/vue";
-import { defineComponent, onMounted, ref, watch } from "vue";
+import { computed, defineComponent, onMounted, ref, watch } from "vue";
 import BrandMark from "../../atoms/BrandMark/Index.vue";
 import ThemeToggle from "../../atoms/ThemeToggle/Index.vue";
 import FinancialNotificationsDrawer from "../FinancialNotificationsDrawer/Index.vue";
@@ -34,6 +35,7 @@ export default defineComponent({
     Wallet,
     LogOut,
     Menu,
+    Megaphone,
     RotateCcw,
     Target,
     ThemeToggle,
@@ -57,6 +59,7 @@ export default defineComponent({
       { to: "/cash", label: "Caixa", icon: Wallet },
       { to: "/payables", label: "Contas a pagar", icon: CreditCard },
       { to: "/stock", label: "Estoque", icon: Boxes },
+      { to: "/marketing", label: "Marketing", icon: Megaphone },
       { to: "/profile", label: "Perfil", icon: UserRound },
     ];
 
@@ -78,7 +81,7 @@ export default defineComponent({
     onMounted(() => purchases.loadAlerts());
 
     return {
-      links,
+      links: computed(() => links.filter(link => link.to !== '/marketing' || auth.user?.type === 'admin')),
       logout,
       mobileOpen,
       notificationsOpen,

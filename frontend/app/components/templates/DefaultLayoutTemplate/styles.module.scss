@@ -16,6 +16,13 @@
   .default-layout-template { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
+@media (min-width: 901px) and (max-width: 1199px) {
+  .default-layout-template:has(.app-sidebar:hover),
+  .default-layout-template:has(.app-sidebar:focus-within) {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 520px) {
   .default-layout-template__content { padding: 16px 12px 32px; }
 }

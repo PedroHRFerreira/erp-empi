@@ -8,6 +8,8 @@ import (
 	expenseservices "github.com/empi-autocenter/erp-empi/internal/domain/expenses/services"
 	financialservices "github.com/empi-autocenter/erp-empi/internal/domain/financial/services"
 	goalservices "github.com/empi-autocenter/erp-empi/internal/domain/goals/services"
+	marketingrepos "github.com/empi-autocenter/erp-empi/internal/domain/marketing/repositories"
+	marketingservices "github.com/empi-autocenter/erp-empi/internal/domain/marketing/services"
 	metricservices "github.com/empi-autocenter/erp-empi/internal/domain/metrics/services"
 	receiptrepos "github.com/empi-autocenter/erp-empi/internal/domain/receipts/repositories"
 	receiptservices "github.com/empi-autocenter/erp-empi/internal/domain/receipts/services"
@@ -19,6 +21,7 @@ import (
 )
 
 type Container struct {
+	Marketing *marketingservices.MarketingService
 	Auth      *authservices.AuthService
 	Users     *userservices.UserService
 	Stock     *stockservices.StockService
@@ -48,6 +51,7 @@ func NewContainer(cfg *config.Config, db *gorm.DB) (*Container, error) {
 
 	return &Container{
 		Auth:      auth,
+		Marketing: marketingservices.NewMarketingService(marketingrepos.NewMarketingRepository(db)),
 		Users:     users,
 		Stock:     stock,
 		Receipts:  receipts,

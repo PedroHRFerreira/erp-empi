@@ -51,6 +51,9 @@ func migrateSchema(tx *gorm.DB) error {
 		return err
 	}
 	if err := tx.AutoMigrate(
+		new(entities.MarketingBrand),
+		new(entities.MarketingCreation),
+		new(entities.MarketingImage),
 		new(entities.User),
 		new(entities.StockItem),
 		new(entities.Receipt),

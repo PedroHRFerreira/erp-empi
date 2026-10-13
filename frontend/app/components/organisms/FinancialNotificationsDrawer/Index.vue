@@ -25,7 +25,7 @@ function label(kind: IPayableAlert['kind']) {
 }
 
 function plannedMethod(method: IPayableAlert['plannedMethod']) {
-  return ({ boleto: 'Boleto', cash: 'Dinheiro', pix: 'PIX', debit_card: 'Débito', credit_card: 'Crédito' })[method]
+  return ({ boleto: 'Boleto', cash: 'Dinheiro', pix: 'PIX', debit_card: 'Débito', credit_card: 'Crédito', legacy: 'Não informado' })[method]
 }
 
 function onKeydown(event: KeyboardEvent) {
