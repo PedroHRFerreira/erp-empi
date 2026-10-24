@@ -58,6 +58,7 @@ func migrateSchema(tx *gorm.DB) error {
 		new(entities.StockItem),
 		new(entities.Receipt),
 		new(entities.ReceiptItem),
+		new(entities.ReceiptPayment),
 		new(entities.Expense),
 		new(entities.CashSession),
 		new(entities.CashEntry),

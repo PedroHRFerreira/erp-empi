@@ -27,13 +27,13 @@ func (repo *ReceiptRepository) Create(ctx context.Context, receipt *entities.Rec
 }
 
 func (repo *ReceiptRepository) UpdateWithTx(tx *gorm.DB, receipt *entities.Receipt) error {
-	return tx.Save(receipt).Error
+	return tx.Omit("Payments").Save(receipt).Error
 }
 
 func (repo *ReceiptRepository) List(ctx context.Context, limit int, offset int, status string) ([]entities.Receipt, int64, error) {
 	var receipts []entities.Receipt
 	var total int64
-	query := repo.db.WithContext(ctx).Model(&entities.Receipt{}).Preload("User").Preload("Items.StockItem").Preload("Expenses")
+	query := repo.db.WithContext(ctx).Model(&entities.Receipt{}).Preload("User").Preload("Items.StockItem").Preload("Expenses").Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") })
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -41,6 +41,9 @@ func (repo *ReceiptRepository) List(ctx context.Context, limit int, offset int, 
 		return nil, 0, err
 	}
 	err := query.Order("created_at desc").Limit(limit).Offset(offset).Find(&receipts).Error
+	for i := range receipts {
+		receipts[i].Payments = receipts[i].EffectivePayments()
+	}
 	return receipts, total, err
 }
 
@@ -50,10 +53,14 @@ func (repo *ReceiptRepository) ListByUserID(ctx context.Context, userID string) 
 		Preload("User").
 		Preload("Items.StockItem").
 		Preload("Expenses").
+		Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
 		Where("user_id = ?", userID).
 		Order("created_at desc").
 		Find(&receipts).
 		Error
+	for i := range receipts {
+		receipts[i].Payments = receipts[i].EffectivePayments()
+	}
 	return receipts, err
 }
 
@@ -105,18 +112,20 @@ func reservedQuantitiesByStockItemIDs(ctx context.Context, db *gorm.DB, stockIte
 
 func (repo *ReceiptRepository) FindByID(ctx context.Context, id string) (*entities.Receipt, error) {
 	receipt := new(entities.Receipt)
-	err := repo.db.WithContext(ctx).Preload("User").Preload("Items.StockItem").Preload("Expenses").First(receipt, "id = ?", id).Error
+	err := repo.db.WithContext(ctx).Preload("User").Preload("Items.StockItem").Preload("Expenses").Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).First(receipt, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperrors.ErrNotFound
 	}
+	receipt.Payments = receipt.EffectivePayments()
 	return receipt, err
 }
 
 func (repo *ReceiptRepository) FindByIDForUpdate(tx *gorm.DB, id string) (*entities.Receipt, error) {
 	receipt := new(entities.Receipt)
-	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").First(receipt, "id = ?", id).Error
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Items").Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).First(receipt, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperrors.ErrNotFound
 	}
+	receipt.Payments = receipt.EffectivePayments()
 	return receipt, err
 }
