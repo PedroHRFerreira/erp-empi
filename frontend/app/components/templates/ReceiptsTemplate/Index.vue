@@ -99,6 +99,8 @@ export default defineComponent({
       </template>
     </PageHeader>
 
+    <p v-if="receipts.error" class="form-error" role="alert">{{ receipts.error }}</p>
+
     <ReceiptsTable
       :receipts="receipts.receipts"
       @cancel="cancelReceipt"

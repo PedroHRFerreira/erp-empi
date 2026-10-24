@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, MessageCircle, Printer, RotateCcw } from '@lucide/vue'
 import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
+import { paymentMethodLabel, receiptPaymentParts } from '../../../utils/receiptDocument'
 import { maskPhone } from '../../../utils/masks'
 import { printReceiptDocument } from '../../../utils/print'
 import { receiptClientName, receiptClientPhone, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
@@ -28,13 +29,6 @@ export default defineComponent({
       return value ? maskPhone(value) : '-'
     }
 
-    function paymentLabel(value: IReceipt) {
-      if (value.paymentMethod === 'credit_card') return `Cartão de crédito (${value.installments || 1}x)`
-      if (value.paymentMethod === 'debit_card') return 'Cartão de débito'
-      if (value.paymentMethod === 'pix') return 'Pix'
-      return 'Dinheiro'
-    }
-
     function itemTotal(item: IReceipt['items'][number]) {
       return item.unitResaleCents * item.quantity
     }
@@ -58,7 +52,8 @@ export default defineComponent({
       formatCurrency,
       formatDateTime,
       itemTotal,
-      paymentLabel,
+      paymentLabel: paymentMethodLabel,
+      receiptPaymentParts,
       phone,
       printReceiptDocument,
       receipt,
@@ -152,6 +147,7 @@ export default defineComponent({
           <div>
             <span>Pagamento</span>
             <strong>{{ paymentLabel(receipt) }}</strong>
+            <small v-for="(payment, index) in receiptPaymentParts(receipt)" :key="index">{{ payment.detailLabel }}</small>
           </div>
         </div>
         <p>{{ receipt.services }}</p>

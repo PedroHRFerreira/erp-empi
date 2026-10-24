@@ -105,6 +105,21 @@
   gap: 12px;
 }
 
+.client-receipt__money div {
+  min-width: 0;
+}
+
+.client-receipt__money strong,
+.client-receipt__money small {
+  overflow-wrap: anywhere;
+}
+
+.client-receipt__money small {
+  color: var(--braip-theme-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .client-receipt__total strong {
   color: var(--braip-brand-primary);
 }

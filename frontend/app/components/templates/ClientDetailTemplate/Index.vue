@@ -3,6 +3,7 @@ import { ArrowLeft, MessageCircle, Printer } from '@lucide/vue'
 import { defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
+import { paymentMethodLabel, receiptPaymentParts } from '../../../utils/receiptDocument'
 import { maskPhone } from '../../../utils/masks'
 import { printReceiptDocument } from '../../../utils/print'
 import PageHeader from '../../molecules/PageHeader/Index.vue'
@@ -29,13 +30,6 @@ export default defineComponent({
       return 'Pendente'
     }
 
-    function paymentLabel(receipt: IReceipt) {
-      if (receipt.paymentMethod === 'credit_card') return `Cartão de crédito (${receipt.installments || 1}x)`
-      if (receipt.paymentMethod === 'debit_card') return 'Cartão de débito'
-      if (receipt.paymentMethod === 'pix') return 'Pix'
-      return 'Dinheiro'
-    }
-
     function itemTotal(item: IReceipt['items'][number]) {
       return item.unitResaleCents * item.quantity
     }
@@ -49,7 +43,8 @@ export default defineComponent({
       formatCurrency,
       formatDateTime,
       itemTotal,
-      paymentLabel,
+      paymentLabel: paymentMethodLabel,
+      receiptPaymentParts,
       phone,
       printReceiptDocument,
       receipts,
@@ -145,6 +140,7 @@ export default defineComponent({
               <div>
                 <span>Pagamento</span>
                 <strong>{{ paymentLabel(receipt) }}</strong>
+                <small v-for="(payment, index) in receiptPaymentParts(receipt)" :key="index">{{ payment.detailLabel }}</small>
               </div>
               <div class="client-receipt__total">
                 <span>Total final</span>

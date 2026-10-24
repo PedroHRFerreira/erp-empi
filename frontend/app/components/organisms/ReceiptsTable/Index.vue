@@ -5,6 +5,7 @@ import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
 import EmptyState from '../../molecules/EmptyState/Index.vue'
 import { formatCurrency, formatDateTime } from '../../../utils/format'
+import { paymentMethodLabel, receiptPaymentParts } from '../../../utils/receiptDocument'
 import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from '../../../utils/receiptDisplay'
 
 export default defineComponent({
@@ -56,13 +57,6 @@ export default defineComponent({
       emit('share-whatsapp', receipt)
     }
 
-    function paymentMethodLabel(receipt: IReceipt) {
-      if (receipt.paymentMethod === 'credit_card') return `Crédito ${receipt.installments || 1}x`
-      if (receipt.paymentMethod === 'debit_card') return 'Débito'
-      if (receipt.paymentMethod === 'pix') return 'Pix'
-      return 'Dinheiro'
-    }
-
     function statusBadgeClass(status: IReceipt['status']) {
       if (status === 'paid') return 'badge--paid'
       if (status === 'cancelled') return 'badge--cancelled'
@@ -83,6 +77,7 @@ export default defineComponent({
       formatDateTime,
       markPaid,
       paymentMethodLabel,
+      receiptPaymentParts,
       receiptClientName,
       receiptVehicleName,
       receiptVehiclePlate,
@@ -125,6 +120,7 @@ export default defineComponent({
       <div class="receipts-list__cell">
         <span class="receipts-list__label">Pagamento</span>
         <strong>{{ paymentMethodLabel(receipt) }}</strong>
+        <small v-for="(payment, index) in receiptPaymentParts(receipt)" :key="index">{{ payment.detailLabel }}</small>
       </div>
       <div class="receipts-list__cell">
         <span class="receipts-list__label">Emitido em</span>

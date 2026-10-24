@@ -233,6 +233,90 @@
   color: var(--braip-brand-primary);
 }
 
+:deep(.receipt-payments) {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+:deep(.receipt-payments h3),
+:deep(.receipt-payments h4) {
+  margin: 0;
+  line-height: 1.3;
+}
+
+:deep(.receipt-payments h3) {
+  font-size: 18px;
+}
+
+:deep(.receipt-payments h4) {
+  font-size: 14px;
+}
+
+:deep(.receipt-payments__toggle) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:deep(.receipt-payments__toggle input) {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  accent-color: var(--braip-brand-primary);
+}
+
+:deep(.receipt-payments__part) {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--braip-theme-border);
+  border-radius: 8px;
+}
+
+:deep(.receipt-payments__part .field) {
+  min-width: 0;
+}
+
+:deep(.receipt-payments__part input[readonly]) {
+  color: var(--braip-theme-text-secondary);
+  background: var(--braip-theme-background-soft);
+}
+
+:deep(.receipt-payments__part .receipt-mini-summary) {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  background: var(--braip-theme-background-soft);
+}
+
+:deep(.receipt-payments__part .receipt-mini-summary div) {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+:deep(.receipt-payments__part .receipt-mini-summary strong) {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+:deep(.receipt-payments__part .receipt-summary__installment) {
+  grid-column: 1 / -1;
+}
+
+:deep(.receipt-payments__hint) {
+  margin: 0;
+  color: var(--braip-theme-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .receipt-wizard-actions {
   display: flex;
   flex-wrap: wrap;
