@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"math"
 	"strings"
 	"time"
 
@@ -34,7 +35,15 @@ type ReceiptExpenseInput struct {
 	Notes       string `json:"notes"`
 }
 
+type ReceiptPaymentInput struct {
+	PaymentMethod   entities.PaymentMethod `json:"paymentMethod"`
+	BaseAmountCents int64                  `json:"baseAmountCents"`
+	CardFeePercent  *float64               `json:"cardFeePercent"`
+	Installments    int                    `json:"installments"`
+}
+
 type ReceiptInput struct {
+	Payments        []ReceiptPaymentInput          `json:"payments"`
 	Quick           bool                           `json:"quick"`
 	Client          userservices.UpsertClientInput `json:"client"`
 	VehicleModel    string                         `json:"vehicleModel"`
@@ -151,6 +160,10 @@ func (service *ReceiptService) Update(ctx context.Context, adminID string, id st
 		receipt.Notes = prepared.Receipt.Notes
 		receipt.PaidAt = nil
 		receipt.Items = nil
+		receipt.Payments = nil
+		if err := tx.Where("receipt_id = ?", id).Delete(&entities.ReceiptPayment{}).Error; err != nil {
+			return err
+		}
 
 		if err := tx.WithContext(ctx).Where("receipt_id = ?", id).Delete(&entities.ReceiptItem{}).Error; err != nil {
 			return err
@@ -162,6 +175,12 @@ func (service *ReceiptService) Update(ctx context.Context, adminID string, id st
 			return err
 		}
 
+		for index := range prepared.Receipt.Payments {
+			prepared.Receipt.Payments[index].ReceiptID = id
+		}
+		if err := tx.Create(&prepared.Receipt.Payments).Error; err != nil {
+			return err
+		}
 		for index := range prepared.Items {
 			prepared.Items[index].ReceiptID = id
 		}
@@ -277,7 +296,7 @@ func (service *ReceiptService) prepareReceipt(ctx context.Context, adminID strin
 	}
 
 	laborPriceCents := input.LaborPriceCents
-	if input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
+	if input.Payments == nil && input.PaymentMethod == "" && input.LaborPriceCents == 0 && input.PriceCents > 0 {
 		laborPriceCents = input.PriceCents - productsTotalCents - serviceExpensesTotalCents
 		if laborPriceCents < 0 {
 			laborPriceCents = 0
@@ -289,15 +308,31 @@ func (service *ReceiptService) prepareReceipt(ctx context.Context, adminID strin
 		return nil, apperrors.ErrInvalidInput
 	}
 	subtotalCents := grossSubtotalCents - discountCents
-	paymentMethod := normalizePaymentMethod(input.PaymentMethod)
-	installments := normalizeInstallments(paymentMethod, input.Installments)
-	cardFeePercent := selectCardFeePercent(paymentMethod, installments, admin, input.CardFeePercent)
-	cardFeeCents := calculatePercentCents(subtotalCents, cardFeePercent)
-	totalCents := subtotalCents + cardFeeCents
+	payments, err := preparePayments(input, subtotalCents, admin)
+	if err != nil {
+		return nil, err
+	}
+	paymentMethod := payments[0].PaymentMethod
+	installments := payments[0].Installments
+	cardFeePercent := payments[0].CardFeePercent
+	var cardFeeCents, totalCents int64
+	for _, payment := range payments {
+		if payment.AmountCents > math.MaxInt64-totalCents {
+			return nil, apperrors.ErrInvalidInput
+		}
+		cardFeeCents += payment.CardFeeCents
+		totalCents += payment.AmountCents
+	}
+	if len(payments) == 2 {
+		paymentMethod = entities.PaymentMethodMixed
+		installments = 1
+		cardFeePercent = 0
+	}
 
 	return &preparedReceipt{
 		UserID: userID,
 		Receipt: entities.Receipt{
+			Payments:           payments,
 			VehicleModel:       strings.TrimSpace(input.VehicleModel),
 			VehicleYear:        input.VehicleYear,
 			VehiclePlate:       strings.ToUpper(strings.TrimSpace(input.VehiclePlate)),
@@ -445,10 +480,28 @@ func validateReceiptInput(input ReceiptInput) error {
 		input.LaborPriceCents < 0 ||
 		input.DiscountCents < 0 ||
 		input.PriceCents < 0 ||
-		(input.CardFeePercent != nil && *input.CardFeePercent < 0) ||
-		!isValidPaymentMethod(input.PaymentMethod) ||
+		(input.CardFeePercent != nil && !validFeePercent(*input.CardFeePercent)) ||
+		(input.Payments == nil && !isValidPaymentMethod(input.PaymentMethod)) ||
 		(input.PaymentMethod == entities.PaymentMethodCreditCard && (input.Installments < 0 || input.Installments > 12)) {
 		return apperrors.ErrInvalidInput
+	}
+	if input.Payments != nil {
+		if len(input.Payments) < 1 || len(input.Payments) > 2 {
+			return apperrors.ErrInvalidInput
+		}
+		seen := make(map[entities.PaymentMethod]bool)
+		for _, payment := range input.Payments {
+			if payment.PaymentMethod == "" ||
+				!isValidPaymentMethod(payment.PaymentMethod) ||
+				seen[payment.PaymentMethod] ||
+				payment.BaseAmountCents < 0 ||
+				(len(input.Payments) == 2 && payment.BaseAmountCents == 0) ||
+				(payment.CardFeePercent != nil && !validFeePercent(*payment.CardFeePercent)) ||
+				(payment.PaymentMethod == entities.PaymentMethodCreditCard && (payment.Installments < 1 || payment.Installments > 12)) {
+				return apperrors.ErrInvalidInput
+			}
+			seen[payment.PaymentMethod] = true
+		}
 	}
 	if !input.Quick && (strings.TrimSpace(input.VehicleModel) == "" ||
 		input.VehicleYear < 1950 ||
@@ -558,4 +611,40 @@ func selectCardFeePercent(method entities.PaymentMethod, installments int, admin
 	default:
 		return 0
 	}
+}
+
+func validFeePercent(percent float64) bool {
+	return !math.IsNaN(percent) && !math.IsInf(percent, 0) && percent >= 0
+}
+
+func preparePayments(input ReceiptInput, subtotalCents int64, admin *entities.User) ([]entities.ReceiptPayment, error) {
+	inputs := input.Payments
+	if inputs == nil {
+		method := normalizePaymentMethod(input.PaymentMethod)
+		inputs = []ReceiptPaymentInput{{PaymentMethod: method, BaseAmountCents: subtotalCents, CardFeePercent: input.CardFeePercent, Installments: normalizeInstallments(method, input.Installments)}}
+	}
+	payments := make([]entities.ReceiptPayment, 0, len(inputs))
+	var baseTotal int64
+	for index, input := range inputs {
+		if input.BaseAmountCents > math.MaxInt64-baseTotal {
+			return nil, apperrors.ErrInvalidInput
+		}
+		baseTotal += input.BaseAmountCents
+		installments := normalizeInstallments(input.PaymentMethod, input.Installments)
+		percent := selectCardFeePercent(input.PaymentMethod, installments, admin, input.CardFeePercent)
+		if !validFeePercent(percent) || float64(input.BaseAmountCents)*(percent/100) >= float64(math.MaxInt64-input.BaseAmountCents) {
+			return nil, apperrors.ErrInvalidInput
+		}
+		fee := calculatePercentCents(input.BaseAmountCents, percent)
+		payments = append(payments, entities.ReceiptPayment{
+			Position: index, PaymentMethod: input.PaymentMethod,
+			BaseAmountCents: input.BaseAmountCents, CardFeePercent: percent,
+			CardFeeCents: fee, AmountCents: input.BaseAmountCents + fee,
+			Installments: installments,
+		})
+	}
+	if baseTotal != subtotalCents {
+		return nil, apperrors.ErrInvalidInput
+	}
+	return payments, nil
 }

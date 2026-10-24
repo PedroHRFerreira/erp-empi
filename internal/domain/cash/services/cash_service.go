@@ -229,7 +229,16 @@ func (s *CashService) AddAdjustment(ctx context.Context, input AdjustmentInput) 
 }
 
 func (s *CashService) RecordReceiptPayment(tx *gorm.DB, receipt *entities.Receipt) error {
-	return s.record(tx, &entities.CashEntry{Direction: entities.CashEntryIn, Kind: entities.CashEntrySale, PaymentMethod: receipt.PaymentMethod, AmountCents: receipt.PriceCents, Description: "Pagamento de recibo", ReferenceType: "receipt", ReferenceID: receipt.ID, OccurredAt: time.Now()})
+	occurredAt := time.Now()
+	for _, payment := range receipt.EffectivePayments() {
+		if !validMethod(payment.PaymentMethod) {
+			return apperrors.ErrInvalidInput
+		}
+		if err := s.record(tx, &entities.CashEntry{Direction: entities.CashEntryIn, Kind: entities.CashEntrySale, PaymentMethod: payment.PaymentMethod, AmountCents: payment.AmountCents, Description: "Pagamento de recibo", ReferenceType: "receipt", ReferenceID: receipt.ID, OccurredAt: occurredAt}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *CashService) RecordExpense(ctx context.Context, expense *entities.Expense, method entities.PaymentMethod) error {
