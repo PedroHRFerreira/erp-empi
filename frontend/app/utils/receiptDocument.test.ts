@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { IReceipt, IUser } from '../../server/contracts/types'
-import { buildReceiptDocument, buildReceiptInvoiceData } from './receiptDocument'
+import { buildReceiptDocument, buildReceiptInvoiceData, paymentMethodLabel, receiptPaymentParts } from './receiptDocument'
 import { buildReceiptPdfBytes, receiptWhatsAppMessage } from './receiptPdf'
+import { printReceiptDocument } from './print'
 
 const baseUser: IUser = {
   id: 'user-1',
@@ -140,7 +141,7 @@ describe('receipt document helpers', () => {
     expect(document.summaryRows.at(1)?.valueCents).toBe(18900)
   })
 
-  it('recalculates the customer total from visible items when a stored total has the discount inverted', () => {
+  it('preserves the stored historical total even if visible items differ', () => {
     const document = buildReceiptDocument(
       makeReceipt({
         laborPriceCents: 5000,
@@ -160,7 +161,7 @@ describe('receipt document helpers', () => {
       companyUser,
     )
 
-    expect(document.summaryRows.map((row) => row.valueCents)).toEqual([-1000, 19000])
+    expect(document.summaryRows.map((row) => row.valueCents)).toEqual([-1000, 21000])
   })
 
   it('builds a quick receipt without customer or vehicle data', () => {
@@ -203,7 +204,7 @@ describe('receipt document helpers', () => {
     })
   })
 
-  it('creates an A4 receipt without truncating information or exposing card fees and internal expenses', () => {
+  it('creates an A4 receipt without truncating information or exposing internal expenses', () => {
     const receipt = makeReceipt({
       services: 'Troca completa das buchas da suspensão dianteira com revisão do sistema de direção',
       notes: 'Garantia de três meses para os serviços executados conforme orientação do fabricante.',
@@ -244,5 +245,96 @@ describe('receipt document helpers', () => {
     expect(message).toContain('*TOTAL PAGO: R$')
     expect(message).toContain('PDF segue em anexo')
     expect(message).not.toContain('Deslocamento')
+  })
+})
+
+
+function splitReceipt(overrides: Partial<IReceipt> = {}): IReceipt {
+  return makeReceipt({
+    paymentMethod: 'mixed',
+    subtotalCents: 10000,
+    priceCents: 10200,
+    cardFeeCents: 200,
+    status: 'paid',
+    payments: [
+      { paymentMethod: 'pix', baseAmountCents: 6000, cardFeePercent: 0, cardFeeCents: 0, amountCents: 6000, installments: 1 },
+      { paymentMethod: 'credit_card', baseAmountCents: 4000, cardFeePercent: 5, cardFeeCents: 200, amountCents: 4200, installments: 3 },
+    ],
+    ...overrides,
+  })
+}
+
+describe('split payment documents', () => {
+  it('shows ordered amounts, credit installments and only the card fee without duplicating the total', () => {
+    const document = buildReceiptDocument(splitReceipt({ expenses: [], items: [] }))
+    expect(document.payment.methodLabel).toBe('Pix + Cartão de crédito (3x)')
+    expect(document.payment.parts.map((part) => part.amountCents)).toEqual([6000, 4200])
+    expect(document.payment.parts[0]?.cardFeeLabel).toBe('')
+    expect(document.payment.parts[1]?.cardFeeLabel.replaceAll('\u00a0', ' ')).toBe('Base R$ 40,00 + taxa R$ 2,00 (5%)')
+    expect(document.payment.parts[1]?.installmentLabel.replaceAll('\u00a0', ' ')).toBe('3x de R$ 14,00')
+    expect(document.summaryRows.map((row) => row.valueCents)).toEqual([10200])
+  })
+
+  it('preserves stored historical fees and divides cents exactly with the final installment', () => {
+    const document = buildReceiptDocument(makeReceipt({ priceCents: 10001, cardFeePercent: 5, cardFeeCents: 1, installments: 3 }))
+    expect(document.payment.parts[0]?.baseAmountCents).toBe(10000)
+    expect(document.payment.parts[0]?.cardFeeCents).toBe(1)
+    expect(document.payment.parts[0]?.installmentLabel.replaceAll('\u00a0', ' ')).toBe('2x de R$ 33,33 + última de R$ 33,35')
+    expect(document.summaryRows.at(-1)?.valueCents).toBe(10001)
+  })
+
+  it('does not describe missing mixed details as cash or parcel debit', () => {
+    expect(paymentMethodLabel(splitReceipt({ payments: [] }))).toBe('Pagamento dividido (detalhes indisponíveis)')
+    const debit = receiptPaymentParts(makeReceipt({ paymentMethod: 'debit_card', installments: 12, payments: [] }))[0]!
+    expect(debit.installments).toBe(1)
+    expect(debit.installmentLabel).toBe('')
+    expect(debit.methodLabel).toBe('Cartão de débito')
+  })
+
+  it('includes both parts in WhatsApp and the printable PDF', async () => {
+    const receipt = splitReceipt()
+    const message = receiptWhatsAppMessage(receipt).replaceAll('\u00a0', ' ')
+    expect(message).toContain('- Pix: R$ 60,00')
+    expect(message).toContain('- Cartão de crédito (3x): R$ 42,00')
+    expect(message).toContain('3x de R$ 14,00')
+    expect(message).toContain('taxa R$ 2,00 (5%)')
+    expect(message).toContain('*TOTAL PAGO: R$ 102,00*')
+    const source = new TextDecoder('latin1').decode(buildReceiptPdfBytes(receipt))
+    expect(source).toContain('Pix: R$ 60,00')
+    expect(source).toContain('R$ 42,00')
+    expect(source).toContain('3x de R$ 14,00')
+    expect(source).toContain('taxa R$ 2,00')
+
+    let printedFile: Blob | undefined
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockImplementation((file) => {
+      printedFile = file as Blob
+      return 'blob:receipt-print'
+    })
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window)
+    const timeout = vi.spyOn(window, 'setTimeout').mockReturnValue({} as ReturnType<typeof window.setTimeout>)
+    try {
+      printReceiptDocument(receipt)
+      expect(open).toHaveBeenCalledWith('blob:receipt-print', '_blank', 'noopener,noreferrer')
+      expect(printedFile?.type).toBe('application/pdf')
+      const printed = new TextDecoder('latin1').decode(await printedFile!.arrayBuffer())
+      expect(printed).toContain('Pix: R$ 60,00')
+      expect(printed).toContain('3x de R$ 14,00')
+    } finally {
+      createObjectURL.mockRestore()
+      open.mockRestore()
+      timeout.mockRestore()
+    }
+  })
+
+  it('wraps and paginates long receipts while retaining payment details', () => {
+    const source = new TextDecoder('latin1').decode(buildReceiptPdfBytes(splitReceipt({
+      services: 'Serviço detalhado de manutenção '.repeat(150),
+      notes: 'Observação extensa para o cliente '.repeat(100),
+    })))
+    expect(Number(source.match(/\/Count (\d+)/)?.[1])).toBeGreaterThan(1)
+    expect(source).toContain('Pix: R$ 60,00')
+    expect(source).toContain('3x de R$ 14,00')
+    expect(source).toContain('taxa R$ 2,00')
+    expect(source).not.toContain('...')
   })
 })

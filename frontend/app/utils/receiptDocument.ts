@@ -1,4 +1,4 @@
-import type { IReceipt, IUser } from '../../server/contracts/types'
+import type { IReceipt, IReceiptPayment, IUser } from '../../server/contracts/types'
 import { formatCurrency } from './format'
 import { receiptClientName, receiptVehicleName, receiptVehiclePlate } from './receiptDisplay'
 
@@ -47,11 +47,27 @@ export interface IReceiptInvoicePortalRow {
   value: string
 }
 
+export interface IReceiptDocumentPaymentPart {
+  paymentMethod: IReceipt['paymentMethod']
+  methodLabel: string
+  baseAmountCents: number
+  baseAmountLabel: string
+  cardFeePercent: number
+  cardFeeCents: number
+  cardFeeLabel: string
+  amountCents: number
+  amountLabel: string
+  installments: number
+  installmentLabel: string
+  detailLabel: string
+}
+
 export interface IReceiptDocumentPayment {
   dateLabel: string
   methodLabel: string
   amountLabel: string
   statusLabel: string
+  parts: IReceiptDocumentPaymentPart[]
 }
 
 export interface IReceiptDocument {
@@ -83,11 +99,7 @@ export interface IReceiptInvoiceDataDocument {
 export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = null): IReceiptDocument {
   const lines = buildReceiptLines(receipt)
   const discountCents = receipt.discountCents || 0
-  const cardFeeCents = receipt.cardFeeCents || 0
-  const visibleSubtotalCents = sumLineTotals(lines)
-  const calculatedTotalCents = Math.max(0, visibleSubtotalCents - discountCents) + cardFeeCents
-  const hasInternalExpenses = Array.isArray(receipt.expenses) && receipt.expenses.length > 0
-  const totalCents = hasInternalExpenses && receipt.priceCents ? receipt.priceCents : calculatedTotalCents
+  const totalCents = receipt.priceCents
 
   return {
     receiptNumber: receiptNumber(receipt),
@@ -102,6 +114,7 @@ export function buildReceiptDocument(receipt: IReceipt, company: IUser | null = 
       methodLabel: paymentMethodLabel(receipt),
       amountLabel: receipt.status === 'paid' ? formatCurrency(totalCents) : statusLabel(receipt.status),
       statusLabel: statusLabel(receipt.status),
+      parts: receiptPaymentParts(receipt),
     },
     notes: normalizeText(receipt.notes),
     thankYouTitle: 'Obrigado',
@@ -139,11 +152,69 @@ export function buildReceiptInvoiceData(receipt: IReceipt, company: IUser | null
   }
 }
 
-export function paymentMethodLabel(receipt: Pick<IReceipt, 'paymentMethod' | 'installments'>) {
-  if (receipt.paymentMethod === 'credit_card') return `Cartão de crédito (${receipt.installments || 1}x)`
-  if (receipt.paymentMethod === 'debit_card') return 'Cartão de débito'
-  if (receipt.paymentMethod === 'pix') return 'Pix'
-  return 'Dinheiro'
+type ReceiptPaymentSummary = Pick<IReceipt, 'paymentMethod' | 'installments' | 'payments'>
+
+function methodLabel(method: string, installments = 1): string {
+  if (method === 'credit_card') return `Cartão de crédito (${installments || 1}x)`
+  if (method === 'debit_card') return 'Cartão de débito'
+  if (method === 'pix') return 'Pix'
+  if (method === 'cash') return 'Dinheiro'
+  if (method === 'mixed') return 'Pagamento dividido (detalhes indisponíveis)'
+  return 'Pagamento não informado'
+}
+
+export function paymentMethodLabel(receipt: ReceiptPaymentSummary): string {
+  if (receipt.payments?.length) {
+    return receipt.payments.map((payment) => methodLabel(payment.paymentMethod, payment.installments)).join(' + ')
+  }
+  return methodLabel(receipt.paymentMethod, receipt.installments)
+}
+
+/** Uses persisted amounts, including legacy receipts; never recalculates historical fees. */
+export function receiptPaymentParts(receipt: Pick<IReceipt, 'paymentMethod' | 'installments' | 'payments' | 'priceCents' | 'cardFeeCents' | 'cardFeePercent'>): IReceiptDocumentPaymentPart[] {
+  const payments: Array<Omit<IReceiptPayment, 'paymentMethod'> & { paymentMethod: IReceipt['paymentMethod'] }> = receipt.payments?.length
+    ? receipt.payments
+    : [{
+        paymentMethod: receipt.paymentMethod,
+        baseAmountCents: receipt.priceCents - (receipt.cardFeeCents || 0),
+        cardFeePercent: receipt.cardFeePercent || 0,
+        cardFeeCents: receipt.cardFeeCents || 0,
+        amountCents: receipt.priceCents,
+        installments: receipt.installments || 1,
+      }]
+
+  return payments.map((payment) => {
+    const installments = payment.paymentMethod === 'credit_card' ? payment.installments || 1 : 1
+    const label = methodLabel(payment.paymentMethod, installments)
+    const amountLabel = formatCurrency(payment.amountCents)
+    const baseAmountLabel = formatCurrency(payment.baseAmountCents)
+    const isCard = payment.paymentMethod === 'credit_card' || payment.paymentMethod === 'debit_card'
+    const cardFeeLabel = isCard && payment.cardFeeCents > 0
+      ? `Base ${baseAmountLabel} + taxa ${formatCurrency(payment.cardFeeCents)} (${payment.cardFeePercent}%)`
+      : ''
+    const installmentLabel = payment.paymentMethod === 'credit_card' && installments > 1
+      ? paymentInstallmentLabel(payment.amountCents, installments)
+      : ''
+    const details = [installmentLabel, cardFeeLabel].filter(Boolean).join(' · ')
+    return {
+      ...payment,
+      installments,
+      methodLabel: label,
+      baseAmountLabel,
+      amountLabel,
+      cardFeeLabel,
+      installmentLabel,
+      detailLabel: `${label}: ${amountLabel}${details ? ` - ${details}` : ''}`,
+    }
+  })
+}
+
+/** The last installment absorbs the remainder so the displayed sum stays exact. */
+export function paymentInstallmentLabel(amountCents: number, installments: number): string {
+  const regularCents = Math.floor(amountCents / installments)
+  const lastCents = amountCents - regularCents * (installments - 1)
+  if (regularCents === lastCents) return `${installments}x de ${formatCurrency(regularCents)}`
+  return `${installments - 1}x de ${formatCurrency(regularCents)} + última de ${formatCurrency(lastCents)}`
 }
 
 export function statusLabel(status: IReceipt['status']) {
@@ -336,8 +407,4 @@ function partyLines(name: string, lines: string[]) {
 
 function normalizeText(value: string | undefined | null) {
   return String(value || '').trim()
-}
-
-function sumLineTotals(lines: IReceiptDocumentLine[]) {
-  return lines.reduce((total, line) => total + line.totalCents, 0)
 }

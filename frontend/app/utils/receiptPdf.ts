@@ -65,6 +65,7 @@ export function receiptWhatsAppMessage(
       : []),
     "",
     `*Forma de pagamento:* ${document.payment.methodLabel}`,
+    ...document.payment.parts.map((part) => `- ${part.detailLabel}`),
     `*Status:* ${document.payment.statusLabel}`,
     `*${statusTotal}: ${total?.valueLabel || document.payment.amountLabel}*`,
     ...(document.notes ? ["", `*Observações:* ${document.notes}`] : []),
@@ -127,8 +128,15 @@ function layoutReceipt(
   document: ReturnType<typeof buildReceiptDocument>,
   fontSize: number,
 ): PdfElement[][] {
-  const elements: PdfElement[] = [];
+  let elements: PdfElement[] = [];
+  const pages: PdfElement[][] = [];
   let y = PAGE_HEIGHT - 62;
+  const ensureSpace = (height: number) => {
+    if (y - height >= 90) return;
+    pages.push(elements);
+    elements = [];
+    y = PAGE_HEIGHT - 62;
+  };
   const lineHeight = fontSize + 4;
   const text = (
     value: string,
@@ -138,6 +146,7 @@ function layoutReceipt(
     size = fontSize,
   ) => {
     for (const part of wrapText(value || "-", maxCharacters(width, size))) {
+      ensureSpace(size + 4);
       addLine(elements, part, x, y, size, font);
       y -= size + 4;
     }
@@ -147,6 +156,7 @@ function layoutReceipt(
     y -= size + 5;
   };
   const bar = (title: string) => {
+    ensureSpace(70);
     y -= 3;
     elements.push({
       kind: "box",
@@ -160,6 +170,7 @@ function layoutReceipt(
     y -= 38;
   };
   const sectionHeading = (title: string) => {
+    ensureSpace(100);
     y -= 14;
     const textWidth = estimatedTextWidth(title, 13, true);
     const titleWidth = Math.max(164, textWidth + 24);
@@ -193,6 +204,7 @@ function layoutReceipt(
         maxCharacters(340, fontSize),
       );
       parts.forEach((part, index) => {
+        ensureSpace(lineHeight);
         addLine(elements, part, LEFT, y, fontSize);
         if (index === 0)
           addLine(
@@ -204,10 +216,12 @@ function layoutReceipt(
           );
         y -= lineHeight;
       });
+      ensureSpace(20);
       y -= 3;
       addRule(elements, y, LEFT, RIGHT);
       y -= 15;
     }
+    ensureSpace(30);
     const subtotal = lines.reduce((sum, line) => sum + line.totalCents, 0);
     addLine(
       elements,
@@ -266,6 +280,7 @@ function layoutReceipt(
     document.lines.filter((line) => line.kind === "product"),
   );
 
+  ensureSpace(120);
   const detailRows = document.summaryRows.filter((row) => !row.strong);
   if (detailRows.some((row) => row.label === "Desconto")) {
     const netTotal = document.summaryRows.find((row) => row.strong)?.valueCents || 0;
@@ -316,8 +331,12 @@ function layoutReceipt(
     "F2",
     10,
   );
+  for (const part of document.payment.parts) {
+    text(part.detailLabel, LEFT, CONTENT_WIDTH, "F1", 9);
+  }
   if (document.notes)
     text(`Observações: ${document.notes}`, LEFT, CONTENT_WIDTH, "F1", 10);
+  ensureSpace(50);
   y -= 26;
   addRule(elements, y, LEFT, LEFT + 200);
   addRule(elements, y, RIGHT - 200, RIGHT);
@@ -330,16 +349,16 @@ function layoutReceipt(
     y,
     9,
   );
-  addLine(
-    elements,
-    `Obrigado pela confiança! ${document.company.name} - Atendimento de segunda a sexta 08:00-18:00 | sábado 08:00-12:00`,
-    LEFT,
-    44,
-    8,
-    "F2",
-  );
-  addLine(elements, document.legalNotice, LEFT, 30, 7);
-  return [elements];
+  pages.push(elements);
+  for (const page of pages) {
+    addLine(
+      page,
+      `Obrigado pela confiança! ${document.company.name} - Atendimento de segunda a sexta 08:00-18:00 | sábado 08:00-12:00`,
+      LEFT, 44, 8, "F2",
+    );
+    addLine(page, document.legalNotice, LEFT, 30, 7);
+  }
+  return pages;
 }
 
 function centeredX(value: string, size: number) {
@@ -364,7 +383,8 @@ function maxCharacters(width: number, size: number) {
 function wrapText(value: string, maxLength: number) {
   const words = String(value || "-")
     .trim()
-    .split(/\s+/);
+    .split(/\s+/)
+    .flatMap((word) => word.match(new RegExp(`.{1,${maxLength}}`, "gu")) || []);
   const lines: string[] = [];
   let line = "";
   for (const word of words) {
