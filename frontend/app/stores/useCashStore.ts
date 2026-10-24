@@ -3,10 +3,9 @@ import type {
   ICashBalances,
   ICashEntry,
   ICashSession,
-  IReceipt,
 } from "../../server/contracts/types";
 
-type PaymentMethod = IReceipt["paymentMethod"];
+type PaymentMethod = ICashEntry["paymentMethod"];
 
 export const useCashStore = defineStore("cash", {
   state: () => ({

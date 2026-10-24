@@ -1,6 +1,6 @@
-import type { ICashBalances, ICashEntry, IReceipt } from '../../server/contracts/types'
+import type { ICashBalances, ICashEntry } from '../../server/contracts/types'
 
-type PaymentMethod = IReceipt['paymentMethod']
+type PaymentMethod = ICashEntry['paymentMethod']
 
 const paymentMethods: PaymentMethod[] = ['cash', 'pix', 'debit_card', 'credit_card']
 

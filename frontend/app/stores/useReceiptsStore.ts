@@ -3,6 +3,7 @@ import type { IPaginated, IReceipt, IUser } from '../../server/contracts/types'
 import { formatCurrency } from '../utils/format'
 import { receiptClientName, receiptClientPhone, receiptVehicleLine } from '../utils/receiptDisplay'
 import { receiptWhatsAppMessage, shareReceiptPdf } from '../utils/receiptPdf'
+import { calculateReceiptPayments, validateReceiptPayments, type ReceiptPaymentForm } from '../utils/receiptPayments'
 import { isPlate, onlyDigits } from '../utils/validation'
 import type { IStoreActionResult } from './types'
 
@@ -37,6 +38,7 @@ export function receiptWizardStepsFor(quick = false) {
 
 export type ReceiptForm = {
   quick: boolean
+  payments: ReceiptPaymentForm[]
   client: {
     name: string
     phone: string
@@ -66,6 +68,7 @@ export function makeReceiptForm(defaultFees: { machineFeePercent?: number; insta
 
   return {
     quick,
+    payments: [{ paymentMethod: 'cash', baseAmountCents: 0, cardFeePercent: 0, installments: 1 }],
     client: { name: '', phone: '' },
     vehicleModel: '',
     vehicleYear: new Date().getFullYear(),
@@ -102,6 +105,11 @@ export function receiptToForm(receipt: IReceipt): ReceiptForm {
 
   return {
     quick,
+    payments: receipt.payments?.length ? receipt.payments.map((payment) => ({
+      paymentMethod: payment.paymentMethod, baseAmountCents: payment.baseAmountCents,
+      cardFeePercent: payment.cardFeePercent, installments: payment.installments,
+    })) : [{ paymentMethod: receipt.paymentMethod === 'mixed' ? 'cash' : (receipt.paymentMethod || 'cash'),
+      baseAmountCents: receipt.priceCents - receipt.cardFeeCents, cardFeePercent: receipt.cardFeePercent || 0, installments: receipt.installments || 1 }],
     client: {
       name: receipt.user?.name || '',
       phone: receipt.user?.phone || ''
@@ -118,7 +126,7 @@ export function receiptToForm(receipt: IReceipt): ReceiptForm {
     cardFeePercent: receipt.cardFeePercent || 0,
     machineFeePercent: receipt.cardFeePercent || 0,
     installmentFeePercent: receipt.cardFeePercent || 0,
-    paymentMethod: receipt.paymentMethod || 'cash',
+    paymentMethod: receipt.paymentMethod === 'mixed' ? (receipt.payments?.[0]?.paymentMethod || 'cash') : (receipt.paymentMethod || 'cash'),
     installments: receipt.installments || 1,
     notes: receipt.notes || '',
     items: receipt.items.map((item) => {
@@ -220,6 +228,7 @@ export const useReceiptsStore = defineStore('receipts', {
       this.validateServiceFields(form, true)
       this.validateProductFields(form)
       this.validateServiceExpenseFields(form)
+      Object.assign(this.fieldErrors, validateReceiptPayments(form.payments, receiptSubtotalCents(form)))
 
       this.error = Object.values(this.fieldErrors)[0] || ''
       return Object.keys(this.fieldErrors).length === 0
@@ -246,15 +255,6 @@ export const useReceiptsStore = defineStore('receipts', {
       if (form.discountCents < 0) this.fieldErrors.discountCents = 'Informe um desconto válido.'
       if (enforceDiscountLimit && form.discountCents > receiptGrossSubtotalCents(form)) {
         this.fieldErrors.discountCents = 'O desconto não pode ser maior que o subtotal.'
-      }
-      if (!['credit_card', 'debit_card', 'pix', 'cash'].includes(form.paymentMethod)) {
-        this.fieldErrors.paymentMethod = 'Informe a forma de pagamento.'
-      }
-      if (form.paymentMethod === 'credit_card' && (form.installments < 1 || form.installments > 12)) {
-        this.fieldErrors.installments = 'Informe entre 1 e 12 parcelas.'
-      }
-      if ((form.paymentMethod === 'credit_card' || form.paymentMethod === 'debit_card') && form.cardFeePercent < 0) {
-        this.fieldErrors.cardFeePercent = 'Informe um juros válido.'
       }
     },
     validateProductFields(form: ReceiptForm) {
@@ -423,7 +423,14 @@ export const useReceiptsStore = defineStore('receipts', {
       const { error, status } = await useApiFetch(`/receipts/${id}/pay`, { method: 'POST' })
 
       if (status.value === 'error') {
-        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível marcar o recibo como pago.')
+        const message = error.value?.data?.message
+        const receipt = this.receipts.find((item) => item.id === id) || this.receiptDetail
+        const receivesCash = receipt?.payments?.length
+          ? receipt.payments.some((payment) => payment.paymentMethod === 'cash')
+          : receipt?.paymentMethod === 'cash'
+        this.error = receivesCash && (message === 'conflict' || message === 'Conflito ao processar a solicitação.')
+          ? 'Não foi possível quitar o recibo. Verifique se o caixa está aberto para receber a parte em dinheiro.'
+          : getReceiptErrorMessage(message, 'Não foi possível marcar o recibo como pago.')
         return { status: 'error', errors: this.error, message: this.error }
       }
 
@@ -523,7 +530,8 @@ function invalidateReceiptDependencies() {
     '/metrics/summary',
     '/goals',
     '/expenses',
-    '/financial/summary'
+    '/financial/summary',
+    '/cash'
   ])
 }
 
@@ -535,7 +543,9 @@ function dateToInputValue(value: string) {
   return toDateInputValue(new Date(value))
 }
 
-function buildReceiptPayload(form: ReceiptForm) {
+export function buildReceiptPayload(form: ReceiptForm) {
+  const calculated = calculateReceiptPayments(form.payments, receiptSubtotalCents(form))
+  const first = calculated.payments[0]!
   return {
     client: {
       name: form.quick ? '' : form.client.name.trim(),
@@ -548,10 +558,13 @@ function buildReceiptPayload(form: ReceiptForm) {
     services: form.services.trim(),
     laborPriceCents: form.laborPriceCents,
     discountCents: form.discountCents,
-    priceCents: form.priceCents,
-    cardFeePercent: ['credit_card', 'debit_card'].includes(form.paymentMethod) ? form.cardFeePercent : 0,
-    paymentMethod: form.paymentMethod,
-    installments: form.paymentMethod === 'credit_card' ? form.installments : 1,
+    priceCents: calculated.amountCents,
+    payments: calculated.payments.map(({ paymentMethod, baseAmountCents, cardFeePercent, installments }) => ({
+      paymentMethod, baseAmountCents, cardFeePercent, installments,
+    })),
+    cardFeePercent: calculated.payments.length === 1 ? first.cardFeePercent : 0,
+    paymentMethod: calculated.payments.length === 2 ? 'mixed' : first.paymentMethod,
+    installments: calculated.payments.length === 1 ? first.installments : 1,
     notes: form.notes.trim(),
     items: form.items,
     serviceExpenses: form.serviceExpenses
@@ -608,4 +621,8 @@ function getReceiptErrorMessage(message: string | undefined, fallback: string) {
 
 function receiptGrossSubtotalCents(form: ReceiptForm) {
   return form.laborPriceCents + form.productsTotalCents + form.serviceExpensesTotalCents
+}
+
+function receiptSubtotalCents(form: ReceiptForm) {
+  return Math.max(receiptGrossSubtotalCents(form) - form.discountCents, 0)
 }

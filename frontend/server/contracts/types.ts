@@ -56,6 +56,20 @@ export interface IReceiptItem {
   stockItem?: IStockItem;
 }
 
+export type ReceiptPaymentMethod = "credit_card" | "debit_card" | "pix" | "cash";
+export type ReceiptPaymentSummaryMethod = ReceiptPaymentMethod | "mixed";
+export interface IReceiptPayment {
+  id?: string;
+  receiptId?: string;
+  position?: number;
+  paymentMethod: ReceiptPaymentMethod;
+  baseAmountCents: number;
+  cardFeePercent: number;
+  cardFeeCents: number;
+  amountCents: number;
+  installments: number;
+}
+
 export interface IReceipt {
   id: string;
   userId?: string | null;
@@ -70,7 +84,8 @@ export interface IReceipt {
   subtotalCents: number;
   cardFeePercent: number;
   cardFeeCents: number;
-  paymentMethod: "credit_card" | "debit_card" | "pix" | "cash";
+  paymentMethod: ReceiptPaymentSummaryMethod;
+  payments?: IReceiptPayment[];
   installments: number;
   priceCents: number;
   status: "pending" | "paid" | "cancelled";
@@ -120,7 +135,7 @@ export interface IExpenseForm {
   amountCents: number;
   spentAt: string;
   notes: string;
-  paymentMethod?: IReceipt["paymentMethod"];
+  paymentMethod?: ReceiptPaymentMethod;
   installments: Array<{
     amountCents: number;
     dueDate: string;
@@ -150,7 +165,7 @@ export interface ICashEntry {
   id: string;
   direction: "in" | "out";
   kind: "receipt_payment" | "expense" | "stock_payment" | "adjustment";
-  paymentMethod: IReceipt["paymentMethod"];
+  paymentMethod: ReceiptPaymentMethod;
   amountCents: number;
   description: string;
   reason: string;
