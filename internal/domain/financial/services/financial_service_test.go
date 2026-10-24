@@ -60,6 +60,10 @@ func TestRealizedExpensesCombinesOnlyPaidOutflowsWithoutDuplication(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Keep the paid installment inside the fixture period regardless of today's date.
+	if err := db.Model(paid).Update("paid_at", start.AddDate(0, 0, 3)).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	rows, total, err := service.RealizedExpenses(ctx, financialservices.RealizedExpenseAll, 10, 0, start, end)
 	if err != nil {
