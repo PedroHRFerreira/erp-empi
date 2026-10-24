@@ -7,14 +7,6 @@ import { maskCurrency } from '../../../utils/masks'
 export default defineComponent({
   name: 'ReceiptServicesStep',
   props: {
-    activeCardFeeLabel: {
-      type: String,
-      required: true
-    },
-    cardFeeCents: {
-      type: Number,
-      required: true
-    },
     discountCents: {
       type: Number,
       required: true
@@ -31,14 +23,6 @@ export default defineComponent({
       type: Object as PropType<ReceiptForm>,
       required: true
     },
-    installmentOptions: {
-      type: Array as PropType<number[]>,
-      required: true
-    },
-    installmentValueFor: {
-      type: Function as PropType<(installments: number) => number>,
-      required: true
-    },
     laborPriceInput: {
       type: String,
       required: true
@@ -50,13 +34,9 @@ export default defineComponent({
     subtotalCents: {
       type: Number,
       required: true
-    },
-    totalCents: {
-      type: Number,
-      required: true
     }
   },
-  emits: ['clear-field-error', 'payment-change', 'sync-card-fee', 'update:discount-input', 'update:labor-price-input'],
+  emits: ['clear-field-error', 'update:discount-input', 'update:labor-price-input'],
   setup(props, { emit }) {
     const laborPrice = computed({
       get: () => props.laborPriceInput,
@@ -65,28 +45,6 @@ export default defineComponent({
     const discount = computed({
       get: () => props.discountInput,
       set: (value: string) => emit('update:discount-input', value)
-    })
-
-    const isCardPayment = computed(() => {
-      return props.form.paymentMethod === 'credit_card' || props.form.paymentMethod === 'debit_card'
-    })
-
-    const activeFeePercent = computed({
-      get: () => {
-        if (props.form.paymentMethod === 'credit_card' && (props.form.installments || 1) > 1) {
-          return props.form.installmentFeePercent
-        }
-        return props.form.machineFeePercent
-      },
-      set: (value: number) => {
-        if (props.form.paymentMethod === 'credit_card' && (props.form.installments || 1) > 1) {
-          props.form.installmentFeePercent = Number(value || 0)
-        } else {
-          props.form.machineFeePercent = Number(value || 0)
-        }
-        emit('clear-field-error', 'cardFeePercent')
-        emit('sync-card-fee')
-      }
     })
 
     function clearFieldError(field: string) {
@@ -105,27 +63,13 @@ export default defineComponent({
       discount.value = maskCurrency(input.value)
     }
 
-    function updatePaymentMethod() {
-      emit('payment-change')
-      emit('sync-card-fee')
-    }
-
-    function updateInstallments() {
-      clearFieldError('installments')
-      emit('sync-card-fee')
-    }
-
     return {
-      activeFeePercent,
       clearFieldError,
       discount,
       formatCurrency,
-      isCardPayment,
       laborPrice,
       maskDiscount,
-      maskLaborPrice,
-      updateInstallments,
-      updatePaymentMethod
+      maskLaborPrice
     }
   }
 })
@@ -151,33 +95,6 @@ export default defineComponent({
         <small v-if="fieldErrors.discountCents" class="field__error">{{ fieldErrors.discountCents }}</small>
       </label>
 
-      <label class="field" :class="{ 'field--error': fieldErrors.paymentMethod }">
-        <span>Forma de pagamento</span>
-        <select v-model="form.paymentMethod" required @change="updatePaymentMethod">
-          <option value="cash">Dinheiro</option>
-          <option value="pix">Pix</option>
-          <option value="debit_card">Cartão de débito</option>
-          <option value="credit_card">Cartão de crédito</option>
-        </select>
-        <small v-if="fieldErrors.paymentMethod" class="field__error">{{ fieldErrors.paymentMethod }}</small>
-      </label>
-
-      <label v-if="form.paymentMethod === 'credit_card'" class="field" :class="{ 'field--error': fieldErrors.installments }">
-        <span>Parcelas</span>
-        <select v-model.number="form.installments" @change="updateInstallments">
-          <option v-for="installment in installmentOptions" :key="installment" :value="installment">
-            {{ installment }}x de {{ formatCurrency(installmentValueFor(installment)) }}
-          </option>
-        </select>
-        <small v-if="fieldErrors.installments" class="field__error">{{ fieldErrors.installments }}</small>
-      </label>
-
-      <label v-if="isCardPayment" class="field" :class="{ 'field--error': fieldErrors.cardFeePercent }">
-        <span>{{ activeCardFeeLabel }} (%)</span>
-        <input v-model.number="activeFeePercent" min="0" step="0.1" type="number" @input="clearFieldError('cardFeePercent')" />
-        <small v-if="fieldErrors.cardFeePercent" class="field__error">{{ fieldErrors.cardFeePercent }}</small>
-      </label>
-
       <label class="field receipt-step__wide" :class="{ 'field--error': fieldErrors.services }">
         <span>Descrição do serviço</span>
         <textarea v-model="form.services" required placeholder="Troca de óleo, diagnóstico elétrico..." @input="clearFieldError('services')" />
@@ -187,20 +104,12 @@ export default defineComponent({
 
     <section class="receipt-mini-summary" aria-label="Resumo dos serviços">
       <div>
-        <span>Subtotal</span>
+        <span>Subtotal após desconto</span>
         <strong>{{ formatCurrency(subtotalCents) }}</strong>
       </div>
       <div v-if="discountCents">
         <span>Desconto</span>
         <strong>{{ formatCurrency(-discountCents) }}</strong>
-      </div>
-      <div v-if="isCardPayment">
-        <span>{{ activeCardFeeLabel }}</span>
-        <strong>{{ formatCurrency(cardFeeCents) }}</strong>
-      </div>
-      <div>
-        <span>Total parcial</span>
-        <strong>{{ formatCurrency(totalCents) }}</strong>
       </div>
     </section>
   </section>

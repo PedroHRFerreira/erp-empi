@@ -1,13 +1,15 @@
 <script lang="ts">
-import { computed, defineComponent, type PropType } from 'vue'
+import { defineComponent, type PropType } from 'vue'
 import type { ReceiptForm } from '../../../stores/useReceiptsStore'
 import { formatCurrency } from '../../../utils/format'
+import ReceiptPaymentsEditor from '../ReceiptPaymentsEditor/Index.vue'
 
 export default defineComponent({
   name: 'ReceiptFinalizeStep',
+  components: { ReceiptPaymentsEditor },
   props: {
-    activeCardFeeLabel: {
-      type: String,
+    fieldErrors: {
+      type: Object as PropType<Record<string, string>>,
       required: true
     },
     cardFeeCents: {
@@ -24,10 +26,6 @@ export default defineComponent({
     },
     form: {
       type: Object as PropType<ReceiptForm>,
-      required: true
-    },
-    installmentValueCents: {
-      type: Number,
       required: true
     },
     laborPriceCents: {
@@ -57,18 +55,13 @@ export default defineComponent({
   },
   emits: ['clear-field-error'],
   setup(props, { emit }) {
-    const isCardPayment = computed(() => {
-      return props.form.paymentMethod === 'credit_card' || props.form.paymentMethod === 'debit_card'
-    })
-
     function clearFieldError(field: string) {
       emit('clear-field-error', field)
     }
 
     return {
       clearFieldError,
-      formatCurrency,
-      isCardPayment
+      formatCurrency
     }
   }
 })
@@ -85,6 +78,13 @@ export default defineComponent({
       <span>Descrição do recibo</span>
       <textarea v-model="form.notes" placeholder="Informações adicionais" @input="clearFieldError('notes')" />
     </label>
+
+    <ReceiptPaymentsEditor
+      :form="form"
+      :field-errors="fieldErrors"
+      :subtotal-cents="subtotalCents"
+      @clear-field-error="clearFieldError"
+    />
 
     <section class="receipt-summary" aria-label="Resumo do recibo">
       <div>
@@ -107,17 +107,13 @@ export default defineComponent({
         <span>Subtotal</span>
         <strong>{{ formatCurrency(subtotalCents) }}</strong>
       </div>
-      <div v-if="isCardPayment">
-        <span>{{ activeCardFeeLabel }} ({{ form.cardFeePercent }}%)</span>
+      <div v-if="cardFeeCents">
+        <span>Taxas dos cartões</span>
         <strong>{{ formatCurrency(cardFeeCents) }}</strong>
       </div>
       <div class="receipt-summary__total">
         <span>Total</span>
         <strong>{{ formatCurrency(totalCents) }}</strong>
-      </div>
-      <div v-if="form.paymentMethod === 'credit_card'" class="receipt-summary__installment">
-        <span>Parcelamento</span>
-        <strong>{{ form.installments }}x de {{ formatCurrency(installmentValueCents) }}</strong>
       </div>
     </section>
 

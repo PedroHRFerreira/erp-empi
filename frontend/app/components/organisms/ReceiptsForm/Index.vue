@@ -10,6 +10,7 @@ import {
 } from '../../../stores/useReceiptsStore'
 import type { IStoreActionResult } from '../../../stores/types'
 import { currencyMaskToCents, formatCentsAsCurrency, maskPhone } from '../../../utils/masks'
+import { calculateReceiptPayments } from '../../../utils/receiptPayments'
 import ReceiptClientStep from '../ReceiptClientStep/Index.vue'
 import ReceiptFinalizeStep from '../ReceiptFinalizeStep/Index.vue'
 import ReceiptProductsStep from '../ReceiptProductsStep/Index.vue'
@@ -78,8 +79,7 @@ export default defineComponent({
     const selectedClientId = ref('')
     const suggestionLoading = ref(false)
     const suggestionNotice = ref('')
-    const hasAppliedProfileFees = ref(Boolean(auth.user))
-    const installmentOptions = Array.from({ length: 12 }, (_, index) => index + 1)
+    const hasAppliedProfileFees = ref(props.mode === 'edit' || Boolean(auth.user))
 
     if (props.mode === 'edit') {
       laborPriceInput.value = formatCentsAsCurrency(form.value.laborPriceCents)
@@ -144,26 +144,9 @@ export default defineComponent({
     })
     const grossSubtotalCents = computed(() => laborPriceCents.value + productsTotalCents.value + serviceExpensesTotalCents.value)
     const subtotalCents = computed(() => Math.max(grossSubtotalCents.value - discountCents.value, 0))
-    const isCardPayment = computed(() => {
-      return form.value.paymentMethod === 'credit_card' || form.value.paymentMethod === 'debit_card'
-    })
-    const activeCardFeePercent = computed(() => {
-      return cardFeePercentFor(form.value.paymentMethod, form.value.installments || 1)
-    })
-    const activeCardFeeLabel = computed(() => {
-      if (form.value.paymentMethod === 'credit_card' && (form.value.installments || 1) > 1) {
-        return 'Juros de parcelamento'
-      }
-      return 'Juros da maquininha'
-    })
-    const cardFeeCents = computed(() => {
-      return calculateFeeCents(subtotalCents.value, activeCardFeePercent.value)
-    })
-    const totalCents = computed(() => subtotalCents.value + cardFeeCents.value)
-    const installmentValueCents = computed(() => {
-      const installments = form.value.paymentMethod === 'credit_card' ? form.value.installments || 1 : 1
-      return Math.ceil(totalCents.value / installments)
-    })
+    const paymentCalculation = computed(() => calculateReceiptPayments(form.value.payments, subtotalCents.value))
+    const cardFeeCents = computed(() => paymentCalculation.value.cardFeeCents)
+    const totalCents = computed(() => paymentCalculation.value.amountCents)
 
     watch(
       () => auth.user?.id,
@@ -171,19 +154,14 @@ export default defineComponent({
         if (!auth.user || hasAppliedProfileFees.value) return
         receipts.applyReceiptDefaultFees(defaultFees())
         hasAppliedProfileFees.value = true
-        syncCardFeePercent()
       }
     )
 
     watch(
-      () => [
-        form.value.paymentMethod,
-        form.value.installments,
-        form.value.machineFeePercent,
-        form.value.installmentFeePercent
-      ],
-      () => syncCardFeePercent(),
-      { immediate: true }
+      () => [laborPriceCents.value, discountCents.value, productsTotalCents.value,
+        serviceExpensesTotalCents.value, form.value.payments.map((payment) => ({ ...payment }))],
+      () => syncCalculatedFields(),
+      { immediate: true, deep: true }
     )
 
     function defaultFees() {
@@ -209,42 +187,21 @@ export default defineComponent({
       return stockItemById(id)?.resalePriceCents || 0
     }
 
-    function cardFeePercentFor(paymentMethod: ReceiptForm['paymentMethod'], installments: number) {
-      if (paymentMethod === 'debit_card') return Number(form.value.machineFeePercent || 0)
-      if (paymentMethod === 'credit_card') {
-        return installments > 1 ? Number(form.value.installmentFeePercent || 0) : Number(form.value.machineFeePercent || 0)
-      }
-      return 0
-    }
-
-    function calculateFeeCents(value: number, percent: number) {
-      if (percent <= 0) return 0
-      return Math.trunc(value * (percent / 100))
-    }
-
-    function totalCentsForInstallment(installments: number) {
-      const percent = cardFeePercentFor('credit_card', installments)
-      return subtotalCents.value + calculateFeeCents(subtotalCents.value, percent)
-    }
-
-    function installmentValueFor(installments: number) {
-      return Math.ceil(totalCentsForInstallment(installments) / installments)
-    }
-
-    function syncCardFeePercent() {
-      form.value.cardFeePercent = isCardPayment.value ? activeCardFeePercent.value : 0
-    }
-
     function syncCalculatedFields() {
-      syncCardFeePercent()
       form.value.laborPriceCents = laborPriceCents.value
       form.value.discountCents = discountCents.value
       form.value.productsTotalCents = productsTotalCents.value
       form.value.serviceExpensesTotalCents = serviceExpensesTotalCents.value
       form.value.priceCents = totalCents.value
-      if (form.value.paymentMethod !== 'credit_card') {
-        form.value.installments = 1
-      }
+      paymentCalculation.value.payments.forEach((payment, index) => {
+        const draftPayment = form.value.payments[index]
+        if (draftPayment) draftPayment.baseAmountCents = payment.baseAmountCents
+      })
+      const first = form.value.payments[0]
+      if (!first) return
+      form.value.paymentMethod = first.paymentMethod
+      form.value.cardFeePercent = form.value.payments.length === 1 ? first.cardFeePercent : 0
+      form.value.installments = form.value.payments.length === 1 ? first.installments : 1
     }
 
     function clearFieldError(field: string) {
@@ -350,15 +307,6 @@ export default defineComponent({
       resetServiceExpenseForm()
     }
 
-    function updatePaymentMethod() {
-      clearFieldError('paymentMethod')
-      clearFieldError('installments')
-      if (form.value.paymentMethod !== 'credit_card') {
-        form.value.installments = 1
-      }
-      syncCardFeePercent()
-    }
-
     function previousStep() {
       if (receipts.receiptWizardStep === 0) {
         emit('back-to-list')
@@ -392,7 +340,6 @@ export default defineComponent({
     }
 
     return {
-      activeCardFeeLabel,
       activeStepKey,
       activeSteps,
       addItem,
@@ -410,9 +357,6 @@ export default defineComponent({
       discountCents,
       discountInput,
       form,
-      installmentOptions,
-      installmentValueCents,
-      installmentValueFor,
       isFinalStep,
       itemError,
       itemTotalCents,
@@ -439,10 +383,8 @@ export default defineComponent({
       suggestionNotice,
       submitStep,
       subtotalCents,
-      syncCardFeePercent,
       totalCents,
-      selectClient,
-      updatePaymentMethod
+      selectClient
     }
   }
 })
@@ -479,19 +421,12 @@ export default defineComponent({
       v-else-if="activeStepKey === 'services'"
       v-model:discount-input="discountInput"
       v-model:labor-price-input="laborPriceInput"
-      :active-card-fee-label="activeCardFeeLabel"
-      :card-fee-cents="cardFeeCents"
       :discount-cents="discountCents"
       :field-errors="fieldErrors"
       :form="form"
-      :installment-options="installmentOptions"
-      :installment-value-for="installmentValueFor"
       :step-label="currentStepLabel"
       :subtotal-cents="subtotalCents"
-      :total-cents="totalCents"
       @clear-field-error="clearFieldError"
-      @payment-change="updatePaymentMethod"
-      @sync-card-fee="syncCardFeePercent"
     />
 
     <ReceiptProductsStep
@@ -531,12 +466,11 @@ export default defineComponent({
 
     <ReceiptFinalizeStep
       v-else
-      :active-card-fee-label="activeCardFeeLabel"
       :card-fee-cents="cardFeeCents"
       :error="error"
+      :field-errors="fieldErrors"
       :form="form"
       :discount-cents="discountCents"
-      :installment-value-cents="installmentValueCents"
       :labor-price-cents="laborPriceCents"
       :products-total-cents="productsTotalCents"
       :service-expenses-total-cents="serviceExpensesTotalCents"
