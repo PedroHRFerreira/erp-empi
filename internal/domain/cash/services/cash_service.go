@@ -308,6 +308,20 @@ func (s *CashService) ensureEntryMutable(tx *gorm.DB, entry *entities.CashEntry)
 }
 
 func (s *CashService) CreatePurchase(ctx context.Context, input PurchaseInput) (*entities.StockPurchase, error) {
+	var purchase *entities.StockPurchase
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		purchase, err = s.CreatePurchaseWithTx(tx, input)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.GetPurchase(ctx, purchase.ID)
+}
+
+// CreatePurchaseWithTx records an entry and its installments within the caller's transaction.
+func (s *CashService) CreatePurchaseWithTx(tx *gorm.DB, input PurchaseInput) (*entities.StockPurchase, error) {
 	input.SupplierName = strings.TrimSpace(input.SupplierName)
 	if input.SupplierName == "" || len(input.Items) == 0 || len(input.Installments) == 0 {
 		return nil, apperrors.ErrInvalidInput
@@ -344,7 +358,7 @@ func (s *CashService) CreatePurchase(ctx context.Context, input PurchaseInput) (
 		return nil, apperrors.ErrInvalidInput
 	}
 
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := func() error {
 		for index := range purchase.Items {
 			purchaseItem := &purchase.Items[index]
 			var stock entities.StockItem
@@ -366,11 +380,11 @@ func (s *CashService) CreatePurchase(ctx context.Context, input PurchaseInput) (
 			}
 		}
 		return tx.Create(purchase).Error
-	})
+	}()
 	if err != nil {
 		return nil, err
 	}
-	return s.GetPurchase(ctx, purchase.ID)
+	return purchase, nil
 }
 
 func (s *CashService) ListPurchases(ctx context.Context) ([]entities.StockPurchase, error) {

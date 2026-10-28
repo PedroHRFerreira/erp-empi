@@ -1,4 +1,5 @@
 <script lang="ts">
+import { useRecoveryReceiptsStore } from '../../stores/useReceiptsStore'
 import { defineComponent } from 'vue'
 import RecoveryDetailTemplate from '../../components/templates/RecoveryDetailTemplate/Index.vue'
 
@@ -9,7 +10,7 @@ export default defineComponent({
   },
   async setup() {
     const route = useRoute()
-    const receipts = useReceiptsStore()
+    const receipts = useRecoveryReceiptsStore()
     await receipts.loadDetail(String(route.params.id || ''))
 
     return {}

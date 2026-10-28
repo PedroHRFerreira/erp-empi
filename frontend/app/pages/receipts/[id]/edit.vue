@@ -13,7 +13,7 @@ export default defineComponent({
     const receipts = useReceiptsStore()
     const stock = useStockStore()
 
-    await Promise.all([stock.load(), receipts.loadDetail(String(route.params.id || ''))])
+    await Promise.all([stock.loadOptions(), receipts.loadDetail(String(route.params.id || ''))])
 
     if (receipts.receiptDetail) {
       receipts.setReceiptDraft(receiptToForm(receipts.receiptDetail))

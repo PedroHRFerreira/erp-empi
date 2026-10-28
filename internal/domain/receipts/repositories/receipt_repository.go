@@ -3,9 +3,12 @@ package repositories
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
 
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
 	"github.com/empi-autocenter/erp-empi/internal/shared/apperrors"
+	"github.com/empi-autocenter/erp-empi/internal/shared/validation"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -30,17 +33,60 @@ func (repo *ReceiptRepository) UpdateWithTx(tx *gorm.DB, receipt *entities.Recei
 	return tx.Omit("Payments").Save(receipt).Error
 }
 
+// ReceiptFilters contains validated criteria. EndBefore is an exclusive upper bound.
+type ReceiptFilters struct {
+	Query         string
+	Status        string
+	PaymentMethod string
+	Type          string
+	StartAt       *time.Time
+	EndBefore     *time.Time
+}
+
 func (repo *ReceiptRepository) List(ctx context.Context, limit int, offset int, status string) ([]entities.Receipt, int64, error) {
+	return repo.ListFiltered(ctx, limit, offset, ReceiptFilters{Status: status})
+}
+
+func (repo *ReceiptRepository) ListFiltered(ctx context.Context, limit int, offset int, filters ReceiptFilters) ([]entities.Receipt, int64, error) {
 	var receipts []entities.Receipt
 	var total int64
-	query := repo.db.WithContext(ctx).Model(&entities.Receipt{}).Preload("User").Preload("Items.StockItem").Preload("Expenses").Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") })
-	if status != "" {
-		query = query.Where("status = ?", status)
+	query := repo.db.WithContext(ctx).Model(&entities.Receipt{})
+	if filters.Query != "" {
+		// Escape LIKE metacharacters so names containing % or _ remain literal searches.
+		term := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(filters.Query)) + "%"
+		phoneTerm := term
+		if strings.Trim(filters.Query, "0123456789 ()+.-\t\r\n") == "" {
+			if digits := validation.OnlyDigits(filters.Query); digits != "" {
+				phoneTerm = "%" + digits + "%"
+			}
+		}
+		query = query.Where(`(LOWER(receipts.vehicle_plate) LIKE ? ESCAPE '!' OR LOWER(receipts.services) LIKE ? ESCAPE '!' OR EXISTS (SELECT 1 FROM users WHERE users.id = receipts.user_id AND (LOWER(users.name) LIKE ? ESCAPE '!' OR users.phone LIKE ? ESCAPE '!')))`, term, term, term, phoneTerm)
+	}
+	if filters.Status != "" {
+		query = query.Where("receipts.status = ?", filters.Status)
+	}
+	if filters.StartAt != nil {
+		query = query.Where("receipts.created_at >= ?", *filters.StartAt)
+	}
+	if filters.EndBefore != nil {
+		query = query.Where("receipts.created_at < ?", *filters.EndBefore)
+	}
+	if filters.Type == "quick" {
+		query = query.Where("receipts.user_id IS NULL")
+	}
+	if filters.Type == "normal" {
+		query = query.Where("receipts.user_id IS NOT NULL")
+	}
+	if filters.PaymentMethod == "mixed" {
+		query = query.Where(`(receipts.payment_method = ? OR (SELECT COUNT(*) FROM receipt_payments WHERE receipt_payments.receipt_id = receipts.id) > 1)`, entities.PaymentMethodMixed)
+	} else if filters.PaymentMethod != "" {
+		// Historical receipts have no allocations. Modern receipts match any allocation.
+		query = query.Where(`(EXISTS (SELECT 1 FROM receipt_payments WHERE receipt_payments.receipt_id = receipts.id AND receipt_payments.payment_method = ?) OR (NOT EXISTS (SELECT 1 FROM receipt_payments WHERE receipt_payments.receipt_id = receipts.id) AND receipts.payment_method = ?))`, filters.PaymentMethod, filters.PaymentMethod)
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	err := query.Order("created_at desc").Limit(limit).Offset(offset).Find(&receipts).Error
+	err := query.Preload("User").Preload("Items.StockItem").Preload("Expenses").Preload("Payments", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).Order("receipts.created_at desc, receipts.id desc").Limit(limit).Offset(offset).Find(&receipts).Error
 	for i := range receipts {
 		receipts[i].Payments = receipts[i].EffectivePayments()
 	}

@@ -1,0 +1,55 @@
+.supplier-detail-page { gap: 20px; min-width: 0; }
+.supplier-detail-page :deep(.page-header h1) { overflow-wrap: anywhere; }
+.supplier-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.supplier-summary article { display: grid; gap: 8px; min-width: 0; padding: 20px; }
+.supplier-summary span { color: var(--watt-text-muted); font-size: 13px; }
+.supplier-summary strong { overflow-wrap: anywhere; font-size: 22px; }
+.supplier-products { min-width: 0; overflow: hidden; }
+.supplier-products > header { padding: 20px; border-bottom: 1px solid var(--watt-border); }
+.supplier-products h2, .supplier-history > h2 { margin: 0; font-size: 20px; }
+.supplier-products header p { margin: 8px 0 0; color: var(--watt-text-muted); font-size: 13px; }
+.supplier-product { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--watt-border); }
+.supplier-product:last-child { border-bottom: 0; }
+.supplier-product > div { min-width: 0; }
+.supplier-product h3 { margin: 0 0 6px; overflow-wrap: anywhere; font-size: 15px; }
+.supplier-product span { color: var(--watt-text-muted); font-size: 12px; }
+.supplier-product .button { flex: 0 0 auto; }
+.supplier-history { display: grid; min-width: 0; gap: 18px; }
+.supplier-purchase { display: grid; gap: 18px; min-width: 0; padding: 22px; }
+.supplier-purchase > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.supplier-purchase header > div > span { color: var(--watt-text-muted); font-size: 12px; }
+.supplier-purchase h3 { margin: 6px 0 0; font-size: 18px; }
+.purchase-status, .installment-status { display: inline-flex; flex: 0 0 auto; padding: 5px 9px; border-radius: 8px; color: var(--watt-data); background: color-mix(in srgb, var(--watt-data) 12%, transparent); font-size: 12px; font-weight: 700; }
+.purchase-status--cancelled, .installment-status--cancelled, .cancelled-note { color: var(--watt-alert); }
+.installment-status--paid { color: var(--watt-success); }
+.cancelled-note { margin: 0; font-size: 13px; }
+.purchase-items { display: grid; gap: 12px; padding: 16px; margin: 0; list-style: none; border: 1px solid var(--watt-border); border-radius: 10px; }
+.purchase-items li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; font-size: 13px; }
+.purchase-items strong { overflow-wrap: anywhere; }
+.purchase-items span { color: var(--watt-text-muted); }
+.supplier-installments { overflow-x: auto; }
+.supplier-installments table { width: 100%; min-width: 700px; }
+.supplier-installments th, .supplier-installments td { text-align: left; }
+.supplier-installments small { display: block; margin-top: 4px; color: var(--watt-text-muted); }
+.supplier-state { display: grid; min-height: 210px; place-items: center; align-content: center; gap: 12px; padding: 28px; text-align: center; }
+.supplier-state > span, .empty-products { color: var(--watt-text-muted); }
+.empty-products { padding: 20px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 1100px) { .supplier-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .supplier-summary { gap: 12px; }
+  .supplier-summary article { padding: 16px; }
+  .supplier-summary strong { font-size: 18px; }
+  .supplier-product { align-items: stretch; flex-direction: column; gap: 12px; }
+  .supplier-product .button { justify-content: center; }
+  .supplier-purchase { padding: 16px; }
+  .supplier-purchase > header { flex-direction: column; }
+  .purchase-items li { grid-template-columns: 1fr auto; gap: 8px; }
+  .purchase-items strong { grid-column: 1 / -1; }
+  .supplier-installments table, .supplier-installments tbody, .supplier-installments tr, .supplier-installments td { display: block; min-width: 0; }
+  .supplier-installments thead { display: none; }
+  .supplier-installments tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 0; border-top: 1px solid var(--watt-border); }
+  .supplier-installments td { padding: 0; border: 0; overflow-wrap: anywhere; }
+  .supplier-installments td::before { display: block; margin-bottom: 5px; content: attr(data-label); color: var(--watt-text-muted); font-size: 11px; font-weight: 700; }
+}
+@media (max-width: 360px) { .supplier-summary { grid-template-columns: 1fr; } }

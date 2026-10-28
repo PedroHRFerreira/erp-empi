@@ -17,7 +17,10 @@ func NewReceiptHandler(receipts *receiptservices.ReceiptService) *ReceiptHandler
 
 func (handler *ReceiptHandler) List(c echo.Context) error {
 	limit, offset := pagination(c)
-	receipts, total, err := handler.receipts.List(c.Request().Context(), limit, offset, c.QueryParam("status"))
+	receipts, total, err := handler.receipts.ListFiltered(c.Request().Context(), limit, offset, receiptservices.ReceiptFilters{
+		Query: c.QueryParam("q"), StartDate: c.QueryParam("startDate"), EndDate: c.QueryParam("endDate"),
+		Status: c.QueryParam("status"), PaymentMethod: c.QueryParam("paymentMethod"), Type: c.QueryParam("type"),
+	})
 	if err != nil {
 		return writeError(c, err)
 	}

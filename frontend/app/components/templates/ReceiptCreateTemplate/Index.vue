@@ -63,11 +63,11 @@ export default defineComponent({
     </PageHeader>
 
     <ReceiptsForm
-      :error="receipts.error"
+      :error="receipts.error || stock.error"
       :field-errors="receipts.fieldErrors"
       :on-create="createReceipt"
       :quick="isQuickReceipt"
-      :stock-items="stock.items"
+      :stock-items="stock.productOptions"
       @back-to-list="backToList"
       @clear-field-error="receipts.clearFieldError"
     />

@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
+	"math"
 	"strings"
 	"time"
 
@@ -16,12 +18,21 @@ type StockService struct {
 	repo *repositories.StockRepository
 }
 
+type StockEntryInput struct {
+	SupplierName  string                                  `json:"supplierName"`
+	Quantity      int                                     `json:"quantity"`
+	UnitCostCents int64                                   `json:"unitCostCents"`
+	Installments  []cashservices.PurchaseInstallmentInput `json:"installments"`
+}
+
 type StockInput struct {
-	Name          string  `json:"name"`
-	Description   string  `json:"description"`
-	CostCents     int64   `json:"costCents"`
-	MarkupPercent float64 `json:"markupPercent"`
-	Quantity      int     `json:"quantity"`
+	ExistingStockItemID string           `json:"existingStockItemId"`
+	Entry               *StockEntryInput `json:"entry"`
+	Name                string           `json:"name"`
+	Description         string           `json:"description"`
+	CostCents           int64            `json:"costCents"`
+	MarkupPercent       float64          `json:"markupPercent"`
+	Quantity            int              `json:"quantity"`
 }
 
 func NewStockService(repo *repositories.StockRepository) *StockService {
@@ -32,28 +43,84 @@ func (service *StockService) List(ctx context.Context, limit int, offset int) ([
 	return service.repo.List(ctx, limit, offset)
 }
 
+func (service *StockService) Search(ctx context.Context, limit, offset int, query, supplier string) ([]entities.StockItem, int64, error) {
+	return service.repo.Search(ctx, limit, offset, query, supplier)
+}
+
 func (service *StockService) FindByID(ctx context.Context, id string) (*entities.StockItem, error) {
 	return service.repo.FindByID(ctx, id)
 }
 
 func (service *StockService) Create(ctx context.Context, input StockInput) (*entities.StockItem, error) {
-	item, err := service.buildItem(input, nil)
+	var item *entities.StockItem
+	err := service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if input.ExistingStockItemID != "" {
+			if input.Entry == nil {
+				return apperrors.ErrInvalidInput
+			}
+			var err error
+			item, err = service.repo.FindByIDForUpdate(tx, input.ExistingStockItemID)
+			if err != nil {
+				return err
+			}
+		} else {
+			var err error
+			item, err = service.buildItem(input, nil)
+			if err != nil {
+				return err
+			}
+			// The entry is the sole source of initial quantity when a purchase is supplied.
+			if input.Entry != nil {
+				item.Quantity = 0
+			}
+			if err = tx.Create(item).Error; err != nil {
+				return err
+			}
+		}
+		return service.addEntry(tx, item, input.Entry)
+	})
 	if err != nil {
 		return nil, err
 	}
-	return item, service.repo.Create(ctx, item)
+	return service.FindByID(ctx, item.ID)
 }
 
 func (service *StockService) Update(ctx context.Context, id string, input StockInput) (*entities.StockItem, error) {
-	current, err := service.repo.FindByID(ctx, id)
+	err := service.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		current, err := service.repo.FindByIDForUpdate(tx, id)
+		if err != nil {
+			return err
+		}
+		// A stale editor must never replace the actual available balance.
+		input.Quantity = current.Quantity
+		if input.Entry != nil {
+			input.CostCents = current.CostCents
+		}
+		item, err := service.buildItem(input, current)
+		if err != nil {
+			return err
+		}
+		if err = tx.Save(item).Error; err != nil {
+			return err
+		}
+		return service.addEntry(tx, item, input.Entry)
+	})
 	if err != nil {
 		return nil, err
 	}
-	item, err := service.buildItem(input, current)
-	if err != nil {
-		return nil, err
+	return service.FindByID(ctx, id)
+}
+
+func (service *StockService) addEntry(tx *gorm.DB, item *entities.StockItem, entry *StockEntryInput) error {
+	if entry == nil {
+		return nil
 	}
-	return item, service.repo.Update(ctx, item)
+	_, err := cashservices.NewCashService(tx).CreatePurchaseWithTx(tx, cashservices.PurchaseInput{
+		SupplierName: entry.SupplierName,
+		Items:        []cashservices.PurchaseItemInput{{StockItemID: item.ID, Quantity: entry.Quantity, UnitCostCents: entry.UnitCostCents}},
+		Installments: entry.Installments,
+	})
+	return err
 }
 
 func (service *StockService) Delete(ctx context.Context, id string) error {
@@ -114,7 +181,7 @@ func (service *StockService) Delete(ctx context.Context, id string) error {
 }
 
 func (service *StockService) buildItem(input StockInput, current *entities.StockItem) (*entities.StockItem, error) {
-	if strings.TrimSpace(input.Name) == "" || input.CostCents <= 0 || input.MarkupPercent < 0 || input.Quantity < 0 {
+	if strings.TrimSpace(input.Name) == "" || input.CostCents <= 0 || input.MarkupPercent < 0 || math.IsNaN(input.MarkupPercent) || math.IsInf(input.MarkupPercent, 0) || input.Quantity < 0 {
 		return nil, apperrors.ErrInvalidInput
 	}
 	item := current

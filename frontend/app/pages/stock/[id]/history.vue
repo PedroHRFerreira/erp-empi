@@ -8,10 +8,10 @@ const route = useRoute()
 const stock = useStockStore()
 const purchases = usePurchasesStore()
 const productId = String(route.params.id || '')
-await Promise.all([stock.load(0), purchases.loadPurchases()])
+const [loadedProduct] = await Promise.all([stock.loadItem(productId), purchases.loadPurchases()])
 
 const entries = computed(() => purchases.purchases.filter((purchase) => purchase.items.some((item) => item.stockItemId === productId)))
-const product = computed(() => stock.items.find((item) => item.id === productId) || entries.value.flatMap((purchase) => purchase.items).find((item) => item.stockItemId === productId)?.stockItem)
+const product = computed(() => loadedProduct || entries.value.flatMap((purchase) => purchase.items).find((item) => item.stockItemId === productId)?.stockItem)
 const confirmedEntries = computed(() => entries.value.filter((purchase) => purchase.status === 'confirmed'))
 const totalPurchasedCents = computed(() => confirmedEntries.value.reduce((total, purchase) => total + (purchase.items.find((item) => item.stockItemId === productId)?.subtotalCents || 0), 0))
 const pendingInstallments = computed(() => confirmedEntries.value.flatMap((purchase) => purchase.installments).filter((row) => row.status === 'pending'))
@@ -31,7 +31,7 @@ function methodLabel(method?: string) { return ({ boleto: 'Boleto', pix: 'PIX', 
 <template>
   <section class="page stock-history-page">
     <PageHeader :title="product ? `Histórico — ${product.name}` : 'Histórico do produto'" subtitle="Entradas, fornecedores e pagamentos relacionados a este produto.">
-      <template #actions><NuxtLink class="button button--secondary" to="/stock"><ArrowLeft :size="18" /> Estoque</NuxtLink></template>
+      <template #actions><NuxtLink class="button button--secondary" to="/stock/products"><ArrowLeft :size="18" /> Produtos</NuxtLink></template>
     </PageHeader>
 
     <p v-if="stock.error || purchases.error" class="alert-box" role="alert">{{ stock.error || purchases.error }}</p>

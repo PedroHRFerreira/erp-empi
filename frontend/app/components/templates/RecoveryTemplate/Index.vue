@@ -1,4 +1,5 @@
 <script lang="ts">
+import { useRecoveryReceiptsStore } from '../../../stores/useReceiptsStore'
 import { Copy, Eye, MessageCircle, RotateCcw } from '@lucide/vue'
 import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
@@ -23,7 +24,7 @@ export default defineComponent({
     RotateCcw
   },
   setup() {
-    const receipts = useReceiptsStore()
+    const receipts = useRecoveryReceiptsStore()
     const feedback = useSystemFeedback()
     const pages = computed(() => Math.ceil(receipts.total / receipts.limit))
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)

@@ -63,12 +63,12 @@ export default defineComponent({
     <p v-else-if="receipt && !isPending" class="panel empty">Apenas recibos pendentes podem ser editados.</p>
     <ReceiptsForm
       v-else-if="receipt"
-      :error="receipts.error"
+      :error="receipts.error || stock.error"
       :field-errors="receipts.fieldErrors"
       mode="edit"
       :on-create="updateReceipt"
       :quick="!receipt.user"
-      :stock-items="stock.items"
+      :stock-items="stock.productOptions"
       @back-to-list="backToList"
       @clear-field-error="receipts.clearFieldError"
     />

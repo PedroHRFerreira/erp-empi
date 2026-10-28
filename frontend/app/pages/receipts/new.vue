@@ -9,7 +9,7 @@ export default defineComponent({
   },
   async setup() {
     const stock = useStockStore()
-    await stock.load()
+    await stock.loadOptions()
 
     return {}
   }

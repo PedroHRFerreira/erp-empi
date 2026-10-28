@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	_ "time/tzdata"
 
 	cashservices "github.com/empi-autocenter/erp-empi/internal/domain/cash/services"
 	"github.com/empi-autocenter/erp-empi/internal/domain/entities"
@@ -76,8 +77,68 @@ func NewReceiptService(repo *receiptrepos.ReceiptRepository, stockRepo *stockrep
 	return service
 }
 
+type ReceiptFilters struct {
+	Query         string
+	StartDate     string
+	EndDate       string
+	Status        string
+	PaymentMethod string
+	Type          string
+}
+
 func (service *ReceiptService) List(ctx context.Context, limit int, offset int, status string) ([]entities.Receipt, int64, error) {
-	return service.repo.List(ctx, limit, offset, status)
+	return service.ListFiltered(ctx, limit, offset, ReceiptFilters{Status: status})
+}
+
+func (service *ReceiptService) ListFiltered(ctx context.Context, limit int, offset int, filters ReceiptFilters) ([]entities.Receipt, int64, error) {
+	criteria, err := prepareReceiptFilters(filters)
+	if err != nil {
+		return nil, 0, err
+	}
+	return service.repo.ListFiltered(ctx, limit, offset, criteria)
+}
+
+func prepareReceiptFilters(filters ReceiptFilters) (receiptrepos.ReceiptFilters, error) {
+	criteria := receiptrepos.ReceiptFilters{Query: strings.TrimSpace(filters.Query), Status: filters.Status, PaymentMethod: filters.PaymentMethod, Type: filters.Type}
+	switch filters.Status {
+	case "", string(entities.ReceiptStatusPending), string(entities.ReceiptStatusPaid), string(entities.ReceiptStatusCancelled):
+	default:
+		return criteria, apperrors.ErrInvalidInput
+	}
+	switch filters.PaymentMethod {
+	case "", string(entities.PaymentMethodCash), string(entities.PaymentMethodPix), string(entities.PaymentMethodCreditCard), string(entities.PaymentMethodDebitCard), string(entities.PaymentMethodMixed), string(entities.PaymentMethodLegacy):
+	default:
+		return criteria, apperrors.ErrInvalidInput
+	}
+	switch filters.Type {
+	case "", "normal", "quick":
+	default:
+		return criteria, apperrors.ErrInvalidInput
+	}
+	location, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		return criteria, err
+	}
+	if filters.StartDate != "" {
+		date, err := time.ParseInLocation("2006-01-02", filters.StartDate, location)
+		if err != nil {
+			return criteria, apperrors.ErrInvalidInput
+		}
+		date = date.UTC()
+		criteria.StartAt = &date
+	}
+	if filters.EndDate != "" {
+		date, err := time.ParseInLocation("2006-01-02", filters.EndDate, location)
+		if err != nil {
+			return criteria, apperrors.ErrInvalidInput
+		}
+		date = date.AddDate(0, 0, 1).UTC()
+		criteria.EndBefore = &date
+	}
+	if criteria.StartAt != nil && criteria.EndBefore != nil && !criteria.StartAt.Before(*criteria.EndBefore) {
+		return criteria, apperrors.ErrInvalidInput
+	}
+	return criteria, nil
 }
 
 func (service *ReceiptService) FindByID(ctx context.Context, id string) (*entities.Receipt, error) {

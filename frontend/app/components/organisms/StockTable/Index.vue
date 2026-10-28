@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Edit3, History, PackagePlus, Trash2 } from '@lucide/vue'
+import { Edit3, History, Trash2 } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IStockItem, IStockPurchase } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
@@ -13,7 +13,6 @@ export default defineComponent({
     EmptyState,
     IconActionButton,
     History,
-    PackagePlus,
     Trash2
   },
   props: {
@@ -23,7 +22,7 @@ export default defineComponent({
     },
     purchases: { type: Array as PropType<IStockPurchase[]>, required: true }
   },
-  emits: ['add-stock', 'edit', 'remove'],
+  emits: ['edit', 'remove'],
   setup(props, { emit }) {
     function edit(item: IStockItem) {
       emit('edit', item)
@@ -33,7 +32,6 @@ export default defineComponent({
       emit('remove', item)
     }
 
-    function addStock(item: IStockItem) { emit('add-stock', item) }
 
     function entries(item: IStockItem) {
       return props.purchases.filter((purchase) => purchase.items.some((entry) => entry.stockItemId === item.id))
@@ -54,7 +52,6 @@ export default defineComponent({
     }
 
     return {
-      addStock,
       edit,
       entries,
       formatCurrency,
@@ -98,11 +95,8 @@ export default defineComponent({
           <td><span class="stock-status">{{ paymentLabel(item) }}</span></td>
           <td>
             <div class="stock-table__actions">
-              <button class="button button--secondary stock-action" type="button" @click="addStock(item)"><PackagePlus :size="16" /> Adicionar estoque</button>
+              <button class="button button--secondary stock-action" type="button" @click="edit(item)"><Edit3 :size="16" /> Editar</button>
               <NuxtLink class="button button--secondary stock-action" :to="`/stock/${item.id}/history`"><History :size="15" /> Histórico</NuxtLink>
-              <IconActionButton title="Editar" @click="edit(item)">
-                <Edit3 :size="16" />
-              </IconActionButton>
               <IconActionButton title="Remover produto" variant="danger" @click="remove(item)">
                 <Trash2 :size="16" />
               </IconActionButton>
@@ -124,7 +118,6 @@ export default defineComponent({
           <div><dt>Usados</dt><dd>{{ item.usedQuantity }}</dd></div>
         </dl>
         <div class="stock-card__actions">
-          <button class="button button--primary" type="button" @click="addStock(item)"><PackagePlus :size="16" /> Adicionar estoque</button>
           <button class="button button--secondary" type="button" @click="edit(item)"><Edit3 :size="16" /> Editar</button>
           <button class="button button--danger" type="button" @click="remove(item)"><Trash2 :size="16" /> Remover</button>
         </div>

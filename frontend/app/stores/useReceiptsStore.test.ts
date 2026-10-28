@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildReceiptPayload, makeReceiptForm, receiptToForm, useReceiptsStore } from './useReceiptsStore'
+import { buildReceiptPayload, makeReceiptForm, receiptToForm, useReceiptsStore, useRecoveryReceiptsStore } from './useReceiptsStore'
 import type { IReceipt } from '../../server/contracts/types'
 
 describe('useReceiptsStore receipt creation', () => {
@@ -96,5 +96,88 @@ describe('useReceiptsStore receipt creation', () => {
     expect(receiptToForm(receipt).payments).toEqual([
       { paymentMethod: 'credit_card', baseAmountCents: 10_000, cardFeePercent: 3.2, installments: 3 },
     ])
+  })
+})
+
+describe('receipt filters', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.stubGlobal('invalidateApiCache', vi.fn())
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('isolates recovery filters and rows from the receipts screen', () => {
+    const receipts = useReceiptsStore()
+    const recovery = useRecoveryReceiptsStore()
+    receipts.filters.q = 'Cliente escolhido'
+    receipts.filters.paymentMethod = 'pix'
+    recovery.filters.status = 'cancelled'
+    recovery.receipts = [{ id: 'recovery-only' } as IReceipt]
+    expect(receipts.filters.status).toBe('')
+    expect(recovery.filters.q).toBe('')
+    expect(recovery.filters.paymentMethod).toBe('')
+    expect(receipts.receipts).toEqual([])
+  })
+
+  it('returns to the last valid filtered page after the final row leaves a page', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce({ data: { value: { data: [], total: 10 } }, status: { value: 'success' } })
+      .mockResolvedValueOnce({ data: { value: { data: [{ id: 'remaining' }], total: 10 } }, status: { value: 'success' } })
+    vi.stubGlobal('useApiFetch', fetch)
+    const store = useReceiptsStore()
+    store.filters.status = 'pending'
+    await store.load(10)
+    expect(store.offset).toBe(0)
+    expect(store.receipts[0]?.id).toBe('remaining')
+    expect(fetch.mock.calls[1]?.[1].query.status).toBe('pending')
+  })
+
+  it('keeps all filters across pagination and mutation reloads and clears explicitly', async () => {
+    const fetch = vi.fn().mockResolvedValue({ data: { value: { data: [], total: 20 } }, status: { value: 'success' } })
+    vi.stubGlobal('useApiFetch', fetch)
+    const store = useReceiptsStore()
+    store.offset = 20
+    await store.applyFilters({ q: ' Alice ', status: 'pending', startDate: '2026-10-26', endDate: '2026-10-26', paymentMethod: 'pix', type: 'normal' })
+    expect(store.offset).toBe(0)
+    expect(fetch.mock.lastCall?.[1].query).toMatchObject({ q: 'Alice', status: 'pending', paymentMethod: 'pix', type: 'normal', offset: 0 })
+    await store.load(10)
+    await store.markPaid('receipt-id')
+    expect(fetch.mock.lastCall?.[1].query).toMatchObject({ q: 'Alice', startDate: '2026-10-26', endDate: '2026-10-26', paymentMethod: 'pix', status: 'pending', type: 'normal', offset: 10 })
+    await store.load()
+    expect(store.offset).toBe(10)
+    await store.clearFilters()
+    expect(store.filters).toEqual({ q: '', startDate: '', endDate: '', status: '', paymentMethod: '', type: '' })
+    expect(store.offset).toBe(0)
+  })
+
+  it('retains legacy status argument compatibility', async () => {
+    vi.stubGlobal('useApiFetch', vi.fn().mockResolvedValue({ data: { value: { data: [], total: 0 } }, status: { value: 'success' } }))
+    const store = useReceiptsStore()
+    await store.load(0, 'pending')
+    expect(store.filters.status).toBe('pending')
+    expect(store.currentStatusFilter).toBe('pending')
+  })
+
+  it('does not let an old request replace a new filter result', async () => {
+    let resolveFirst!: (value: unknown) => void
+    const first = new Promise((resolve) => { resolveFirst = resolve })
+    vi.stubGlobal('useApiFetch', vi.fn().mockReturnValueOnce(first).mockResolvedValueOnce({ data: { value: { data: [{ id: 'new' }], total: 1 } }, status: { value: 'success' } }))
+    const store = useReceiptsStore()
+    const pending = store.applyFilters({ q: 'old' })
+    await store.applyFilters({ q: 'new' })
+    resolveFirst({ data: { value: { data: [{ id: 'old' }], total: 10 } }, status: { value: 'success' } })
+    await pending
+    expect(store.receipts[0]!.id).toBe('new')
+    expect(store.total).toBe(1)
+    expect(store.filters.q).toBe('new')
+    expect(store.loading).toBe(false)
+  })
+
+  it('surfaces invalid filters and ends loading on request failure', async () => {
+    vi.stubGlobal('useApiFetch', vi.fn().mockResolvedValue({ data: { value: null }, status: { value: 'error' }, error: { value: { data: { message: 'Dados inválidos.' } } } }))
+    const store = useReceiptsStore()
+    expect((await store.applyFilters({ startDate: 'invalid' })).status).toBe('error')
+    expect(store.error).toContain('período')
+    expect(store.loading).toBe(false)
   })
 })

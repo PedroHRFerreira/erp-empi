@@ -6,6 +6,10 @@ const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'change-me-admin-passwor
 
 async function login(page: Page) {
   await page.goto('/login')
+  await page.waitForFunction(() => {
+    const form = document.querySelector('.login-form') as HTMLElement & { __vueParentComponent?: { isMounted: boolean } } | null
+    return form?.__vueParentComponent?.isMounted === true
+  })
   await page.getByLabel('CPF').fill(adminCpf)
   await page.getByLabel('Senha').fill(adminPassword)
   await page.getByRole('button', { name: 'Entrar' }).click()
@@ -103,7 +107,9 @@ test('percorre os módulos autenticados sem erros de console ou API', async ({ p
     ['/cash', 'Caixa'],
     ['/payables', 'Contas a pagar'],
     ['/stock', 'Estoque'],
-    ['/stock/purchases', 'Compras de estoque'],
+    ['/stock/products', 'Produtos'],
+    ['/stock/suppliers', 'Fornecedores'],
+    ['/stock/purchases', 'Fornecedores'],
     ['/profile', 'Perfil']
   ] as const
 
@@ -160,10 +166,14 @@ test('orquestra o drawer de notificações financeiras com teclado e navegação
 test('cria produto e valida o fluxo principal de estoque', async ({ page }, testInfo) => {
   await login(page)
   await page.goto('/stock/new')
+  await page.waitForFunction(() => {
+    const form = document.querySelector('.stock-entry') as HTMLElement & { __vueParentComponent?: { isMounted: boolean } } | null
+    return form?.__vueParentComponent?.isMounted === true
+  })
   const productName = `Produto E2E ${testInfo.project.name} ${Date.now()}`
   await page.getByLabel('Produto').fill(productName)
   await page.getByLabel('Fornecedor').fill(`Fornecedor ${testInfo.project.name}`)
-  await page.getByLabel('Quantidade comprada').fill('8')
+  await page.getByLabel('Quantidade a adicionar').fill('8')
   await page.getByLabel('Custo unitário').fill('R$ 25,00')
   await page.getByLabel('Margem de revenda (%)').fill('30')
   await page.getByLabel('Número de parcelas').fill('3')
@@ -177,12 +187,12 @@ test('cria produto e valida o fluxo principal de estoque', async ({ page }, test
   await expect(page.getByLabel('Valor').nth(1)).toHaveValue(/R\$\s100,00/)
   await expect(installmentDates.nth(1)).toHaveValue(preservedLastDueDate)
   await expect(page.getByLabel('Forma prevista').nth(1)).toHaveValue('pix')
-  await page.getByLabel('Quantidade comprada').fill('7')
+  await page.getByLabel('Quantidade a adicionar').fill('7')
   await expect(page.getByLabel('Valor').nth(0)).toHaveValue(/R\$\s87,50/)
   await expect(page.getByLabel('Valor').nth(1)).toHaveValue(/R\$\s87,50/)
   await expect(installmentDates.nth(1)).toHaveValue(preservedLastDueDate)
   await expect(page.getByLabel('Forma prevista').nth(1)).toHaveValue('pix')
-  await page.getByLabel('Quantidade comprada').fill('8')
+  await page.getByLabel('Quantidade a adicionar').fill('8')
   await expect(page.getByLabel('Valor').nth(0)).toHaveValue(/R\$\s100,00/)
   await expect(page.getByLabel('Valor').nth(1)).toHaveValue(/R\$\s100,00/)
   await expect(page.getByRole('button', { name: 'Remover 1ª parcela' })).toBeEnabled()
@@ -190,7 +200,7 @@ test('cria produto e valida o fluxo principal de estoque', async ({ page }, test
   await expect(page.getByRole('button', { name: 'Remover 1ª parcela' })).toBeDisabled()
   await expect(page.getByLabel('Valor')).toHaveValue(/R\$\s200,00/)
   await page.getByRole('button', { name: 'Cadastrar produto e confirmar entrada' }).click()
-  await expect(page).toHaveURL(/\/stock$/)
+  await expect(page).toHaveURL(/\/stock\/products$/)
   await expect(page.getByText(productName, { exact: true }).filter({ visible: true })).toBeVisible()
 })
 

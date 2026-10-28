@@ -1,4 +1,5 @@
 <script lang="ts">
+import { useRecoveryReceiptsStore } from '../../../stores/useReceiptsStore'
 import { ArrowLeft, Copy, MessageCircle, Printer, RotateCcw } from '@lucide/vue'
 import { computed, defineComponent } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
@@ -20,7 +21,7 @@ export default defineComponent({
     RotateCcw
   },
   setup() {
-    const receipts = useReceiptsStore()
+    const receipts = useRecoveryReceiptsStore()
     const auth = useAuthStore()
     const feedback = useSystemFeedback()
     const receipt = computed(() => receipts.receiptDetail)

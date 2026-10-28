@@ -14,6 +14,7 @@ export const usePurchasesStore = defineStore('purchases', {
     paymentHistory: null as IPayablePaymentHistory | null,
     alerts: [] as IPayableAlert[],
     loading: false,
+    saving: false,
     alertsLoading: false,
     error: ''
   }),
@@ -62,14 +63,20 @@ export const usePurchasesStore = defineStore('purchases', {
       return true
     },
     async createPurchase(input: PurchaseDraft) {
-      const { status } = await useApiFetch('/stock/purchases', { method: 'POST', body: input })
-      if (status.value === 'error') {
-        this.error = 'Revise os itens e confirme se a soma das parcelas corresponde ao total.'
-        return false
+      if (this.saving) return false
+      this.saving = true
+      try {
+        const { status } = await useApiFetch('/stock/purchases', { method: 'POST', body: input })
+        if (status.value === 'error') {
+          this.error = 'Revise os itens e confirme se a soma das parcelas corresponde ao total.'
+          return false
+        }
+        invalidateApiCache(['/stock', '/stock/suppliers', '/stock/purchases', '/payables', '/payables/alerts', '/metrics/summary'])
+        await Promise.all([this.loadPurchases(), this.loadPayables(), this.loadAlerts(true)])
+        return true
+      } finally {
+        this.saving = false
       }
-      invalidateApiCache(['/stock', '/stock/purchases', '/payables', '/payables/alerts', '/metrics/summary'])
-      await Promise.all([this.loadPurchases(), this.loadPayables(), this.loadAlerts(true)])
-      return true
     },
     async cancelPurchase(id: string) {
       const { status } = await useApiFetch(`/stock/purchases/${id}`, { method: 'DELETE' })
@@ -89,7 +96,7 @@ export const usePurchasesStore = defineStore('purchases', {
           : 'Não foi possível quitar esta parcela. Confira a data e tente novamente.'
         return false
       }
-      invalidateApiCache(['/payables', '/payables/alerts', '/cash/current', '/cash/daily-entries', '/financial/expenses', '/financial/summary'])
+      invalidateApiCache(['/stock/suppliers', '/stock/purchases', '/payables', '/payables/alerts', '/cash/current', '/cash/daily-entries', '/financial/expenses', '/financial/summary'])
       await Promise.all([this.loadPayables(), this.loadAlerts(true)])
       return true
     },

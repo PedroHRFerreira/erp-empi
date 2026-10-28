@@ -1,3 +1,48 @@
+.receipts-template__filters {
+  padding: 24px;
+
+  fieldset {
+    border: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  legend {
+    margin-bottom: 20px;
+    font-weight: 700;
+  }
+}
+
+.receipts-template__filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+
+  .field,
+  input,
+  select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.receipts-template__search {
+  grid-column: span 2;
+}
+
+.receipts-template__filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.receipts-template__total {
+  margin-bottom: 12px;
+}
+
 .receipts-template__actions {
   display: flex;
   flex-wrap: wrap;
@@ -6,11 +51,33 @@
 }
 
 @media (max-width: 760px) {
+  .receipts-template__filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .receipts-template__actions {
     justify-content: stretch;
   }
 
   .receipts-template__actions .button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .receipts-template__filters {
+    padding: 16px;
+  }
+
+  .receipts-template__filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .receipts-template__search {
+    grid-column: auto;
+  }
+
+  .receipts-template__filter-actions .button {
     flex: 1 1 100%;
   }
 }

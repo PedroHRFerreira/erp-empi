@@ -7,6 +7,19 @@ import { calculateReceiptPayments, validateReceiptPayments, type ReceiptPaymentF
 import { isPlate, onlyDigits } from '../utils/validation'
 import type { IStoreActionResult } from './types'
 
+export type ReceiptFilters = {
+  q: string
+  startDate: string
+  endDate: string
+  status: '' | 'pending' | 'paid' | 'cancelled'
+  paymentMethod: '' | 'credit_card' | 'debit_card' | 'pix' | 'cash' | 'mixed' | 'legacy'
+  type: '' | 'normal' | 'quick'
+}
+
+export function emptyReceiptFilters(): ReceiptFilters {
+  return { q: '', startDate: '', endDate: '', status: '', paymentMethod: '', type: '' }
+}
+
 export type ReceiptPaymentMethod = 'credit_card' | 'debit_card' | 'pix' | 'cash'
 
 export type ReceiptServiceExpenseForm = {
@@ -147,7 +160,8 @@ export function receiptToForm(receipt: IReceipt): ReceiptForm {
   }
 }
 
-export const useReceiptsStore = defineStore('receipts', {
+function defineReceiptsStore<Id extends string>(id: Id) {
+return defineStore(id, {
   state: () => {
     return {
       receipts: [] as IReceipt[],
@@ -159,6 +173,8 @@ export const useReceiptsStore = defineStore('receipts', {
       limit: 10,
       offset: 0,
       currentStatusFilter: '',
+      filters: emptyReceiptFilters(),
+      listRequestVersion: 0,
       isLoading: false,
       loading: false,
       optionsLoading: false,
@@ -299,34 +315,55 @@ export const useReceiptsStore = defineStore('receipts', {
       delete this.fieldErrors[field]
       this.error = Object.values(this.fieldErrors)[0] || ''
     },
-    async load(offset = 0, receiptStatus = ''): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
-      if (offset !== this.offset || receiptStatus !== this.currentStatusFilter) invalidateApiCache(['/receipts'])
-      this.setLoading(true)
-      this.offset = offset
-      this.currentStatusFilter = receiptStatus
-      const { data, status } = await useApiFetch<IPaginated<IReceipt>>('/receipts', {
-        query: { limit: this.limit, offset, status: receiptStatus }
-      })
-      this.setLoading(false)
-
-      if (status.value === 'error' || !data.value) {
-        this.error = 'Não foi possível carregar os recibos.'
-        return { status: 'error', errors: this.error, message: this.error }
+    async applyFilters(filters: Partial<ReceiptFilters>): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
+      this.filters = { ...emptyReceiptFilters(), ...filters, q: (filters.q || '').trim() }
+      this.currentStatusFilter = this.filters.status
+      invalidateApiCache(['/receipts'])
+      return this.load(0)
+    },
+    async clearFilters(): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
+      return this.applyFilters(emptyReceiptFilters())
+    },
+    async load(offset?: number, receiptStatus?: string): Promise<IStoreActionResult<IPaginated<IReceipt>>> {
+      offset ??= this.offset
+      if (offset !== this.offset || (receiptStatus !== undefined && receiptStatus !== this.currentStatusFilter)) {
+        invalidateApiCache(['/receipts'])
       }
-
-      const receipts = Array.isArray(data.value.data) ? data.value.data : []
-
-      this.receipts = receipts
-      this.total = data.value.total || receipts.length
-      this.error = ''
-
-      return {
-        status: 'success',
-        data: {
-          ...data.value,
-          data: receipts,
-          total: this.total
+      if (receiptStatus !== undefined) this.filters.status = receiptStatus as ReceiptFilters['status']
+      this.currentStatusFilter = this.filters.status
+      this.offset = offset
+      const version = ++this.listRequestVersion
+      const filters = { ...this.filters }
+      this.setLoading(true)
+      try {
+        const { data, status, error } = await useApiFetch<IPaginated<IReceipt>>('/receipts', {
+          query: { limit: this.limit, offset, ...filters }
+        })
+        if (status.value === 'error' || !data.value) {
+          const message = error?.value?.data?.message
+          const failure = message === 'invalid input' || message === 'Dados inválidos.'
+            ? 'Revise os filtros e o período informado.' : 'Não foi possível carregar os recibos.'
+          if (version === this.listRequestVersion) this.error = failure
+          return { status: 'error', errors: failure, message: failure }
         }
+        const receipts = Array.isArray(data.value.data) ? data.value.data : []
+        const total = data.value.total ?? receipts.length
+        // A slower earlier request must not replace a more recent filter selection.
+        if (version === this.listRequestVersion) {
+          if (offset > 0 && offset >= total) {
+            return this.load(Math.max(0, Math.floor((total - 1) / this.limit) * this.limit))
+          }
+          this.receipts = receipts
+          this.total = total
+          this.error = ''
+        }
+        return { status: 'success', data: { ...data.value, data: receipts, total } }
+      } catch {
+        const failure = 'Não foi possível carregar os recibos.'
+        if (version === this.listRequestVersion) this.error = failure
+        return { status: 'error', errors: failure, message: failure }
+      } finally {
+        if (version === this.listRequestVersion) this.setLoading(false)
       }
     },
     async loadDetail(id: string): Promise<IStoreActionResult<IReceipt>> {
@@ -514,6 +551,10 @@ export const useReceiptsStore = defineStore('receipts', {
     }
   }
 })
+}
+
+export const useReceiptsStore = defineReceiptsStore('receipts')
+export const useRecoveryReceiptsStore = defineReceiptsStore('recoveryReceipts')
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()

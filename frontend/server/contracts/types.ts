@@ -46,6 +46,27 @@ export interface IStockItem {
   updatedAt: string;
 }
 
+export interface IStockEntryInput {
+  supplierName: string;
+  quantity: number;
+  unitCostCents: number;
+  installments: Array<{ amountCents: number; dueDate: string; plannedMethod: PayableMethod }>;
+}
+
+export interface IStockSupplier {
+  supplierName: string;
+  productCount: number;
+  purchaseCount: number;
+  totalCents: number;
+  paidCents: number;
+  pendingCents: number;
+}
+
+export interface IStockSupplierDetail extends IStockSupplier {
+  products: IStockItem[];
+  purchases: IStockPurchase[];
+}
+
 export interface IReceiptItem {
   id: string;
   stockItemId: string;

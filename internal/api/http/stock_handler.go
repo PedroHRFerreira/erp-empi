@@ -17,7 +17,7 @@ func NewStockHandler(stock *stockservices.StockService) *StockHandler {
 
 func (handler *StockHandler) List(c echo.Context) error {
 	limit, offset := pagination(c)
-	items, total, err := handler.stock.List(c.Request().Context(), limit, offset)
+	items, total, err := handler.stock.Search(c.Request().Context(), limit, offset, c.QueryParam("q"), c.QueryParam("supplier"))
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -53,4 +53,28 @@ func (handler *StockHandler) Delete(c echo.Context) error {
 		return writeError(c, err)
 	}
 	return c.NoContent(nethttp.StatusNoContent)
+}
+
+func (handler *StockHandler) Get(c echo.Context) error {
+	item, err := handler.stock.FindByID(c.Request().Context(), c.Param("id"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, item)
+}
+
+func (handler *StockHandler) Suppliers(c echo.Context) error {
+	items, err := handler.stock.ListSuppliers(c.Request().Context())
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, items)
+}
+
+func (handler *StockHandler) Supplier(c echo.Context) error {
+	item, err := handler.stock.GetSupplier(c.Request().Context(), c.QueryParam("supplierName"))
+	if err != nil {
+		return writeError(c, err)
+	}
+	return c.JSON(nethttp.StatusOK, item)
 }
