@@ -54,7 +54,7 @@ Verificação independente após a execução:
 
 O `recover.sql` também foi ensaiado com os dados originais em tabelas temporárias locais: restaurou saldo/atividade e situações anteriores, sem alterar tabelas reais do banco de testes.
 
-As ferramentas temporárias foram removidas do serviço. Não houve deploy, reinício de serviço de produção nem mudança das restrições de rede do banco. As funcionalidades novas permanecem somente no ambiente local. A alteração pré-existente no estilo da autenticação foi preservada.
+As ferramentas temporárias foram removidas do serviço. Durante essa correção pontual não houve deploy, reinício de serviço de produção nem mudança das restrições de rede do banco. As funcionalidades novas permaneceram locais até a autorização posterior de publicação, registrada abaixo. A alteração pré-existente no estilo da autenticação foi preservada.
 
 ## Evidências visuais
 
@@ -82,3 +82,18 @@ Evidências: [desktop](/tmp/empi-product-filter-desktop.png), [tablet](/tmp/empi
 Após o pedido de publicação, executados novamente todos os testes Go com a integração PostgreSQL local habilitada, os 106 testes do frontend, a tipagem e o build. Os 15 cenários de navegador dos arquivos `stock-lifecycle`, `receipt-filters` e `product-filters` passaram juntos nos três tamanhos de tela. Capturas dos filtros, histórico e mensagens de erro foram inspecionadas novamente.
 
 A publicação inclui o conjunto de estoque e recibos aprovado. A alteração pré-existente de `AuthLayoutTemplate/styles.module.scss` permanece local e não integra a versão enviada.
+
+## Publicação em produção
+
+Publicação autorizada pelo usuário: “otimo valide e suba para prod”. Commit de aplicação `39bf2a21ae02405c3fbc5f5a04aece0025f3708f`, enviado para `main`. Os dois serviços publicaram automaticamente esse mesmo commit, sem disparar deploy adicional.
+
+| Serviço | Deploy | Resultado e horário de São Paulo |
+| --- | --- | --- |
+| [API](https://dashboard.render.com/web/srv-d90karo0697c73cr6in0) | `dep-dbgm5e942hec739356u0` | `live`, 27/10/2026 às 23:50:47 |
+| [Site](https://dashboard.render.com/web/srv-d90llv80697c73cscrcg) | `dep-dbgm5e942hec7393578g` | `live`, 27/10/2026 às 23:52:36 |
+
+Conferência após ambos ficarem `live`: `/health` da API retornou 200 e `status: ok`; `/login` do site retornou 200 e foi inspecionado visualmente no navegador; Produtos redirecionou corretamente para login sem sessão; as consultas de fornecedores e recibos pelo site retornaram 401 sem autenticação. A consulta de registros com nível `error` após a ativação não retornou ocorrências.
+
+A sessão de navegador de produção estava sem autenticação na aplicação. A conferência publicada abrangeu disponibilidade, renderização do acesso e proteção das rotas; os fluxos internos com criação, venda e quitação foram validados integralmente no ambiente local, sem criar movimentações de teste em produção. A correção administrativa anterior não foi repetida.
+
+Este registro de publicação é enviado em commit somente de documentação com `[skip render]`, preservando os dois deploys de aplicação já verificados.
