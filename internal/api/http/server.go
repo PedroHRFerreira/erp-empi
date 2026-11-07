@@ -69,6 +69,7 @@ func NewServer(cfg *config.Config, container *dig.Container) *echo.Echo {
 	private.GET("/receipts/:id", receiptHandler.Get)
 	private.PUT("/receipts/:id", receiptHandler.Update)
 	private.POST("/receipts/:id/pay", receiptHandler.MarkPaid)
+	private.POST("/receipts/:id/revoke", receiptHandler.RevokePayment)
 	private.POST("/receipts/:id/cancel", receiptHandler.Cancel)
 	private.POST("/receipts/:id/reopen", receiptHandler.Reopen)
 	private.GET("/metrics/summary", metricsHandler.Summary)

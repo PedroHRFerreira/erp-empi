@@ -29,6 +29,7 @@ export default defineComponent({
     const currentPage = computed(() => Math.floor(receipts.offset / receipts.limit) + 1)
     const draft = reactive<ReceiptFilters>({ ...receipts.filters })
     const filterError = ref('')
+    const revokingPayment = ref(false)
 
     async function applyFilters() {
       filterError.value = ''
@@ -62,6 +63,33 @@ export default defineComponent({
       if (!confirmed) return
 
       await receipts.cancel(receipt.id)
+    }
+
+    async function revokeReceiptPayment(receipt: IReceipt) {
+      if (receipt.status !== 'paid' || revokingPayment.value) return
+
+      revokingPayment.value = true
+      try {
+        const confirmed = await feedback.confirm({
+          title: 'Revogar pagamento do recibo?',
+          message: `O recibo de ${receiptClientName(receipt)} voltará para pendente. As entradas desse pagamento no caixa e a baixa dos produtos no estoque serão desfeitas.`,
+          tone: 'danger',
+          confirmLabel: 'Revogar pagamento'
+        })
+        if (!confirmed) return
+
+        const result = await receipts.revokePayment(receipt.id)
+        if (result.status === 'error') {
+          feedback.error('Não foi possível revogar o pagamento', result.message || receipts.error)
+          return
+        }
+
+        feedback.success('Pagamento revogado', 'O recibo voltou para pendente.')
+      } catch {
+        feedback.error('Não foi possível revogar o pagamento', 'Tente novamente.')
+      } finally {
+        revokingPayment.value = false
+      }
     }
 
     function startCreate() {
@@ -98,6 +126,7 @@ export default defineComponent({
       previousPage,
       printReceipt,
       receipts,
+      revokeReceiptPayment,
       shareWhatsApp,
       startCreate,
       startQuickCreate
@@ -190,6 +219,7 @@ export default defineComponent({
       @copy-instagram="receipts.copyInstagramText"
       @edit="editReceipt"
       @mark-paid="(receipt) => receipts.markPaid(receipt.id)"
+      @revoke-payment="revokeReceiptPayment"
       @print-invoice-data="printInvoiceData"
       @print="printReceipt"
       @share-whatsapp="shareWhatsApp"

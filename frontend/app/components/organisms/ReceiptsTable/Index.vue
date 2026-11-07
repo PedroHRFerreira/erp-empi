@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Ban, CheckCircle2, Copy, FileText, MessageCircle, Pencil, Printer } from '@lucide/vue'
+import { Ban, CheckCircle2, Copy, FileText, MessageCircle, Pencil, Printer, RotateCcw } from '@lucide/vue'
 import { defineComponent, type PropType } from 'vue'
 import type { IReceipt } from '../../../../server/contracts/types'
 import IconActionButton from '../../atoms/IconActionButton/Index.vue'
@@ -19,7 +19,8 @@ export default defineComponent({
     IconActionButton,
     MessageCircle,
     Pencil,
-    Printer
+    Printer,
+    RotateCcw
   },
   props: {
     receipts: {
@@ -27,7 +28,7 @@ export default defineComponent({
       required: true
     }
   },
-  emits: ['cancel', 'copy-instagram', 'edit', 'mark-paid', 'print', 'print-invoice-data', 'share-whatsapp'],
+  emits: ['cancel', 'copy-instagram', 'edit', 'mark-paid', 'print', 'print-invoice-data', 'revoke-payment', 'share-whatsapp'],
   setup(_, { emit }) {
     function cancel(receipt: IReceipt) {
       emit('cancel', receipt)
@@ -39,6 +40,10 @@ export default defineComponent({
 
     function markPaid(receipt: IReceipt) {
       emit('mark-paid', receipt)
+    }
+
+    function revokePayment(receipt: IReceipt) {
+      emit('revoke-payment', receipt)
     }
 
     function edit(receipt: IReceipt) {
@@ -83,6 +88,7 @@ export default defineComponent({
       receiptVehiclePlate,
       print,
       printInvoiceData,
+      revokePayment,
       shareWhatsApp,
       statusBadgeClass,
       statusLabel
@@ -153,6 +159,9 @@ export default defineComponent({
         </IconActionButton>
         <IconActionButton v-if="receipt.status === 'pending'" title="Marcar como pago" variant="primary" @click="markPaid(receipt)">
           <CheckCircle2 :size="16" />
+        </IconActionButton>
+        <IconActionButton v-if="receipt.status === 'paid'" title="Revogar pagamento" variant="danger" @click="revokePayment(receipt)">
+          <RotateCcw :size="16" />
         </IconActionButton>
       </div>
     </article>

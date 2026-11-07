@@ -480,6 +480,24 @@ return defineStore(id, {
 
       return { status: 'success' }
     },
+    async revokePayment(id: string): Promise<IStoreActionResult> {
+      const { error, status } = await useApiFetch(`/receipts/${id}/revoke`, { method: 'POST' })
+
+      if (status.value === 'error') {
+        this.error = getReceiptErrorMessage(error.value?.data?.message, 'Não foi possível revogar o pagamento do recibo.')
+        return { status: 'error', errors: this.error, message: this.error }
+      }
+
+      this.error = ''
+      invalidateReceiptDependencies()
+      const loadResult = await this.load(this.offset, this.currentStatusFilter)
+
+      if (loadResult.status === 'error') {
+        return loadResult
+      }
+
+      return { status: 'success' }
+    },
     async cancel(id: string): Promise<IStoreActionResult> {
       const { error, status } = await useApiFetch(`/receipts/${id}/cancel`, { method: 'POST' })
 

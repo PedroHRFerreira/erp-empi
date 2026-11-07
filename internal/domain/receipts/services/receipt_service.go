@@ -459,6 +459,42 @@ func (service *ReceiptService) MarkPaid(ctx context.Context, id string) (*entiti
 	return service.repo.FindByID(ctx, updated.ID)
 }
 
+func (service *ReceiptService) RevokePayment(ctx context.Context, id string) (*entities.Receipt, error) {
+	err := service.repo.Transaction(func(tx *gorm.DB) error {
+		tx = tx.WithContext(ctx)
+		receipt, err := service.repo.FindByIDForUpdate(tx, id)
+		if err != nil {
+			return err
+		}
+		if receipt.Status != entities.ReceiptStatusPaid {
+			return apperrors.ErrConflict
+		}
+		for _, item := range receipt.Items {
+			stockItem, err := service.stockRepo.FindByIDForUpdate(tx, item.StockItemID)
+			if err != nil {
+				return err
+			}
+			stockItem.Quantity += item.Quantity
+			stockItem.UsedQuantity -= item.Quantity
+			if err := tx.Save(stockItem).Error; err != nil {
+				return err
+			}
+		}
+		if service.cash != nil {
+			if err := tx.Where("reference_type = ? AND reference_id = ? AND kind = ?", "receipt", id, entities.CashEntrySale).Delete(&entities.CashEntry{}).Error; err != nil {
+				return err
+			}
+		}
+		receipt.Status = entities.ReceiptStatusPending
+		receipt.PaidAt = nil
+		return service.repo.UpdateWithTx(tx, receipt)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return service.repo.FindByID(ctx, id)
+}
+
 func (service *ReceiptService) Cancel(ctx context.Context, id string) (*entities.Receipt, error) {
 	var updated *entities.Receipt
 	err := service.repo.Transaction(func(tx *gorm.DB) error {
