@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateReceiptPayments,
+  splitReceiptPartsAndLabor,
   validateReceiptPayments,
   type ReceiptPaymentForm,
 } from './receiptPayments'
@@ -13,6 +14,37 @@ function payment(
 ): ReceiptPaymentForm {
   return { paymentMethod, baseAmountCents, cardFeePercent, installments }
 }
+
+describe('parts and labor payment allocation', () => {
+  it('assigns parts to the first payment and labor to the second', () => {
+    expect(splitReceiptPartsAndLabor(30_000, 15_000, 45_000))
+      .toEqual({ partsCents: 30_000, laborCents: 15_000 })
+  })
+
+  it('distributes discounts proportionally and retains every cent', () => {
+    expect(splitReceiptPartsAndLabor(30_000, 15_000, 40_000))
+      .toEqual({ partsCents: 26_666, laborCents: 13_334 })
+  })
+
+  it('applies the card fee only to the selected portion', () => {
+    const amounts = splitReceiptPartsAndLabor(30_000, 20_000, 45_000)!
+    const result = calculateReceiptPayments([
+      payment('cash', amounts.partsCents),
+      payment('credit_card', amounts.laborCents, 5, 3),
+    ], 45_000)
+    expect(result.payments.map(({ baseAmountCents, cardFeeCents }) => ({ baseAmountCents, cardFeeCents })))
+      .toEqual([{ baseAmountCents: 27_000, cardFeeCents: 0 }, { baseAmountCents: 18_000, cardFeeCents: 900 }])
+    expect(validateReceiptPayments(result.payments, 45_000)).toEqual({})
+  })
+
+  it.each([
+    [0, 100, 100], [100, 0, 100], [100, 100, 0], [100, 100, 1],
+    [1, 1000, 2], [-1, 100, 99], [100, 100, 201],
+    [1.5, 100, 100], [NaN, 100, 100], [100, Infinity, 100],
+  ])('rejects an invalid or empty allocation (%s, %s, %s)', (parts, labor, subtotal) => {
+    expect(splitReceiptPartsAndLabor(parts, labor, subtotal)).toBeNull()
+  })
+})
 
 describe('receipt payment calculations', () => {
   it('assigns the whole discounted subtotal to a single payment', () => {

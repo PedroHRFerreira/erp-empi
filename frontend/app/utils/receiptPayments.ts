@@ -19,6 +19,19 @@ export type ReceiptPaymentsCalculation = {
 
 const paymentMethods = new Set(['cash', 'pix', 'credit_card', 'debit_card'])
 
+/** Allocate the discounted subtotal proportionally; service expenses belong to labor. */
+export function splitReceiptPartsAndLabor(productsCents: number, servicesCents: number, subtotalCents: number) {
+  if (![productsCents, servicesCents, subtotalCents].every(Number.isSafeInteger)
+    || productsCents <= 0 || servicesCents <= 0 || subtotalCents < 2
+    || !Number.isSafeInteger(productsCents + servicesCents)
+    || subtotalCents > productsCents + servicesCents) return null
+
+  const partsCents = Number(BigInt(subtotalCents) * BigInt(productsCents) / BigInt(productsCents + servicesCents))
+  const laborCents = subtotalCents - partsCents
+  if (partsCents === 0 || laborCents === 0) return null
+  return { partsCents, laborCents }
+}
+
 function isCard(paymentMethod: string): boolean {
   return paymentMethod === 'credit_card' || paymentMethod === 'debit_card'
 }

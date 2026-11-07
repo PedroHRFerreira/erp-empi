@@ -83,6 +83,8 @@ export default defineComponent({
       :form="form"
       :field-errors="fieldErrors"
       :subtotal-cents="subtotalCents"
+      :products-total-cents="productsTotalCents"
+      :services-total-cents="laborPriceCents + serviceExpensesTotalCents"
       @clear-field-error="clearFieldError"
     />
 

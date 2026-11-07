@@ -9,6 +9,7 @@ import {
 } from "../../../utils/masks";
 import {
   calculateReceiptPayments,
+  splitReceiptPartsAndLabor,
   validateReceiptPayments,
   type ReceiptPaymentForm,
 } from "../../../utils/receiptPayments";
@@ -16,6 +17,8 @@ import {
 const props = defineProps<{
   form: ReceiptForm;
   subtotalCents: number;
+  productsTotalCents: number;
+  servicesTotalCents: number;
   fieldErrors: Record<string, string>;
 }>();
 const emit = defineEmits<{ "clear-field-error": [field: string] }>();
@@ -34,6 +37,9 @@ const customFees = ref(
   ),
 );
 const divided = computed(() => props.form.payments.length === 2);
+const partsAndLabor = computed(() => splitReceiptPartsAndLabor(
+  props.productsTotalCents, props.servicesTotalCents, props.subtotalCents,
+));
 const calculation = computed(() =>
   calculateReceiptPayments(props.form.payments, props.subtotalCents),
 );
@@ -105,6 +111,24 @@ function toggleDivision(event: Event) {
   clearErrors();
 }
 
+function separatePartsAndLabor() {
+  const amounts = partsAndLabor.value;
+  if (!amounts) return;
+  if (!divided.value) {
+    const first = props.form.payments[0]!;
+    props.form.payments.push({
+      paymentMethod: first.paymentMethod === "pix" ? "cash" : "pix",
+      baseAmountCents: amounts.laborCents,
+      cardFeePercent: 0,
+      installments: 1,
+    });
+    customFees.value[1] = false;
+  }
+  props.form.payments[0]!.baseAmountCents = amounts.partsCents;
+  props.form.payments[1]!.baseAmountCents = amounts.laborCents;
+  clearErrors();
+}
+
 function updateMethod(index: number, event: Event) {
   const payment = props.form.payments[index]!;
   payment.paymentMethod = (event.target as HTMLSelectElement)
@@ -157,6 +181,22 @@ function installmentSummary(amount: number, installments: number) {
       />
       <span>Dividir em duas formas</span>
     </label>
+    <button
+      class="button button--secondary"
+      type="button"
+      :disabled="!partsAndLabor"
+      aria-describedby="receipt-parts-labor-hint"
+      @click="separatePartsAndLabor"
+    >Separar peças e mão de obra</button>
+    <p id="receipt-parts-labor-hint" class="receipt-payments__hint">
+      Preenche o pagamento 1 com as peças e o pagamento 2 com a mão de obra e os gastos do serviço.
+      O desconto é distribuído proporcionalmente. Depois, escolha a forma de cada pagamento.
+      <template v-if="partsAndLabor">
+        Peças: {{ formatCurrency(partsAndLabor.partsCents) }}.
+        Mão de obra e gastos: {{ formatCurrency(partsAndLabor.laborCents) }}.
+      </template>
+      <template v-else>Informe peças e serviços com saldo maior que zero em cada parte para usar esta opção.</template>
+    </p>
     <p v-if="errors.payments" class="field__error" role="alert">
       {{ errors.payments }}
     </p>
