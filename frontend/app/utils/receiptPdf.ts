@@ -344,6 +344,8 @@ function layoutReceipt(
       LEFT, 44, 8, "F2",
     );
     addLine(page, document.legalNotice, LEFT, 30, 7);
+    const verse = "Ebenézer: até aqui nos ajudou o SENHOR. - 1 Samuel 7:12";
+    addLine(page, verse, centeredX(verse, 8), 17, 8, "F2");
   }
   return pages;
 }
