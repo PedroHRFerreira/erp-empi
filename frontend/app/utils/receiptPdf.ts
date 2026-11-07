@@ -116,7 +116,7 @@ export function buildReceiptPdfBytes(
   company: IUser | null = null,
 ) {
   const document = buildReceiptDocument(receipt, company);
-  const selectedPages = layoutReceipt(document, 10);
+  const selectedPages = layoutReceipt(document, 9);
   return createPdf(
     selectedPages.map((page) =>
       page.map((element) => drawElement(element)).join("\n"),
@@ -130,14 +130,14 @@ function layoutReceipt(
 ): PdfElement[][] {
   let elements: PdfElement[] = [];
   const pages: PdfElement[][] = [];
-  let y = PAGE_HEIGHT - 62;
+  let y = PAGE_HEIGHT - 40;
   const ensureSpace = (height: number) => {
-    if (y - height >= 90) return;
+    if (y - height >= 65) return;
     pages.push(elements);
     elements = [];
-    y = PAGE_HEIGHT - 62;
+    y = PAGE_HEIGHT - 40;
   };
-  const lineHeight = fontSize + 4;
+  const lineHeight = fontSize + 2;
   const text = (
     value: string,
     x = LEFT,
@@ -156,7 +156,7 @@ function layoutReceipt(
     y -= size + 5;
   };
   const bar = (title: string) => {
-    ensureSpace(70);
+    ensureSpace(48);
     y -= 3;
     elements.push({
       kind: "box",
@@ -167,11 +167,11 @@ function layoutReceipt(
       fill: "navy",
     });
     addLine(elements, title, centeredX(title, 12), y - 15, 12, "F2", "white");
-    y -= 38;
+    y -= 34;
   };
   const sectionHeading = (title: string) => {
-    ensureSpace(100);
-    y -= 14;
+    ensureSpace(65);
+    y -= 10;
     const textWidth = estimatedTextWidth(title, 13, true);
     const titleWidth = Math.max(164, textWidth + 24);
     const titleX = (PAGE_WIDTH - titleWidth) / 2;
@@ -186,7 +186,7 @@ function layoutReceipt(
     });
     addLine(elements, title, (PAGE_WIDTH - textWidth) / 2, y, 13, "F2");
     addRule(elements, y + 3, titleX + titleWidth + 14, RIGHT);
-    y -= 34;
+    y -= 18;
   };
   const itemSection = (title: string, lines: typeof document.lines) => {
     if (!lines.length) return;
@@ -219,7 +219,7 @@ function layoutReceipt(
       ensureSpace(20);
       y -= 3;
       addRule(elements, y, LEFT, RIGHT);
-      y -= 15;
+      y -= 11;
     }
     ensureSpace(30);
     const subtotal = lines.reduce((sum, line) => sum + line.totalCents, 0);
@@ -235,7 +235,7 @@ function layoutReceipt(
     y -= 20;
   };
 
-  centered(document.company.name.toUpperCase(), 31);
+  centered(document.company.name.toUpperCase(), 25);
   centered("-  Serviços Automotivos  -", 16);
   addRule(elements, y, LEFT, RIGHT);
   y -= 23;
@@ -280,7 +280,7 @@ function layoutReceipt(
     document.lines.filter((line) => line.kind === "product"),
   );
 
-  ensureSpace(120);
+  ensureSpace(85);
   const detailRows = document.summaryRows.filter((row) => !row.strong);
   if (detailRows.some((row) => row.label === "Desconto")) {
     const netTotal = document.summaryRows.find((row) => row.strong)?.valueCents || 0;
@@ -323,7 +323,7 @@ function layoutReceipt(
     "F2",
     "white",
   );
-  y -= 37;
+  y -= 31;
   text(
     `Forma de pagamento: ${document.payment.methodLabel} (${document.payment.dateLabel}) - ${document.payment.statusLabel}`,
     LEFT,
@@ -336,19 +336,6 @@ function layoutReceipt(
   }
   if (document.notes)
     text(`Observações: ${document.notes}`, LEFT, CONTENT_WIDTH, "F1", 10);
-  ensureSpace(50);
-  y -= 26;
-  addRule(elements, y, LEFT, LEFT + 200);
-  addRule(elements, y, RIGHT - 200, RIGHT);
-  y -= 15;
-  addLine(elements, "Assinatura do Cliente", LEFT + 48, y, 9);
-  addLine(
-    elements,
-    `Assinatura / Carimbo - ${document.company.name}`,
-    RIGHT - 190,
-    y,
-    9,
-  );
   pages.push(elements);
   for (const page of pages) {
     addLine(

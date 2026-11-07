@@ -221,6 +221,26 @@ describe('receipt document helpers', () => {
     expect(source).not.toContain('Deslocamento')
   })
 
+  it('fits a receipt with six products on one page without signatures', () => {
+    const base = makeReceipt()
+    const receipt = makeReceipt({
+      services: 'Revisão preventiva, troca de óleo e filtros, inspeção dos freios e da suspensão.',
+      notes: 'Garantia dos serviços conforme condições acordadas.',
+      items: Array.from({ length: 6 }, (_, index) => ({
+        ...base.items[0]!,
+        id: `item-${index}`,
+        stockItem: { ...base.items[0]!.stockItem!, name: `Produto de manutenção ${index + 1}` },
+      })),
+    })
+    const source = new TextDecoder('latin1').decode(buildReceiptPdfBytes(receipt, companyUser))
+    expect(source).toContain('/Count 1')
+    expect(source).not.toContain('Assinatura')
+    expect(source).not.toContain('Carimbo')
+    expect(source).toContain('Produto de manutenção 6')
+    expect(source).toContain('Garantia dos serviços')
+    expect(source).toContain('Forma de pagamento:')
+  })
+
   it('matches the customer receipt hierarchy with service and product subtotals', () => {
     const source = new TextDecoder('latin1').decode(
       buildReceiptPdfBytes(
