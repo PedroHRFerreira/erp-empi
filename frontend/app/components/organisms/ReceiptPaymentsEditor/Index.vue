@@ -189,7 +189,7 @@ function installmentSummary(amount: number, installments: number) {
       @click="separatePartsAndLabor"
     >Separar peças e mão de obra</button>
     <p id="receipt-parts-labor-hint" class="receipt-payments__hint">
-      Preenche o pagamento 1 com as peças e o pagamento 2 com a mão de obra e os gastos do serviço.
+      Preenche o pagamento de produtos com as peças e o pagamento de mão de obra com os serviços e seus gastos.
       O desconto é distribuído proporcionalmente. Depois, escolha a forma de cada pagamento.
       <template v-if="partsAndLabor">
         Peças: {{ formatCurrency(partsAndLabor.partsCents) }}.
@@ -205,16 +205,16 @@ function installmentSummary(amount: number, installments: number) {
       v-for="(payment, index) in form.payments"
       :key="index"
       class="receipt-payments__part"
-      :aria-label="`Pagamento ${index + 1}`"
+      :aria-label="divided ? (index === 0 ? 'Pagamento de produtos' : 'Pagamento de mão de obra') : 'Pagamento do recibo'"
     >
-      <h4 v-if="divided">Pagamento {{ index + 1 }}</h4>
+      <h4 v-if="divided">{{ index === 0 ? "Pagamento de produtos" : "Pagamento de mão de obra" }}</h4>
       <div class="receipt-step__grid receipt-step__grid--two">
         <label
           class="field"
           :class="{ 'field--error': fieldError(index, 'paymentMethod') }"
         >
           <span>{{
-            divided ? `Forma de pagamento ${index + 1}` : "Forma de pagamento"
+            divided ? (index === 0 ? "Forma de pagamento de produtos" : "Forma de pagamento de mão de obra") : "Forma de pagamento"
           }}</span>
           <select
             :value="payment.paymentMethod"
@@ -354,7 +354,7 @@ function installmentSummary(amount: number, installments: number) {
 
       <section
         class="receipt-mini-summary"
-        :aria-label="`Valores do pagamento ${index + 1}`"
+        :aria-label="divided ? (index === 0 ? 'Valores do pagamento de produtos' : 'Valores do pagamento de mão de obra') : 'Valores do pagamento'"
       >
         <div>
           <span>Valor base</span
